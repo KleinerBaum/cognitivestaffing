@@ -672,28 +672,31 @@ def build_onboarding_hero_copy(
 ) -> OnboardingHeroCopy:
     """Build the localized onboarding hero copy from the shared templates."""
 
-    eyebrow = tr("Recruiting-Bedarfsanalyse", "Recruitment Need Analysis")
+    eyebrow = tr(
+        "Cognitive Staffing · Recruiting-Bedarfsanalyse",
+        "Cognitive Staffing · Recruitment Need Analysis",
+    )
     title = format_message(
         default=(
-            "Schluss mit Rätselraten beim Hiring.",
-            "Take the guesswork out of hiring.",
+            "Vom Bedarf zur klaren Rollenbeschreibung.",
+            "From hiring need to a clear role brief.",
         ),
         context=profile_context,
         variants=[],
     )
     subtitle = format_message(
         default=(
-            "Geführter Wizard, Markt- und Gehalts-Insights sowie ESCO-Mapping schaffen ein belastbares Stellenprofil.",
-            "A guided wizard, market and salary insights, plus ESCO mapping build a trustworthy job profile.",
+            "Wizard-Flow, Markt- & Gehaltsdaten und ESCO-Mapping bündeln Evidenz für sichere Entscheidungen.",
+            "Wizard flow, market & salary data, plus ESCO mapping combine evidence for confident decisions.",
         ),
         context=profile_context,
         variants=[],
     )
-    cta_label = tr("Analyse starten", "Start guided analysis")
+    cta_label = tr("Jetzt analysieren", "Start analysis")
     timeline = (
         OnboardingHeroTimelineItem(
             icon="🧭",
-            title=tr("Geführter Wizard", "Guided wizard"),
+            title=tr("Wizard-Flow", "Wizard flow"),
             description=tr(
                 "Anforderungen Schritt für Schritt definieren.",
                 "Define requirements step by step.",
@@ -701,18 +704,18 @@ def build_onboarding_hero_copy(
         ),
         OnboardingHeroTimelineItem(
             icon="📊",
-            title=tr("Markt- & Gehalts-Insights", "Market & salary insights"),
+            title=tr("Markt & Gehalt", "Market & salary"),
             description=tr(
-                "Seniorität und Gehaltsrahmen benchmarken.",
-                "Benchmark seniority and salary ranges.",
+                "Seniorität und Spannen aus Benchmarks ableiten.",
+                "Benchmark seniority and compensation ranges.",
             ),
         ),
         OnboardingHeroTimelineItem(
             icon="🧩",
-            title=tr("ESCO Skill Mapping", "ESCO skill mapping"),
+            title=tr("ESCO-Mapping", "ESCO mapping"),
             description=tr(
-                "Skill-Abdeckung präzise ergänzen.",
-                "Fill skill coverage precisely.",
+                "Skills sauber zu ESCO-Standards zuordnen.",
+                "Align skills with ESCO standards.",
             ),
         ),
     )
@@ -787,6 +790,8 @@ def render_onboarding_hero(
     hero_title = html.escape(hero_copy.title)
     hero_subtitle = html.escape(hero_copy.subtitle)
     hero_cta_label = html.escape(hero_copy.cta_label)
+    hero_mime_type = html.escape(mime_type)
+    hero_animation_base64 = html.escape(animation_base64)
     timeline_items = "".join(
         (
             "<li class='onboarding-hero__timeline-item'>"
@@ -801,7 +806,7 @@ def render_onboarding_hero(
     hero_html = f"""
     <div class="onboarding-hero">
         <div class="onboarding-hero__logo">
-            <img src="data:{mime_type};base64,{animation_base64}" alt="Cognitive Staffing — Recruitment Need Analysis" />
+            <img src="data:{hero_mime_type};base64,{hero_animation_base64}" alt="Cognitive Staffing — Recruitment Need Analysis" />
         </div>
         <div class="onboarding-hero__copy">
             <div class="onboarding-hero__eyebrow">{hero_eyebrow}</div>
