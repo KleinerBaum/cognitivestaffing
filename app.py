@@ -134,6 +134,7 @@ if st.session_state.get("openai_unavailable"):
 maybe_render_autosave_prompt()
 
 
+@st.cache_data(show_spinner=False)
 def _load_background_image(dark_mode: bool) -> str | None:
     """Return the base64 encoded background image, adjusting for the theme."""
 
