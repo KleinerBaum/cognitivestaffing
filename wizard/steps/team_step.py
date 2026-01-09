@@ -122,7 +122,6 @@ def _step_team() -> None:
 
     def _render_team_missing() -> None:
         _render_followups_for_fields((ProfilePaths.POSITION_JOB_TITLE,), data, container_factory=st.container)
-        _render_followups_for_fields((ProfilePaths.TEAM_REPORTING_LINE,), data, container_factory=st.container)
         _render_followups_for_fields((ProfilePaths.META_TARGET_START_DATE,), data, container_factory=st.container)
         _render_followups_for_fields((ProfilePaths.POSITION_REPORTS_TO,), data, container_factory=st.container)
         _render_followups_for_fields(
