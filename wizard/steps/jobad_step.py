@@ -8,7 +8,7 @@ import streamlit as st
 from constants.keys import StateKeys, UIKeys
 from utils.i18n import tr
 from wizard.components.extraction_settings_panel import render_extraction_settings_panel
-from wizard.layout import render_section_heading, render_step_heading, render_step_warning_banner
+from wizard.layout import build_onboarding_hero_copy, render_section_heading, render_step_warning_banner
 from wizard_router import WizardContext
 
 
@@ -23,8 +23,6 @@ def _get_flow_module() -> ModuleType:
 def _render_jobad_step_v2(schema: Mapping[str, object]) -> None:
     """Render the onboarding and metadata step for the Job Ad flow."""
 
-    flow = _get_flow_module()
-    flow._render_onboarding_hero()
     _step_onboarding(dict(schema))
 
 
@@ -52,53 +50,11 @@ def _step_onboarding(schema: dict) -> None:
     profile = flow._get_profile_state()
     profile_context = flow._build_profile_context(profile)
 
-    onboarding_header = flow._format_dynamic_message(
-        default=(
-            "Intelligenzgestützter Recruiting-Kickstart",
-            "Intelligence-powered recruiting kickoff",
-        ),
-        context=profile_context,
-        variants=[
-            (
-                (
-                    "Intelligenzgestützter Recruiting-Kickstart für {job_title} bei {company_name}",
-                    "Intelligence-powered recruiting kickoff for {job_title} at {company_name}",
-                ),
-                ("job_title", "company_name"),
-            ),
-            (
-                (
-                    "Intelligenzgestützter Recruiting-Kickstart für {job_title}",
-                    "Intelligence-powered recruiting kickoff for {job_title}",
-                ),
-                ("job_title",),
-            ),
-        ],
+    hero_copy = build_onboarding_hero_copy(
+        format_message=flow._format_dynamic_message,
+        profile_context=profile_context,
     )
-    onboarding_caption = flow._format_dynamic_message(
-        default=(
-            "Teile den Einstieg über URL oder Datei und sichere jede relevante Insight gleich am Anfang.",
-            "Share a URL or file to capture every crucial insight from the very first step.",
-        ),
-        context=profile_context,
-        variants=[
-            (
-                (
-                    "Übermittle den Startpunkt für {job_title} bei {company_name} über URL oder Datei und sichere jede Insight.",
-                    "Provide the entry point for {job_title} at {company_name} via URL or upload to secure every insight.",
-                ),
-                ("job_title", "company_name"),
-            ),
-            (
-                (
-                    "Übermittle den Startpunkt für {job_title} über URL oder Datei und sichere jede Insight.",
-                    "Provide the entry point for the {job_title} role via URL or upload to secure every insight.",
-                ),
-                ("job_title",),
-            ),
-        ],
-    )
-    render_step_heading(onboarding_header, onboarding_caption)
+    flow._render_onboarding_hero(hero_copy)
     render_step_warning_banner()
 
     flow._inject_onboarding_source_styles()
