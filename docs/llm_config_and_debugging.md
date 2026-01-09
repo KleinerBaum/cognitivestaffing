@@ -23,6 +23,25 @@ Model routing is centralized in `config/models.py` via the `MODEL_CONFIG` map an
 - **Chat Completions vs. Responses:** GPT-4o/3.5/5 models use the Chat Completions API, while other identifiers may use Responses when allowed. The wrappers automatically drop `response_format` for tasks that opt out.
 - **Reasoning effort:** Quick/cheap mode uses the lowest reasoning effort (`none`/`minimal`) on `gpt-4o-mini`; medium effort upgrades long-form generators to `gpt-4o`, and precise mode raises `REASONING_EFFORT` to route to `o3-mini` where configured.
 
+## Cost controls
+
+Use environment variables (or Streamlit secrets) to keep costs predictable while debugging:
+
+- **`OPENAI_SESSION_TOKEN_LIMIT` / `OPENAI_TOKEN_BUDGET`**: session-wide token budget guard. Once the cap is exceeded, OpenAI calls are blocked with a bilingual warning.
+- **`REASONING_EFFORT`**: controls reasoning depth (`none`/`minimal`/`low`/`medium`/`high`) and influences which reasoning-tier model is selected.
+- **`MODEL_ROUTING__<task>`**: override the model per task key (values come from `ModelTask` in `config/models.py`, such as `job_ad`, `interview_guide`, `profile_summary`, `follow_up_questions`, `salary_estimate`).
+
+Example low-cost overrides:
+
+```bash
+OPENAI_SESSION_TOKEN_LIMIT=12000
+REASONING_EFFORT=minimal
+MODEL_ROUTING__job_ad=gpt-4o-mini
+MODEL_ROUTING__interview_guide=gpt-4o-mini
+```
+
+The sidebar includes a token usage expander that shows per-request totals; see `sidebar/__init__.py` for the rendering details.
+
 ## Response format rules (JSON schema)
 
 When a task expects structured output, calls should set `response_format` to the JSON schema bundle constructed by `openai_utils.schemas.build_json_schema_response_format`:
