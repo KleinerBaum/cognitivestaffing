@@ -246,6 +246,7 @@ from ._agents import (
 )
 from .layout import (
     COMPACT_STEP_STYLE,
+    OnboardingHeroCopy,
     build_missing_field_descriptors,
     format_missing_label,
     inject_salary_slider_styles,
@@ -650,11 +651,15 @@ def _load_onboarding_animation_bytes() -> bytes | None:
         return None
 
 
-def _render_onboarding_hero() -> None:
+def _render_onboarding_hero(hero_copy: OnboardingHeroCopy) -> None:
     """Render the onboarding hero with freshly loaded media bytes."""
 
     animation_bytes = _load_onboarding_animation_bytes()
-    render_onboarding_hero(animation_bytes, mime_type=ONBOARDING_ANIMATION_MIME_TYPE)
+    render_onboarding_hero(
+        animation_bytes,
+        hero_copy=hero_copy,
+        mime_type=ONBOARDING_ANIMATION_MIME_TYPE,
+    )
 
 
 ensure_state()

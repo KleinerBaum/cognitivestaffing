@@ -50,6 +50,8 @@ The wizard supports German and English job ads and maps common DE/EN section hea
 7. Hiring Process
 8. Summary (Final Review + Exports)
 
+The onboarding step starts with a single hero block (logo + headline/subheadline) followed immediately by the URL/upload call-to-action so the first screen is focused and uncluttered.
+
 Navigation is **linear Back/Next**. “Next” is **disabled** until required fields for the current step are filled.
 
 The Company step owns company profile, contact, and department details (`department.*`) so department follow-ups and missing-field badges appear where the inputs live.

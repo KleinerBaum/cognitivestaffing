@@ -64,6 +64,7 @@ from wizard import run_wizard  # noqa: E402
 
 APP_VERSION = "1.2.0"
 INTRO_BANNER_STATE_KEY: Final[str] = "ui.show_intro_banner"
+ONBOARDING_STEP_KEY: Final[str] = "jobad"
 
 setup_tracing()
 
@@ -261,10 +262,14 @@ def render_intro_banner_controls(showing: bool) -> None:
 
 intro_banner_visible = st.session_state.setdefault(INTRO_BANNER_STATE_KEY, True)
 
-if intro_banner_visible:
+current_step_key = wizard_state.get("current_step")
+is_onboarding_step = current_step_key in (None, ONBOARDING_STEP_KEY)
+
+if intro_banner_visible and not is_onboarding_step:
     render_app_banner()
 
-render_intro_banner_controls(intro_banner_visible)
+if not is_onboarding_step:
+    render_intro_banner_controls(intro_banner_visible)
 
 SIDEBAR_STYLE = """
 <style>

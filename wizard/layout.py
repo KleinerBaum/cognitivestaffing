@@ -240,6 +240,15 @@ from ._widget_state import _ensure_widget_state
 _SALARY_SLIDER_STYLE_KEY = "ui.salary.slider_style_injected"
 
 
+@dataclass(frozen=True)
+class OnboardingHeroCopy:
+    """Copy bundle for the onboarding hero."""
+
+    eyebrow: str
+    title: str
+    subtitle: str
+
+
 def _render_autofill_suggestion(
     *,
     field_path: str,
@@ -725,6 +734,63 @@ ONBOARDING_HERO_STYLE = """
 """
 
 
+def build_onboarding_hero_copy(
+    *,
+    format_message: Callable[..., str],
+    profile_context: Mapping[str, str],
+) -> OnboardingHeroCopy:
+    """Build the localized onboarding hero copy from the shared templates."""
+
+    eyebrow = tr("Recruiting Intelligence", "Recruiting intelligence")
+    title = format_message(
+        default=(
+            "Intelligenzgestützter Recruiting-Kickstart",
+            "Intelligence-powered recruiting kickoff",
+        ),
+        context=profile_context,
+        variants=[
+            (
+                (
+                    "Intelligenzgestützter Recruiting-Kickstart für {job_title} bei {company_name}",
+                    "Intelligence-powered recruiting kickoff for {job_title} at {company_name}",
+                ),
+                ("job_title", "company_name"),
+            ),
+            (
+                (
+                    "Intelligenzgestützter Recruiting-Kickstart für {job_title}",
+                    "Intelligence-powered recruiting kickoff for {job_title}",
+                ),
+                ("job_title",),
+            ),
+        ],
+    )
+    subtitle = format_message(
+        default=(
+            "Teile den Einstieg über URL oder Datei und sichere jede relevante Insight gleich am Anfang.",
+            "Share a URL or file to capture every crucial insight from the very first step.",
+        ),
+        context=profile_context,
+        variants=[
+            (
+                (
+                    "Übermittle den Startpunkt für {job_title} bei {company_name} über URL oder Datei und sichere jede Insight.",
+                    "Provide the entry point for {job_title} at {company_name} via URL or upload to secure every insight.",
+                ),
+                ("job_title", "company_name"),
+            ),
+            (
+                (
+                    "Übermittle den Startpunkt für {job_title} über URL oder Datei und sichere jede Insight.",
+                    "Provide the entry point for the {job_title} role via URL or upload to secure every insight.",
+                ),
+                ("job_title",),
+            ),
+        ],
+    )
+    return OnboardingHeroCopy(eyebrow=eyebrow, title=title, subtitle=subtitle)
+
+
 def inject_salary_slider_styles() -> None:
     """Inject custom styling for the salary slider once per session."""
 
@@ -770,7 +836,12 @@ def inject_salary_slider_styles() -> None:
     st.session_state[_SALARY_SLIDER_STYLE_KEY] = True
 
 
-def render_onboarding_hero(animation_bytes: bytes | None, *, mime_type: str = "image/gif") -> None:
+def render_onboarding_hero(
+    animation_bytes: bytes | None,
+    *,
+    hero_copy: OnboardingHeroCopy,
+    mime_type: str = "image/gif",
+) -> None:
     """Render the onboarding hero with logo and positioning copy."""
 
     if not animation_bytes:
@@ -780,21 +851,9 @@ def render_onboarding_hero(animation_bytes: bytes | None, *, mime_type: str = "i
 
     animation_base64 = b64encode(animation_bytes).decode("ascii")
 
-    hero_eyebrow = tr("Recruiting Intelligence", "Recruiting intelligence")
-    hero_title = tr(
-        "Dynamische Recruiting-Analysen zur Identifikation & Nutzung **aller** vakanzspezifischen Informationen",
-        "Cognitive Staffing – precise recruiting analysis in minutes",
-    )
-    hero_subtitle = tr(
-        (
-            "Verbinde strukturierte Extraktion, KI-Validierung und Marktbenchmarks, "
-            "um jede Stellenanzeige verlässlich zu bewerten und gezielt zu optimieren."
-        ),
-        (
-            "Combine structured extraction, AI validation, and market benchmarks to "
-            "review every job ad with confidence and improve it with purpose."
-        ),
-    )
+    hero_eyebrow = html.escape(hero_copy.eyebrow)
+    hero_title = html.escape(hero_copy.title)
+    hero_subtitle = html.escape(hero_copy.subtitle)
 
     hero_html = f"""
     <div class="onboarding-hero">
@@ -1111,9 +1170,11 @@ def render_list_text_area(
 
 __all__ = [
     "COMPACT_STEP_STYLE",
+    "OnboardingHeroCopy",
     "NavigationButtonState",
     "NavigationDirection",
     "NavigationState",
+    "build_onboarding_hero_copy",
     "render_list_text_area",
     "render_navigation_controls",
     "inject_salary_slider_styles",
