@@ -63,6 +63,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Wizard navigation enforces the canonical eight-step order, ignores unknown query parameters, and keeps Next disabled when required fields are missing so steps no longer skip or repeat.
 - Resolved Streamlit startup ImportError by importing the sidebar module explicitly before calling `render_sidebar`, preventing rerun crashes.
 - Streamlit step headers no longer crash on missing-field badges; column ratios are fully numeric again.
+- Step layout rendering now accepts pre-localized strings as well as `(de, en)` tuples, avoiding tuple-unpacking errors in the Team step.
 - NeedAnalysisProfile canonicalization now rebuilds missing or invalid `requirements.skill_mappings` buckets and maps legacy keys (for example, `role.title`) to canonical fields before validation so extraction no longer triggers JSON repairs for empty company/position sections.
 - JSON extraction fallback now applies additional heuristics (trailing comma cleanup, unterminated string repair, and largest-block extraction) before triggering one schema-guided repair call; it only returns a default profile after both parsing and repair fail and sets `meta.extraction_fallback_active` so the wizard can warn users when recovery was needed.
 - Company step now binds autofill suggestion rendering from the wizard flow and skips the UI gracefully if the helper is unavailable, eliminating repeated dependency warnings and missing-suggestion regressions.

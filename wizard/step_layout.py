@@ -9,7 +9,13 @@ import streamlit as st
 from utils.i18n import tr
 
 
-LocalizedText = tuple[str, str]
+LocalizedText = str | tuple[str, str]
+
+
+def _resolve_text(text: LocalizedText, *, lang: str) -> str:
+    if isinstance(text, str):
+        return text
+    return tr(*text, lang=lang)
 
 
 def render_step_layout(
@@ -25,9 +31,9 @@ def render_step_layout(
 
     # GREP:STEP_LAYOUT_V1
     lang = st.session_state.get("lang", "de")
-    st.header(tr(*title, lang=lang))
+    st.header(_resolve_text(title, lang=lang))
     if intro is not None:
-        st.markdown(tr(*intro, lang=lang))
+        st.markdown(_resolve_text(intro, lang=lang))
 
     known_label = tr("Bekannt", "Known", lang=lang)
     missing_label = tr("Fehlend", "Missing", lang=lang)
