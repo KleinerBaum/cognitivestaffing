@@ -34,6 +34,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Sidebar settings now include an intro banner toggle that also hides the onboarding hero, clearer language labels, and an advanced expander for LLM-related options.
 - Global hero/banner and its inline intro controls no longer render outside onboarding steps to keep later steps focused on the wizard form.
 - Responsibility brainstormer suggestions now render in a sidebar checklist with bulk apply/dismiss controls instead of inline buttons, reducing main-form scrolling and delaying persistence until confirmation.
+- Onboarding hero copy now uses refreshed bilingual eyebrow, headline, subheadline, CTA messaging, with updated three-step timeline wording.
 - Summary step now uses Overview/Edit/Exports/Warnings tabs, with per-step missing required/critical fields surfaced in the Warnings tab.
 - Summary exports now centralize downloads in a compact artifact list, keeping export buttons in the Exports tab.
 - Background hero image processing is now cached per theme to avoid repeated processing on reruns.
