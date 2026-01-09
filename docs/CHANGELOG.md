@@ -35,6 +35,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Summary exports now centralize downloads in a compact artifact list, keeping export buttons in the Exports tab.
 - Location follow-up fields now map to the Company step in prefix-based routing to match where the inputs are rendered.
 - Department follow-up fields (`department.*`) now belong to the Company step so required badges and targeted prompts render where the inputs live.
+- Location follow-up fields (`location.*`) now belong to the Company step so missing prompts appear alongside the company location inputs.
 - GPT-5.2 tuning: job ad and interview-guide prompts now include short outlining steps, medium reasoning routes through `gpt-5.2-mini`, and long-form calls request richer sections to avoid terse bilingual outputs while keeping schemas intact.
 - Default reasoning effort now initializes to `none` when no override is set; legacy `minimal` inputs are mapped to `effort: none` in API payloads, and verbosity hints are forwarded via Responses calls except for GPT-5 Codex models.
 - Added a cost-saver sidebar toggle to force lightweight model routing and clamp `max_completion_tokens` for cheaper responses, while still allowing explicit model overrides when callers set them directly.
