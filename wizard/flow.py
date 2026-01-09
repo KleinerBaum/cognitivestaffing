@@ -663,7 +663,7 @@ def _render_onboarding_hero(hero_copy: OnboardingHeroCopy) -> None:
 
 ensure_state()
 
-WIZARD_TITLE = "Cognitive Needs - AI powered Recruitment Analysis, Detection and Improvement Tool"
+WIZARD_TITLE = "Cognitive Staffing — Recruitment Need Analysis"
 
 PAGE_LOOKUP: dict[str, WizardPage] = {page.key: page for page in WIZARD_PAGES}
 PREFILL_STYLE_KEY = "_ai_prefill_styles_v1"

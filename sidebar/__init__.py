@@ -446,8 +446,8 @@ def _render_app_branding(
     elif logo_data_uri:
         alt_text = html.escape(
             tr(
-                "Cognitive Needs Logo",
-                "Cognitive Needs logo",
+                "Cognitive Staffing Logo",
+                "Cognitive Staffing logo",
             )
         )
         st.markdown(
