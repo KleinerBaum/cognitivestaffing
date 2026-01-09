@@ -29,6 +29,52 @@
 | `--space-xl` | Hero/Panel padding | Innenabstand für Panels/Hero | `1.5rem` |
 | `--space-2xl` | Large layout breaks | Große Layout-Abstände | `2.25rem` |
 
+## Hero & Banner Tokens / Hero- & Banner-Tokens
+Shared hero/banner tokens drive the onboarding hero (`wizard/layout.py`) and the global banner (`.app-banner`) so both themes render consistent panel spacing and typography.
+
+| Token | Purpose (EN) | Zweck (DE) | Value |
+| --- | --- | --- | --- |
+| `--hero-panel-bg` | Onboarding hero background gradient | Hintergrundverlauf für Onboarding-Hero | Theme-specific gradient |
+| `--hero-overlay` | Onboarding hero overlay | Overlay für Onboarding-Hero | Theme-specific gradient |
+| `--hero-panel-border` | Onboarding hero border color | Rahmenfarbe für Onboarding-Hero | Theme-specific RGBA |
+| `--hero-panel-gap` | Onboarding hero layout gap | Layout-Abstand im Onboarding-Hero | `clamp(1rem, 3vw, 2.75rem)` |
+| `--hero-panel-padding` | Onboarding hero padding | Innenabstand im Onboarding-Hero | `clamp(1.4rem, 1rem + 2vw, 2.4rem)` |
+| `--hero-panel-padding-compact` | Onboarding hero padding (mobile) | Innenabstand im Onboarding-Hero (mobil) | `clamp(1.1rem, 0.9rem + 1.2vw, 1.6rem)` |
+| `--hero-panel-margin` | Onboarding hero block margin | Außenabstand des Onboarding-Hero | `1.2rem 0 1.4rem` |
+| `--hero-panel-radius` | Onboarding hero corner radius | Eckenradius des Onboarding-Hero | `clamp(1.2rem, 0.8rem + 1vw, 1.75rem)` |
+| `--hero-panel-eyebrow-size` | Onboarding hero eyebrow size | Schriftgröße für Eyebrow | `0.8rem` |
+| `--hero-panel-eyebrow-letter-spacing` | Eyebrow letter spacing | Zeichenabstand Eyebrow | `0.22em` |
+| `--hero-panel-eyebrow-margin` | Eyebrow bottom margin | Unterer Abstand Eyebrow | `0.5rem` |
+| `--hero-panel-headline-size` | Hero headline size | Größe der Hero-Überschrift | `clamp(1.9rem, 1.2rem + 2vw, 2.6rem)` |
+| `--hero-panel-headline-weight` | Hero headline weight | Gewicht der Hero-Überschrift | `700` |
+| `--hero-panel-headline-line-height` | Hero headline line height | Zeilenhöhe der Hero-Überschrift | `1.2` |
+| `--hero-panel-subheadline-size` | Hero subheadline size | Größe der Subheadline | `clamp(1.05rem, 0.95rem + 0.45vw, 1.25rem)` |
+| `--hero-panel-subheadline-line-height` | Hero subheadline line height | Zeilenhöhe der Subheadline | `1.6` |
+| `--hero-panel-subheadline-margin` | Subheadline top margin | Oberer Abstand der Subheadline | `0.85rem` |
+| `--hero-image-filter` | Hero illustration filter | Filter für Hero-Grafik | Theme-specific |
+| `--hero-copy-max-width` | Max width for hero copy | Maximale Breite für Hero-Text | `640px` |
+| `--hero-banner-bg` | Global banner background | Hintergrund des globalen Banners | Theme-specific gradient |
+| `--hero-banner-overlay` | Global banner overlay | Overlay des globalen Banners | Theme-specific gradient |
+| `--hero-banner-border` | Global banner border | Rahmenfarbe des Banners | Theme-specific RGBA |
+| `--hero-banner-logo-bg` | Banner logo tile background | Hintergrund der Logo-Kachel | Theme-specific RGBA |
+| `--hero-banner-logo-border` | Banner logo tile border | Rahmen der Logo-Kachel | Theme-specific RGBA |
+| `--hero-banner-logo-shadow` | Banner logo tile shadow | Schatten der Logo-Kachel | Theme-specific |
+| `--hero-banner-meta-bg` | Banner meta badge background | Hintergrund für Meta-Badges | Theme-specific RGBA |
+| `--hero-banner-meta-border` | Banner meta badge border | Rahmen für Meta-Badges | Theme-specific RGBA |
+| `--hero-banner-gap` | Banner layout gap | Layout-Abstand im Banner | `clamp(1rem, 3vw, 2rem)` |
+| `--hero-banner-padding` | Banner padding | Innenabstand im Banner | `clamp(1.2rem, 1rem + 1.8vw, 2rem) clamp(1.4rem, 1rem + 2vw, 2.4rem)` |
+| `--hero-banner-radius` | Banner corner radius | Eckenradius des Banners | `var(--radius)` |
+| `--hero-banner-eyebrow-size` | Banner eyebrow size | Schriftgröße für Eyebrow im Banner | `0.8rem` |
+| `--hero-banner-eyebrow-letter-spacing` | Banner eyebrow letter spacing | Zeichenabstand Eyebrow im Banner | `0.22em` |
+| `--hero-banner-eyebrow-margin` | Banner eyebrow margin | Abstand unter Eyebrow | `0.35rem` |
+| `--hero-banner-headline-size` | Banner headline size | Größe der Banner-Überschrift | `clamp(1.6rem, 1.2rem + 1.6vw, 2.3rem)` |
+| `--hero-banner-subtitle-size` | Banner subtitle size | Größe der Banner-Subline | `clamp(1rem, 0.95rem + 0.4vw, 1.2rem)` |
+| `--hero-banner-subtitle-line-height` | Banner subtitle line height | Zeilenhöhe der Banner-Subline | `1.6` |
+| `--hero-banner-subtitle-margin` | Banner subtitle margin | Abstand oberhalb der Banner-Subline | `0.6rem` |
+| `--hero-banner-meta-size` | Banner meta text size | Schriftgröße für Meta-Text | `0.9rem` |
+| `--hero-banner-meta-line-height` | Banner meta line height | Zeilenhöhe für Meta-Text | `1.6` |
+| `--hero-banner-meta-margin` | Banner meta top margin | Abstand oberhalb der Meta-Zeile | `0.9rem` |
+
 ## Brand & Interaction Tokens / Marken- & Interaktions-Tokens
 | Token | Purpose (EN) | Zweck (DE) | Value |
 | --- | --- | --- | --- |

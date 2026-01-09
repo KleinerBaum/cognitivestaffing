@@ -33,6 +33,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Responsibility brainstormer suggestions now render in a sidebar checklist with bulk apply/dismiss controls instead of inline buttons, reducing main-form scrolling and delaying persistence until confirmation.
 - Summary step now uses Overview/Edit/Exports/Warnings tabs, with per-step missing required/critical fields surfaced in the Warnings tab.
 - Summary exports now centralize downloads in a compact artifact list, keeping export buttons in the Exports tab.
+- Hero/banner styling now relies on shared theme tokens for backgrounds, borders, spacing, and typography so onboarding and global headers remain consistent across dark/light modes.
 - Onboarding now renders a single hero block above the URL/upload call-to-action while the global banner is suppressed on the onboarding step to avoid stacked headers.
 - Onboarding copy now follows a unified value-prop → action narrative with aligned DE/EN terminology across the global banner and job-ad intake step.
 - Location follow-up fields now map to the Company step in prefix-based routing to match where the inputs are rendered.

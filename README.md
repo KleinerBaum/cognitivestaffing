@@ -102,7 +102,8 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
   - `wizard/`, `wizard_pages/`, `wizard_tools/` – step UIs + wizard utilities  
   - `wizard/step_registry.py` – canonical step order metadata  
   - `sidebar/`, `ui_views/`, `components/` – shared UI components  
-  - `styles/`, `images/` – styling and assets
+  - `styles/`, `images/` – styling and assets  
+  - `docs/design-system.md` – theme tokens (hero/banner, spacing, typography) for dark/light UI
 
 - Data contract  
   - `schema/need_analysis.schema.json` – canonical schema  
