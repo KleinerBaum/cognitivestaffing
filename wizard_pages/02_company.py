@@ -6,6 +6,7 @@ from .base import WizardPage
 _REQUIRED_FIELDS: tuple[str, ...] = (
     "company.name",
     "company.contact_email",
+    "department.name",
     "location.primary_city",
 )
 _SUMMARY_FIELDS: tuple[str, ...] = (
@@ -31,6 +32,11 @@ _SUMMARY_FIELDS: tuple[str, ...] = (
     "company.brand_color",
     "company.claim",
     "company.benefits",
+    "department.name",
+    "department.function",
+    "department.leader_name",
+    "department.leader_title",
+    "department.strategic_goals",
 )
 
 

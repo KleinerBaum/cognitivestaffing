@@ -52,6 +52,8 @@ The wizard supports German and English job ads and maps common DE/EN section hea
 
 Navigation is **linear Back/Next**. “Next” is **disabled** until required fields for the current step are filled.
 
+The Company step owns company profile, contact, and department details (`department.*`) so department follow-ups and missing-field badges appear where the inputs live.
+
 The Summary step is organized into tabs for **Overview**, **Edit (core company/team/role/skills/compensation/process fields)**, **Exports**, and **Warnings** to keep review, export, and validation in one place. The Exports tab now includes a compact artifact list that centralizes downloads.
 
 ### Per-step UI pattern (mandatory)
