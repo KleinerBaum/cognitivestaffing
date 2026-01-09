@@ -179,25 +179,18 @@ def _set_intro_banner_visibility(visible: bool) -> None:
 def render_app_banner() -> None:
     """Render the global hero banner with logo and bilingual copy."""
 
-    badge_entries = [
-        tr("🧠 Geführter Wizard", "🧠 Guided wizard"),
-        tr("📊 Markt- & Gehaltsanalysen", "📊 Market & salary insights"),
-        tr("🧩 ESCO-Skill-Mapping", "🧩 ESCO skill mapping"),
-    ]
-    eyebrow = tr("Recruiting-Bedarfsanalyse", "Recruitment Need Analysis")
+    eyebrow = tr("Recruiting-Intake", "Recruiting intake")
     headline = tr(
-        "Cognitive Staffing – vollständiges Stellenprofil für deinen speziellen Bedarf",
-        "Cognitive Staffing – Complete Jobspec for your special Need",
+        "Aus der Stellenanzeige zum vollständigen Stellenprofil",
+        "From job posting to a complete job profile",
     )
     subtitle = tr(
-        (
-            "Individuelle und dynamische Fragestellungen sowie Marktbenchmarks "
-            "helfen dir, Profile und Ergebnisse mit Sicherheit und Präzision zu verfeinern."
-        ),
-        (
-            "Tailored and dynamic questioning as well as market benchmarks help you "
-            "refine profiles and deliverables with confidence and precision"
-        ),
+        "Füge eine URL oder Datei hinzu und starte den Wizard mit klaren Anforderungen.",
+        "Add a URL or file to start the wizard with clear requirements.",
+    )
+    helper_text = tr(
+        "Enthält ESCO-Skill-Mapping sowie Markt- und Gehalts-Insights.",
+        "Includes ESCO skill mapping plus market and salary insights.",
     )
 
     if APP_LOGO_DATA_URI:
@@ -214,8 +207,6 @@ def render_app_banner() -> None:
     else:
         logo_html = "<span class='app-banner__logo-placeholder'>🧭</span>"
 
-    badges_html = "".join(f"<span class='app-banner__meta-badge'>{html_badge}</span>" for html_badge in badge_entries)
-
     banner_html = f"""
     <div class="app-banner">
         <div class="app-banner__logo">{logo_html}</div>
@@ -223,7 +214,7 @@ def render_app_banner() -> None:
             <div class="app-banner__eyebrow">{eyebrow}</div>
             <h1 class="app-banner__headline">{headline}</h1>
             <p class="app-banner__subtitle">{subtitle}</p>
-            <div class="app-banner__meta">{badges_html}</div>
+            <p class="app-banner__meta">{helper_text}</p>
         </div>
     </div>
     """
