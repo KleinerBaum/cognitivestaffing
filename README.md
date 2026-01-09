@@ -80,6 +80,8 @@ Every step MUST render in the same top-down pattern:
 4) **Next / Back navigation**  
    - One primary action: continue.
 
+Missing prompts should not duplicate inputs that are already editable in the Known tab; inline fields (for example, the Team reporting line) are edited once to avoid conflicting updates.
+
 The Company step now uses the shared `render_step_layout` helper to align with the Known/Missing/Tools structure (`wizard/step_layout.py`).
 The Team & Structure step now uses the shared `render_step_layout` helper to align with the Known/Missing/Tools structure (`wizard/step_layout.py`).
 
