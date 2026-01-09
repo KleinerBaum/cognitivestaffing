@@ -427,7 +427,6 @@ class WizardStepDescriptor:
     renderer: StepRenderer
 
 
-ONBOARDING_SOURCE_STYLE_KEY: Final[str] = "_onboarding_source_styles_v2"
 EXTRACTION_REVIEW_STYLE_KEY: Final[str] = "_extraction_review_styles_v1"
 ESCO_SKILL_ENDPOINT: Final[str] = "https://ec.europa.eu/esco/api/resource/skill"
 
@@ -7108,71 +7107,6 @@ def _advance_from_onboarding() -> None:
         target = COMPANY_STEP_INDEX
     st.session_state[StateKeys.STEP] = target
     st.rerun()
-
-
-def _inject_onboarding_source_styles() -> None:
-    """Inject styling for the onboarding intro and source inputs once per session."""
-
-    if st.session_state.get(ONBOARDING_SOURCE_STYLE_KEY):
-        return
-
-    st.session_state[ONBOARDING_SOURCE_STYLE_KEY] = True
-    st.markdown(
-        """
-        <style>
-            .onboarding-intro {
-                font-size: 1rem;
-                line-height: 1.55;
-                margin: 1rem auto 1.75rem;
-                max-width: 780px;
-                text-align: left;
-            }
-
-            section.main div.block-container div[data-testid="stMarkdown"]:has(.onboarding-source-marker)
-                + div[data-testid="stHorizontalBlock"] {
-                justify-content: center;
-                gap: clamp(1.25rem, 2vw, 2.5rem);
-                margin: 0 auto;
-                max-width: min(960px, 100%);
-            }
-
-            section.main div.block-container div[data-testid="stMarkdown"]:has(.onboarding-source-marker)
-                + div[data-testid="stHorizontalBlock"] div[data-testid="column"] {
-                flex: 1 1 0;
-                min-width: 0;
-            }
-
-            section.main div.block-container div[data-testid="stMarkdown"]:has(.onboarding-source-marker)
-                + div[data-testid="stHorizontalBlock"] div[data-testid="column"] > div {
-                width: 100%;
-            }
-
-            section.main div.block-container div[data-testid="stMarkdown"]:has(.onboarding-source-marker)
-                + div[data-testid="stHorizontalBlock"]
-                div[data-testid="column"]
-                div[data-testid="stTextInput"] > div > div,
-            section.main div.block-container div[data-testid="stMarkdown"]:has(.onboarding-source-marker)
-                + div[data-testid="stHorizontalBlock"]
-                div[data-testid="column"]
-                div[data-testid="stFileUploader"] > div {
-                width: 100%;
-            }
-
-            @media (max-width: 960px) {
-                section.main div.block-container div[data-testid="stMarkdown"]:has(.onboarding-source-marker)
-                    + div[data-testid="stHorizontalBlock"] {
-                    flex-wrap: wrap;
-                }
-
-                section.main div.block-container div[data-testid="stMarkdown"]:has(.onboarding-source-marker)
-                    + div[data-testid="stHorizontalBlock"] div[data-testid="column"] {
-                    flex: 1 1 100%;
-                }
-            }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
 
 
 def _is_onboarding_locked() -> bool:

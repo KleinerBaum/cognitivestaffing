@@ -126,7 +126,6 @@ def stub_onboarding_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
         on_file_uploaded=lambda: None,
         _build_profile_context=lambda profile: {},
         _format_dynamic_message=lambda default, context, variants: default[0],
-        _inject_onboarding_source_styles=lambda: None,
         _get_profile_state=lambda: {},
     )
     monkeypatch.setattr(jobad_step, "_get_flow_module", lambda: stub_flow)

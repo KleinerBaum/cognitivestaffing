@@ -57,8 +57,6 @@ def _step_onboarding(schema: dict) -> None:
     flow._render_onboarding_hero(hero_copy)
     render_step_warning_banner()
 
-    flow._inject_onboarding_source_styles()
-
     with st.container():
         render_section_heading(
             tr("Stellenanzeige bereitstellen", "Provide the job posting"),
@@ -83,10 +81,7 @@ def _step_onboarding(schema: dict) -> None:
 
         locked = flow._is_onboarding_locked()
 
-        st.markdown(
-            "<div class='onboarding-source-marker' style='display:none'></div>",
-            unsafe_allow_html=True,
-        )
+        st.markdown("<div class='onboarding-source-inputs'>", unsafe_allow_html=True)
         url_column, upload_column = st.columns(2, gap="large")
         with url_column:
             st.text_input(
@@ -116,6 +111,7 @@ def _step_onboarding(schema: dict) -> None:
                 ),
                 disabled=locked,
             )
+        st.markdown("</div>", unsafe_allow_html=True)
 
     with st.expander(tr("Was passiert?", "What happens?"), expanded=False):
         intro_lines = [
