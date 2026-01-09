@@ -34,6 +34,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Summary step now uses Overview/Edit/Exports/Warnings tabs, with per-step missing required/critical fields surfaced in the Warnings tab.
 - Summary exports now centralize downloads in a compact artifact list, keeping export buttons in the Exports tab.
 - Hero/banner styling now relies on shared theme tokens for backgrounds, borders, spacing, and typography so onboarding and global headers remain consistent across dark/light modes.
+- Onboarding source inputs now render URL and upload options as separate panels with an OR divider, token-based focus rings, and responsive stacking for mobile screens.
 - Onboarding now renders a single hero block above the URL/upload call-to-action while the global banner is suppressed on the onboarding step to avoid stacked headers.
 - Onboarding hero copy now uses a human-centric headline, adds a primary CTA with a three-step timeline, and aligns product naming to Cognitive Staffing — Recruitment Need Analysis.
 - Onboarding copy now follows a unified value-prop → action narrative with aligned DE/EN terminology across the global banner and job-ad intake step.

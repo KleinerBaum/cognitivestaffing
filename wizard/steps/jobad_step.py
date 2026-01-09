@@ -83,8 +83,9 @@ def _step_onboarding(schema: dict) -> None:
         locked = flow._is_onboarding_locked()
 
         st.markdown("<div class='onboarding-source-inputs'>", unsafe_allow_html=True)
-        url_column, upload_column = st.columns(2, gap="large")
+        url_column, or_column, upload_column = st.columns([1, 0.18, 1], gap="large")
         with url_column:
+            st.markdown("<div class='onboarding-source__panel'>", unsafe_allow_html=True)
             st.text_input(
                 tr("Stellenanzeigen-URL hinzufügen", "Add the job posting URL"),
                 key=UIKeys.PROFILE_URL_INPUT,
@@ -96,8 +97,22 @@ def _step_onboarding(schema: dict) -> None:
                 ),
                 disabled=locked,
             )
+            st.caption(
+                tr(
+                    "Für öffentliche Karriereseiten oder Jobbörsen.",
+                    "Best for public career pages or job boards.",
+                )
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with or_column:
+            st.markdown(
+                f"<div class='onboarding-source__or'><span>{tr('oder', 'or')}</span></div>",
+                unsafe_allow_html=True,
+            )
 
         with upload_column:
+            st.markdown("<div class='onboarding-source__panel'>", unsafe_allow_html=True)
             st.file_uploader(
                 tr(
                     "Stellenanzeige hochladen (PDF/DOCX/TXT)",
@@ -112,6 +127,13 @@ def _step_onboarding(schema: dict) -> None:
                 ),
                 disabled=locked,
             )
+            st.caption(
+                tr(
+                    "Ideal für interne Dokumente oder passwortgeschützte Dateien.",
+                    "Ideal for internal documents or files behind a login.",
+                )
+            )
+            st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
     with st.expander(tr("Was passiert?", "What happens?"), expanded=False):
