@@ -54,6 +54,7 @@ Navigation is **linear Back/Next**. “Next” is **disabled** until required fi
 
 The Company step owns company profile, contact, and department details (`department.*`) so department follow-ups and missing-field badges appear where the inputs live.
 Location follow-ups (`location.*`) are also routed to the Company step to ensure missing prompts surface alongside the location inputs.
+Position team follow-ups (`position.team_*`) are routed to the Company step to match where the team structure inputs are rendered.
 
 The Summary step is organized into tabs for **Overview**, **Edit (core company/team/role/skills/compensation/process fields)**, **Exports**, and **Warnings** to keep review, export, and validation in one place. The Exports tab now includes a compact artifact list that centralizes downloads.
 
