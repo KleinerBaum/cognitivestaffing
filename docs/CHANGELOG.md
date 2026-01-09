@@ -14,6 +14,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Added
 - Dynamic-flow planning artifacts outlining the conditional NeedAnalysis roadmap (`docs/dynamic_flow_plan.md` and `docs/dynamic_flow_tasks.json`).
+- Required-field ownership validation to keep `wizard_pages` metadata aligned with `PAGE_FOLLOWUP_PREFIXES`, plus supporting tests and documentation.
 - Session-level OpenAI token budget guard configurable via `OPENAI_SESSION_TOKEN_LIMIT`/`OPENAI_TOKEN_BUDGET`; further calls are blocked with a bilingual warning once the cap is exceeded.
 - Documented cost controls and low-cost model routing examples (including `MODEL_ROUTING__<task>` overrides and sidebar token usage references) in the README and LLM configuration guide.
 - Bilingual extraction fallback banner on the Company step when `meta.extraction_fallback_active` is set so recruiters know to validate prefilled fields.
@@ -32,6 +33,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Responsibility brainstormer suggestions now render in a sidebar checklist with bulk apply/dismiss controls instead of inline buttons, reducing main-form scrolling and delaying persistence until confirmation.
 - Summary step now uses Overview/Edit/Exports/Warnings tabs, with per-step missing required/critical fields surfaced in the Warnings tab.
 - Summary exports now centralize downloads in a compact artifact list, keeping export buttons in the Exports tab.
+- Location follow-up fields now map to the Company step in prefix-based routing to match where the inputs are rendered.
 - Department follow-up fields (`department.*`) now belong to the Company step so required badges and targeted prompts render where the inputs live.
 - GPT-5.2 tuning: job ad and interview-guide prompts now include short outlining steps, medium reasoning routes through `gpt-5.2-mini`, and long-form calls request richer sections to avoid terse bilingual outputs while keeping schemas intact.
 - Default reasoning effort now initializes to `none` when no override is set; legacy `minimal` inputs are mapped to `effort: none` in API payloads, and verbosity hints are forwarded via Responses calls except for GPT-5 Codex models.

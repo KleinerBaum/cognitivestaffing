@@ -7,6 +7,12 @@ This document explains how the multi-step wizard keeps navigation order, renderi
 * The canonical navigation order lives in `wizard_pages/__init__.py` via the `WIZARD_PAGES` tuple. Each entry is a `WizardPage` dataclass that carries the page key plus localized labels and required/summary field metadata.
 * Pages are loaded by filename prefix (for example `01_jobad.py`, `02_company.py`); adjusting the order in `_load_pages()` is enough to reorder the wizard everywhere.
 
+## Required field ownership (`wizard/metadata.py`)
+
+* Required fields must live on the step that actually renders those inputs.
+* Prefix ownership is centralized in `PAGE_FOLLOWUP_PREFIXES` (for example `department.*` belongs to the Company step).
+* The validation helper `validate_required_fields_by_page` checks that each page's `required_fields` aligns with the prefix map and fails tests if a field is assigned to the wrong step (see `tests/test_required_fields_mapping.py`).
+
 ## Rendering callbacks (`wizard.flow`)
 
 * `wizard/flow.py` wires each `WizardPage` key to a `StepRenderer` with the actual Streamlit callback used to render the page.

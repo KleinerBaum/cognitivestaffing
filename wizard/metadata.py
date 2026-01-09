@@ -15,7 +15,7 @@ import streamlit as st
 from constants.keys import ProfilePaths, StateKeys
 from question_logic import CRITICAL_FIELDS
 from wizard._logic import get_in
-from wizard_pages import WIZARD_PAGES
+from wizard_pages import WIZARD_PAGES, WizardPage
 from wizard.company_validators import persist_contact_email, persist_primary_city
 
 # Index of the first data-entry step ("Unternehmen" / "Company").
@@ -34,8 +34,8 @@ PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
 
 PAGE_FOLLOWUP_PREFIXES: Final[dict[str, tuple[str, ...]]] = {
     "jobad": ("meta.",),
-    "company": ("company.", "department."),
-    "team": ("team.", "position.team_", "position.reporting_line", "location.", "employment."),
+    "company": ("company.", "department.", "location."),
+    "team": ("team.", "position.team_", "position.reporting_line", "employment."),
     "role_tasks": ("responsibilities.", "requirements.", "position.role_summary"),
     "benefits": ("compensation.",),
     "interview": ("process.",),
@@ -164,6 +164,41 @@ def field_belongs_to_page(field: str, page_key: str) -> bool:
             return True
 
     return False
+
+
+def _matching_followup_pages(field: str) -> tuple[str, ...]:
+    """Return the wizard pages whose follow-up prefixes match ``field``."""
+
+    matches: list[str] = []
+    for page_key, prefixes in PAGE_FOLLOWUP_PREFIXES.items():
+        if any(field.startswith(prefix) for prefix in prefixes):
+            matches.append(page_key)
+    return tuple(matches)
+
+
+def validate_required_fields_by_page(
+    pages: Sequence[WizardPage] | None = None,
+) -> list[str]:
+    """Validate required-field ownership across wizard pages.
+
+    Returns a list of human-readable error messages. An empty list indicates
+    that all required fields align with their expected page ownership.
+    """
+
+    errors: list[str] = []
+    for page in pages or WIZARD_PAGES:
+        for field in page.required_fields:
+            if not field_belongs_to_page(field, page.key):
+                errors.append(
+                    f"{page.key}: required field '{field}' is not mapped to this page."
+                )
+            matching_pages = _matching_followup_pages(field)
+            if matching_pages and page.key not in matching_pages:
+                errors.append(
+                    f"{page.key}: required field '{field}' matches follow-up prefixes for "
+                    f"{', '.join(matching_pages)}."
+                )
+    return errors
 
 
 def _field_is_contextually_optional(field: str, profile_data: Mapping[str, object]) -> bool:
@@ -331,4 +366,5 @@ __all__ = [
     "get_missing_critical_fields",
     "field_belongs_to_page",
     "resolve_section_for_field",
+    "validate_required_fields_by_page",
 ]
