@@ -169,6 +169,7 @@ MODEL_ROUTING__interview_guide = "gpt-4o-mini"
 - Shared step layout pattern (recommended):
   - `wizard/step_layout.py` *(Known/Missing tabs with optional tools expander)*
   - `wizard/step_scaffold.py` *(add if not present; centralize Known/Missing/Validate/Nav)*
+  - `render_step_layout` accepts localized strings or `(de, en)` tuples for titles/intro copy.
 
 ### “I want to change which fields are required/critical”
 - Required fields (UI gating):
