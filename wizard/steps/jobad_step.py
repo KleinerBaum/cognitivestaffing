@@ -149,27 +149,26 @@ def _step_onboarding(schema: dict) -> None:
             st.markdown("</div>", unsafe_allow_html=True)
         st.markdown("</div>", unsafe_allow_html=True)
 
-    with st.expander(tr("Was passiert?", "What happens?"), expanded=False):
+    with st.expander(
+        tr("Details & Einstellungen / Details & settings", "Details & Einstellungen / Details & settings"),
+        expanded=False,
+    ):
         intro_lines = [
             tr(
-                "Eine klare Stellenanzeige hilft, Anforderungen direkt von Anfang an zu erfassen.",
-                "A clear job posting helps capture requirements right from the start.",
+                "Wir analysieren die Stellenanzeige Schritt für Schritt und extrahieren nur relevante Informationen.",
+                "We analyze the job posting step by step and extract only relevant information.",
             ),
             tr(
-                "Unsere OpenAI-API-Agents extrahieren Inhalte und strukturieren sie in Echtzeit.",
-                "Our OpenAI API agents extract the content and structure it in real time.",
+                "Ihre Eingaben bleiben vertraulich; URLs und Uploads werden ausschließlich für dieses Profil verarbeitet.",
+                "Your inputs stay confidential; URLs and uploads are processed only for this profile.",
             ),
             tr(
-                "ESCO-Skillgraph und Marktprofile liefern Kontext für Skills, Seniorität und Branchensprache.",
-                "ESCO skill graphs and market profiles add context for skills, seniority, and industry language.",
+                "Die Extraktion läuft automatisiert, bleibt transparent und lässt sich jederzeit anpassen.",
+                "Extraction runs automatically, stays transparent, and can be adjusted at any time.",
             ),
             tr(
-                "Der dynamische Fragenprozess ergänzt fehlende Details Schritt für Schritt.",
-                "The dynamic question flow fills in missing details step by step.",
-            ),
-            tr(
-                "So entsteht ein vollständiger Datensatz für die Vakanz und die folgenden Exporte.",
-                "This builds a complete dataset for the role and the exports that follow.",
+                "Bitte prüfen Sie die Ergebnisse sorgfältig, damit Suche, Matching und Exporte präzise bleiben.",
+                "Please review the results carefully so search, matching, and exports stay accurate.",
             ),
         ]
 
