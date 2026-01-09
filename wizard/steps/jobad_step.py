@@ -50,11 +50,22 @@ def _step_onboarding(schema: dict) -> None:
     profile = flow._get_profile_state()
     profile_context = flow._build_profile_context(profile)
 
+    show_intro_banner = bool(st.session_state.get(UIKeys.INTRO_BANNER, True))
+    with st.container():
+        button_column, _ = st.columns([0.25, 0.75])
+        with button_column:
+            if show_intro_banner:
+                if st.button("Intro ausblenden / Hide intro", key="onboarding.intro.hide"):
+                    st.session_state[UIKeys.INTRO_BANNER] = False
+            else:
+                if st.button("Intro einblenden / Show intro", key="onboarding.intro.show"):
+                    st.session_state[UIKeys.INTRO_BANNER] = True
+
+    show_intro_banner = bool(st.session_state.get(UIKeys.INTRO_BANNER, True))
     hero_copy = build_onboarding_hero_copy(
         format_message=flow._format_dynamic_message,
         profile_context=profile_context,
     )
-    show_intro_banner = bool(st.session_state.get(UIKeys.INTRO_BANNER, True))
     if show_intro_banner:
         flow._render_onboarding_hero(hero_copy)
     render_step_warning_banner()
