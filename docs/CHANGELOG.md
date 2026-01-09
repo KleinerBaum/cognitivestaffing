@@ -36,6 +36,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Hero/banner styling now relies on shared theme tokens for backgrounds, borders, spacing, and typography so onboarding and global headers remain consistent across dark/light modes.
 - Onboarding now renders a single hero block above the URL/upload call-to-action while the global banner is suppressed on the onboarding step to avoid stacked headers.
 - Onboarding copy now follows a unified value-prop → action narrative with aligned DE/EN terminology across the global banner and job-ad intake step.
+- Onboarding URL/upload inputs now use the `.onboarding-source-inputs` theme class for the two-column-to-stacked responsive layout.
 - Location follow-up fields now map to the Company step in prefix-based routing to match where the inputs are rendered.
 - Department follow-up fields (`department.*`) now belong to the Company step so required badges and targeted prompts render where the inputs live.
 - Location follow-up fields (`location.*`) now belong to the Company step so missing prompts appear alongside the company location inputs.

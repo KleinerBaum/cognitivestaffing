@@ -1009,6 +1009,54 @@ footer, #MainMenu {
   display: inline-block;
 }
 
+.onboarding-intro {
+  font-size: 1rem;
+  line-height: 1.55;
+  margin: 1rem auto 1.75rem;
+  max-width: 780px;
+  text-align: left;
+}
+
+.onboarding-source-inputs {
+  margin: 0 auto;
+  max-width: min(960px, 100%);
+}
+
+.onboarding-source-inputs > div[data-testid="stHorizontalBlock"] {
+  justify-content: center;
+  gap: clamp(1.25rem, 2vw, 2.5rem);
+}
+
+.onboarding-source-inputs > div[data-testid="stHorizontalBlock"] div[data-testid="column"] {
+  flex: 1 1 0;
+  min-width: 0;
+}
+
+.onboarding-source-inputs > div[data-testid="stHorizontalBlock"] div[data-testid="column"] > div {
+  width: 100%;
+}
+
+.onboarding-source-inputs
+  > div[data-testid="stHorizontalBlock"]
+  div[data-testid="column"]
+  div[data-testid="stTextInput"] > div > div,
+.onboarding-source-inputs
+  > div[data-testid="stHorizontalBlock"]
+  div[data-testid="column"]
+  div[data-testid="stFileUploader"] > div {
+  width: 100%;
+}
+
+@media (max-width: 960px) {
+  .onboarding-source-inputs > div[data-testid="stHorizontalBlock"] {
+    flex-wrap: wrap;
+  }
+
+  .onboarding-source-inputs > div[data-testid="stHorizontalBlock"] div[data-testid="column"] {
+    flex: 1 1 100%;
+  }
+}
+
 /* Hide the built-in Streamlit multipage navigation so only the custom wizard sidebar is visible */
 nav[data-testid="stSidebarNav"],
 [data-testid="stSidebarNav"] {
