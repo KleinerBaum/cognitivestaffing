@@ -171,6 +171,7 @@ MODEL_ROUTING__interview_guide = "gpt-4o-mini"
 - Step order, step ownership, required fields:
   - `wizard_router.py`
   - `wizard_pages/` (step definitions / metadata)
+  - `docs/refactor/wizard-unification-audit.md` (maintainability audit + refactor plan)
 - Sidebar stepper/progress:
   - `sidebar/`
   - Feature flag: set `st.session_state["feature.sidebar_stepper_v1"] = True` to preview the sidebar stepper.
