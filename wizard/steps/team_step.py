@@ -14,9 +14,9 @@ from wizard.layout import (
     merge_missing_help,
     render_missing_field_summary,
     render_section_heading,
-    render_step_heading,
     render_step_warning_banner,
 )
+from wizard.step_layout import render_step_layout
 from wizard_router import WizardContext
 from utils.i18n import tr
 from wizard.sections.team_advisor import (
@@ -108,11 +108,6 @@ def _step_team() -> None:
     profile = _get_profile_state()
     missing_here = _missing_fields_for_section(2)
     title, subtitle, intros = _resolve_step_copy("team", profile)
-    render_step_heading(title, subtitle, missing_fields=missing_here)
-    render_step_warning_banner()
-    render_missing_field_summary(missing_here)
-    for intro in intros:
-        st.caption(intro)
     data = profile
     data.setdefault("company", {})
     position = data.setdefault("position", {})
@@ -121,500 +116,489 @@ def _step_team() -> None:
     meta_data = data.setdefault("meta", {})
     employment = data.setdefault("employment", {})
 
-    render_section_heading(
-        tr("Pflichtangaben", "Required basics"),
-        icon="📌",
-        size="compact",
-    )
-    required_block = st.container()
-
-    with required_block:
-        job_title_cols = st.columns((1.8, 1))
-        title_label = format_missing_label(
-            tr("Jobtitel", "Job title") + REQUIRED_SUFFIX,
-            field_path=ProfilePaths.POSITION_JOB_TITLE,
-            missing_fields=missing_here,
-        )
-        title_lock = _field_lock_config(
-            ProfilePaths.POSITION_JOB_TITLE,
-            title_label,
-            container=job_title_cols[0],
-            context="step",
-        )
-        job_title_kwargs = _apply_field_lock_kwargs(
-            title_lock,
-            {
-                "help": merge_missing_help(
-                    None,
-                    field_path=ProfilePaths.POSITION_JOB_TITLE,
-                    missing_fields=missing_here,
-                )
-            },
-        )
-        position["job_title"] = widget_factory.text_input(
-            ProfilePaths.POSITION_JOB_TITLE,
-            title_lock["label"],
-            widget_factory=job_title_cols[0].text_input,
-            placeholder=tr("Jobtitel eingeben", "Enter the job title"),
-            value_formatter=_string_or_empty,
-            **job_title_kwargs,
-        )
-        _update_profile(ProfilePaths.POSITION_JOB_TITLE, position["job_title"])
-        if ProfilePaths.POSITION_JOB_TITLE in missing_here and not position.get("job_title"):
-            job_title_cols[0].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
-        job_title_followups = job_title_cols[1].expander(tr("KI-Fragen", "AI questions"), expanded=False)
-        _render_followups_for_fields(
-            (ProfilePaths.POSITION_JOB_TITLE,),
-            data,
-            container_factory=job_title_followups.container,
-        )
-
-        reporting_cols = st.columns((1.8, 1))
-        reporting_label = format_missing_label(
-            tr("Berichtslinie (Funktion)", "Reporting line (function)") + REQUIRED_SUFFIX,
-            field_path=ProfilePaths.TEAM_REPORTING_LINE,
-            missing_fields=missing_here,
-        )
-        team["reporting_line"] = widget_factory.text_input(
-            ProfilePaths.TEAM_REPORTING_LINE,
-            reporting_label,
-            widget_factory=reporting_cols[0].text_input,
-            placeholder=tr("Zugeordnete Leitung eintragen", "Enter the overseeing function"),
-            value_formatter=_string_or_empty,
-            help=merge_missing_help(
-                None,
-                field_path=ProfilePaths.TEAM_REPORTING_LINE,
-                missing_fields=missing_here,
-            ),
-        )
-        _update_profile(ProfilePaths.TEAM_REPORTING_LINE, team.get("reporting_line", ""))
-        _update_profile(ProfilePaths.POSITION_REPORTING_LINE, team.get("reporting_line", ""))
-        if ProfilePaths.TEAM_REPORTING_LINE in missing_here and not team.get("reporting_line"):
-            reporting_cols[0].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
-        reporting_followups = reporting_cols[1].expander(tr("KI-Fragen", "AI questions"), expanded=False)
-        _render_followups_for_fields(
-            (ProfilePaths.TEAM_REPORTING_LINE,),
-            data,
-            container_factory=reporting_followups.container,
-        )
-
-        start_cols = st.columns((1.2, 1))
-        start_selection = _render_target_start_date_input(start_cols[0], meta_data, missing_fields=missing_here)
-        meta_data["target_start_date"] = start_selection.isoformat() if isinstance(start_selection, date) else ""
-        start_followups = start_cols[1].expander(tr("KI-Fragen", "AI questions"), expanded=False)
-        _render_followups_for_fields(
-            (ProfilePaths.META_TARGET_START_DATE,),
-            data,
-            container_factory=start_followups.container,
-        )
-
-    advisor_expander = st.expander(tr("Team Advisor", "Team Advisor"), expanded=False)
-    with advisor_expander:
+    def _render_team_tools() -> None:
         render_team_advisor_unavailable_notice(st.session_state.get("lang", "de"))
         render_team_advisor(profile=data, position=position, update_profile=_update_profile)
 
-    render_section_heading(tr("Team & Struktur", "Team & Structure"))
-    role_cols = st.columns((1.3, 1))
-    with role_cols[0]:
-        _render_esco_occupation_selector(position)
-
-    position["seniority_level"] = widget_factory.text_input(
-        ProfilePaths.POSITION_SENIORITY,
-        tr("Seniorität", "Seniority"),
-        widget_factory=role_cols[1].text_input,
-        placeholder=tr("Karrierestufe angeben", "Enter the seniority level"),
-        value_formatter=_string_or_empty,
-    )
-
-    reporting_fields = st.columns((1.8, 1))
-    reports_to_label = tr("Berichtet an (Funktion)", "Reports to (title)")
-    position["reports_to"] = widget_factory.text_input(
-        ProfilePaths.POSITION_REPORTS_TO,
-        reports_to_label,
-        widget_factory=reporting_fields[0].text_input,
-        placeholder=tr("Führungstitel eintragen", "Enter the manager title"),
-        value_formatter=_string_or_empty,
-    )
-    _update_profile(ProfilePaths.POSITION_REPORTS_TO, position.get("reports_to", ""))
-    reports_to_followups = reporting_fields[1].expander(tr("KI-Fragen", "AI questions"), expanded=False)
-    _render_followups_for_fields(
-        (ProfilePaths.POSITION_REPORTS_TO,),
-        data,
-        container_factory=reports_to_followups.container,
-    )
-
-    manager_cols = st.columns((1, 1))
-    position["reporting_manager_name"] = widget_factory.text_input(
-        ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
-        format_missing_label(
-            tr("Vorgesetzte Person", "Reporting manager") + REQUIRED_SUFFIX,
-            field_path=ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
-            missing_fields=missing_here,
-        ),
-        widget_factory=manager_cols[0].text_input,
-        placeholder=tr(
-            "Name der vorgesetzten Person eintragen",
-            "Enter the reporting manager's name",
-        ),
-        value_formatter=_string_or_empty,
-        help=merge_missing_help(
-            None,
-            field_path=ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
-            missing_fields=missing_here,
-        ),
-    )
-    _update_profile(
-        ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
-        position.get("reporting_manager_name", ""),
-    )
-    manager_followups = manager_cols[1].expander(tr("KI-Fragen", "AI questions"), expanded=False)
-    _render_followups_for_fields(
-        (ProfilePaths.POSITION_REPORTING_MANAGER_NAME,),
-        data,
-        container_factory=manager_followups.container,
-    )
-    position["customer_contact_required"] = manager_cols[1].toggle(
-        tr(*CUSTOMER_CONTACT_TOGGLE_LABEL),
-        value=bool(position.get("customer_contact_required")),
-        help=tr(*POSITION_CUSTOMER_CONTACT_TOGGLE_HELP),
-    )
-    _update_profile(
-        ProfilePaths.POSITION_CUSTOMER_CONTACT_REQUIRED,
-        position.get("customer_contact_required"),
-    )
-    if position.get("customer_contact_required"):
-        position["customer_contact_details"] = st.text_area(
-            tr("Kontakt-Details", "Contact details"),
-            value=position.get("customer_contact_details", ""),
-            key=ProfilePaths.POSITION_CUSTOMER_CONTACT_DETAILS,
-            height=80,
-            placeholder=tr(*POSITION_CUSTOMER_CONTACT_DETAILS_HINT),
+    def _render_team_missing() -> None:
+        _render_followups_for_fields((ProfilePaths.POSITION_JOB_TITLE,), data, container_factory=st.container)
+        _render_followups_for_fields((ProfilePaths.TEAM_REPORTING_LINE,), data, container_factory=st.container)
+        _render_followups_for_fields((ProfilePaths.META_TARGET_START_DATE,), data, container_factory=st.container)
+        _render_followups_for_fields((ProfilePaths.POSITION_REPORTS_TO,), data, container_factory=st.container)
+        _render_followups_for_fields(
+            (ProfilePaths.POSITION_REPORTING_MANAGER_NAME,), data, container_factory=st.container
         )
-    else:
-        position.pop("customer_contact_details", None)
-    _update_profile(
-        ProfilePaths.POSITION_CUSTOMER_CONTACT_DETAILS,
-        position.get("customer_contact_details"),
-    )
-    summary_cols = st.columns((1.8, 1))
-    summary_label = format_missing_label(
-        tr(*ROLE_SUMMARY_LABEL),
-        field_path=ProfilePaths.POSITION_ROLE_SUMMARY,
-        missing_fields=missing_here,
-    )
-    if ProfilePaths.POSITION_ROLE_SUMMARY in missing_here:
-        summary_label += REQUIRED_SUFFIX
-    position["role_summary"] = summary_cols[0].text_area(
-        summary_label,
-        value=st.session_state.get(ProfilePaths.POSITION_ROLE_SUMMARY, position.get("role_summary", "")),
-        height=120,
-        key=ProfilePaths.POSITION_ROLE_SUMMARY,
-        help=merge_missing_help(
-            None,
-            field_path=ProfilePaths.POSITION_ROLE_SUMMARY,
-            missing_fields=missing_here,
-        ),
-    )
-    if ProfilePaths.POSITION_ROLE_SUMMARY in missing_here and not position.get("role_summary"):
-        summary_cols[0].caption(tr("Dieses Feld ist erforderlich", "This field is required"))
-    summary_followups = summary_cols[1].expander(tr("KI-Fragen", "AI questions"), expanded=False)
-    _render_followups_for_fields(
-        (ProfilePaths.POSITION_ROLE_SUMMARY,),
-        data,
-        container_factory=summary_followups.container,
-    )
+        _render_followups_for_fields((ProfilePaths.POSITION_ROLE_SUMMARY,), data, container_factory=st.container)
+        _render_followups_for_step("team", data)
 
-    render_section_heading(tr("Zeitplan", "Timing"), icon="⏱️", size="compact")
+    def _render_team_known() -> None:
+        render_step_warning_banner()
+        render_missing_field_summary(missing_here)
+        for intro in intros:
+            st.caption(intro)
 
-    timing_cols = st.columns((1.4, 1))
-    application_deadline_default = _default_date(meta_data.get("application_deadline"))
-    deadline_selection = timing_cols[0].date_input(
-        tr("Bewerbungsschluss", "Application deadline"),
-        value=application_deadline_default,
-        format="YYYY-MM-DD",
-    )
-    meta_data["application_deadline"] = deadline_selection.isoformat() if isinstance(deadline_selection, date) else ""
-
-    position["supervises"] = timing_cols[1].number_input(
-        tr("Anzahl unterstellter Mitarbeiter", "Direct reports"),
-        min_value=0,
-        value=position.get("supervises", 0),
-        step=1,
-    )
-
-    with st.expander(tr("Weitere Rollen-Details", "Additional role details")):
-        position["performance_indicators"] = st.text_area(
-            tr("Leistungskennzahlen", "Performance indicators"),
-            value=position.get("performance_indicators", ""),
-            height=80,
+        render_section_heading(
+            tr("Pflichtangaben", "Required basics"),
+            icon="📌",
+            size="compact",
         )
-        position["decision_authority"] = st.text_area(
-            tr("Entscheidungsbefugnisse", "Decision-making authority"),
-            value=position.get("decision_authority", ""),
-            height=80,
-        )
+        required_block = st.container()
 
-    render_section_heading(
-        tr("Beschäftigung & Arbeitsmodell", "Employment & working model"),
-        icon="🧭",
-    )
+        with required_block:
+            job_title_container = st.container()
+            title_label = format_missing_label(
+                tr("Jobtitel", "Job title") + REQUIRED_SUFFIX,
+                field_path=ProfilePaths.POSITION_JOB_TITLE,
+                missing_fields=missing_here,
+            )
+            title_lock = _field_lock_config(
+                ProfilePaths.POSITION_JOB_TITLE,
+                title_label,
+                container=job_title_container,
+                context="step",
+            )
+            job_title_kwargs = _apply_field_lock_kwargs(
+                title_lock,
+                {
+                    "help": merge_missing_help(
+                        None,
+                        field_path=ProfilePaths.POSITION_JOB_TITLE,
+                        missing_fields=missing_here,
+                    )
+                },
+            )
+            position["job_title"] = widget_factory.text_input(
+                ProfilePaths.POSITION_JOB_TITLE,
+                title_lock["label"],
+                widget_factory=job_title_container.text_input,
+                placeholder=tr("Jobtitel eingeben", "Enter the job title"),
+                value_formatter=_string_or_empty,
+                **job_title_kwargs,
+            )
+            _update_profile(ProfilePaths.POSITION_JOB_TITLE, position["job_title"])
+            if ProfilePaths.POSITION_JOB_TITLE in missing_here and not position.get("job_title"):
+                job_title_container.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
-    job_type_options = {
-        "full_time": tr("Vollzeit", "Full-time"),
-        "part_time": tr("Teilzeit", "Part-time"),
-        "contract": tr("Freelance / Contract", "Contract"),
-        "internship": tr("Praktikum", "Internship"),
-        "working_student": tr("Werkstudent:in", "Working student"),
-        "trainee_program": tr("Traineeprogramm", "Trainee program"),
-        "apprenticeship": tr("Ausbildung", "Apprenticeship"),
-        "temporary": tr("Befristet", "Temporary"),
-        "other": tr("Sonstiges", "Other"),
-    }
-    contract_options = {
-        "permanent": tr("Unbefristet", "Permanent"),
-        "fixed_term": tr("Befristet", "Fixed term"),
-        "contract": tr("Werkvertrag", "Contract"),
-        "other": tr("Sonstiges", "Other"),
-    }
-    policy_options = {
-        "onsite": tr("Vor Ort", "Onsite"),
-        "hybrid": tr("Hybrid", "Hybrid"),
-        "remote": tr("Remote", "Remote"),
-    }
-
-    job_cols = st.columns(3)
-    job_keys = list(job_type_options.keys())
-    job_default = employment.get("job_type", job_keys[0])
-    job_index = job_keys.index(job_default) if job_default in job_keys else 0
-    employment["job_type"] = job_cols[0].selectbox(
-        tr("Beschäftigungsart", "Employment type"),
-        options=job_keys,
-        index=job_index,
-        format_func=lambda key: job_type_options[key],
-    )
-
-    contract_keys = list(contract_options.keys())
-    contract_default = employment.get("contract_type", contract_keys[0])
-    contract_index = contract_keys.index(contract_default) if contract_default in contract_keys else 0
-    employment["contract_type"] = job_cols[1].selectbox(
-        tr("Vertragsform", "Contract type"),
-        options=contract_keys,
-        index=contract_index,
-        format_func=lambda key: contract_options[key],
-    )
-
-    policy_keys = list(policy_options.keys())
-    policy_default = employment.get("work_policy", policy_keys[0])
-    policy_index = policy_keys.index(policy_default) if policy_default in policy_keys else 0
-    employment["work_policy"] = job_cols[2].selectbox(
-        tr("Arbeitsmodell", "Work policy"),
-        options=policy_keys,
-        index=policy_index,
-        format_func=lambda key: policy_options[key],
-    )
-
-    schedule_options = {
-        "standard": tr("Standard", "Standard"),
-        "flexitime": tr("Gleitzeit", "Flexitime"),
-        "shift": tr("Schichtarbeit", "Shift work"),
-        "weekend": tr("Wochenendarbeit", "Weekend work"),
-        "other": tr("Sonstiges", "Other"),
-    }
-    schedule_keys = list(schedule_options.keys())
-    stored_schedule = str(employment.get("work_schedule") or "").strip()
-    custom_schedule_value = ""
-    if stored_schedule and stored_schedule not in schedule_keys:
-        custom_schedule_value = stored_schedule
-        schedule_default = "other"
-    else:
-        schedule_default = stored_schedule or schedule_keys[0]
-    schedule_index = schedule_keys.index(schedule_default) if schedule_default in schedule_keys else 0
-
-    st.divider()
-    schedule_container = st.container()
-    schedule_cols = schedule_container.columns((2, 1, 1))
-    schedule_selection = schedule_cols[0].selectbox(
-        tr("Arbeitszeitmodell", "Work schedule"),
-        options=schedule_keys,
-        index=schedule_index,
-        format_func=lambda key: schedule_options[key],
-    )
-    if schedule_selection == "other":
-        custom_value = (
-            schedule_cols[0]
-            .text_input(
-                tr("Individuelles Modell", "Custom schedule"),
-                value=custom_schedule_value,
-                placeholder=tr(
-                    "Arbeitszeitmodell beschreiben",
-                    "Describe the working time model",
+            reporting_container = st.container()
+            reporting_label = format_missing_label(
+                tr("Berichtslinie (Funktion)", "Reporting line (function)") + REQUIRED_SUFFIX,
+                field_path=ProfilePaths.TEAM_REPORTING_LINE,
+                missing_fields=missing_here,
+            )
+            team["reporting_line"] = widget_factory.text_input(
+                ProfilePaths.TEAM_REPORTING_LINE,
+                reporting_label,
+                widget_factory=reporting_container.text_input,
+                placeholder=tr("Zugeordnete Leitung eintragen", "Enter the overseeing function"),
+                value_formatter=_string_or_empty,
+                help=merge_missing_help(
+                    None,
+                    field_path=ProfilePaths.TEAM_REPORTING_LINE,
+                    missing_fields=missing_here,
                 ),
             )
-            .strip()
-        )
-        employment["work_schedule"] = custom_value
-    else:
-        employment["work_schedule"] = schedule_selection
+            _update_profile(ProfilePaths.TEAM_REPORTING_LINE, team.get("reporting_line", ""))
+            _update_profile(ProfilePaths.POSITION_REPORTING_LINE, team.get("reporting_line", ""))
+            if ProfilePaths.TEAM_REPORTING_LINE in missing_here and not team.get("reporting_line"):
+                reporting_container.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
 
-    remote_col = schedule_cols[1]
-    if employment.get("work_policy") in {"hybrid", "remote"}:
-        employment["remote_percentage"] = remote_col.number_input(
-            tr("Remote-Anteil (%)", "Remote share (%)"),
-            min_value=0,
-            max_value=100,
-            value=int(employment.get("remote_percentage") or 0),
-        )
-    else:
-        remote_col.empty()
-        employment.pop("remote_percentage", None)
+            start_container = st.container()
+            start_selection = _render_target_start_date_input(start_container, meta_data, missing_fields=missing_here)
+            meta_data["target_start_date"] = start_selection.isoformat() if isinstance(start_selection, date) else ""
 
-    contract_end_col = schedule_cols[2]
-    if employment.get("contract_type") == "fixed_term":
-        contract_end_default = _default_date(employment.get("contract_end"), fallback=date.today())
-        contract_end_value = contract_end_col.date_input(
-            tr("Vertragsende", "Contract end"),
-            value=contract_end_default,
+        render_section_heading(tr("Team & Struktur", "Team & Structure"))
+        role_cols = st.columns((1.3, 1))
+        with role_cols[0]:
+            _render_esco_occupation_selector(position)
+
+        position["seniority_level"] = widget_factory.text_input(
+            ProfilePaths.POSITION_SENIORITY,
+            tr("Seniorität", "Seniority"),
+            widget_factory=role_cols[1].text_input,
+            placeholder=tr("Karrierestufe angeben", "Enter the seniority level"),
+            value_formatter=_string_or_empty,
+        )
+
+        reports_to_container = st.container()
+        reports_to_label = tr("Berichtet an (Funktion)", "Reports to (title)")
+        position["reports_to"] = widget_factory.text_input(
+            ProfilePaths.POSITION_REPORTS_TO,
+            reports_to_label,
+            widget_factory=reports_to_container.text_input,
+            placeholder=tr("Führungstitel eintragen", "Enter the manager title"),
+            value_formatter=_string_or_empty,
+        )
+        _update_profile(ProfilePaths.POSITION_REPORTS_TO, position.get("reports_to", ""))
+
+        manager_cols = st.columns((1, 1))
+        position["reporting_manager_name"] = widget_factory.text_input(
+            ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
+            format_missing_label(
+                tr("Vorgesetzte Person", "Reporting manager") + REQUIRED_SUFFIX,
+                field_path=ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
+                missing_fields=missing_here,
+            ),
+            widget_factory=manager_cols[0].text_input,
+            placeholder=tr(
+                "Name der vorgesetzten Person eintragen",
+                "Enter the reporting manager's name",
+            ),
+            value_formatter=_string_or_empty,
+            help=merge_missing_help(
+                None,
+                field_path=ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
+                missing_fields=missing_here,
+            ),
+        )
+        _update_profile(
+            ProfilePaths.POSITION_REPORTING_MANAGER_NAME,
+            position.get("reporting_manager_name", ""),
+        )
+        position["customer_contact_required"] = manager_cols[1].toggle(
+            tr(*CUSTOMER_CONTACT_TOGGLE_LABEL),
+            value=bool(position.get("customer_contact_required")),
+            help=tr(*POSITION_CUSTOMER_CONTACT_TOGGLE_HELP),
+        )
+        _update_profile(
+            ProfilePaths.POSITION_CUSTOMER_CONTACT_REQUIRED,
+            position.get("customer_contact_required"),
+        )
+        if position.get("customer_contact_required"):
+            position["customer_contact_details"] = st.text_area(
+                tr("Kontakt-Details", "Contact details"),
+                value=position.get("customer_contact_details", ""),
+                key=ProfilePaths.POSITION_CUSTOMER_CONTACT_DETAILS,
+                height=80,
+                placeholder=tr(*POSITION_CUSTOMER_CONTACT_DETAILS_HINT),
+            )
+        else:
+            position.pop("customer_contact_details", None)
+        _update_profile(
+            ProfilePaths.POSITION_CUSTOMER_CONTACT_DETAILS,
+            position.get("customer_contact_details"),
+        )
+        summary_container = st.container()
+        summary_label = format_missing_label(
+            tr(*ROLE_SUMMARY_LABEL),
+            field_path=ProfilePaths.POSITION_ROLE_SUMMARY,
+            missing_fields=missing_here,
+        )
+        if ProfilePaths.POSITION_ROLE_SUMMARY in missing_here:
+            summary_label += REQUIRED_SUFFIX
+        position["role_summary"] = summary_container.text_area(
+            summary_label,
+            value=st.session_state.get(ProfilePaths.POSITION_ROLE_SUMMARY, position.get("role_summary", "")),
+            height=120,
+            key=ProfilePaths.POSITION_ROLE_SUMMARY,
+            help=merge_missing_help(
+                None,
+                field_path=ProfilePaths.POSITION_ROLE_SUMMARY,
+                missing_fields=missing_here,
+            ),
+        )
+        if ProfilePaths.POSITION_ROLE_SUMMARY in missing_here and not position.get("role_summary"):
+            summary_container.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+
+        render_section_heading(tr("Zeitplan", "Timing"), icon="⏱️", size="compact")
+
+        timing_cols = st.columns((1.4, 1))
+        application_deadline_default = _default_date(meta_data.get("application_deadline"))
+        deadline_selection = timing_cols[0].date_input(
+            tr("Bewerbungsschluss", "Application deadline"),
+            value=application_deadline_default,
             format="YYYY-MM-DD",
         )
-        employment["contract_end"] = (
-            contract_end_value.isoformat()
-            if isinstance(contract_end_value, date)
-            else employment.get("contract_end", "")
+        meta_data["application_deadline"] = (
+            deadline_selection.isoformat() if isinstance(deadline_selection, date) else ""
         )
-    else:
-        contract_end_col.empty()
-        employment.pop("contract_end", None)
 
-    toggle_row_1 = st.columns(3)
-    employment["travel_required"] = toggle_row_1[0].toggle(
-        tr("Reisetätigkeit?", "Travel required?"),
-        value=bool(employment.get("travel_required")),
-        help=tr(*EMPLOYMENT_TRAVEL_TOGGLE_HELP),
-    )
-    employment["relocation_support"] = toggle_row_1[1].toggle(
-        tr("Relocation?", "Relocation?"),
-        value=bool(employment.get("relocation_support")),
-        help=tr(*EMPLOYMENT_RELOCATION_TOGGLE_HELP),
-    )
-    employment["visa_sponsorship"] = toggle_row_1[2].toggle(
-        tr("Visum-Sponsoring?", "Visa sponsorship?"),
-        value=bool(employment.get("visa_sponsorship")),
-        help=tr(*EMPLOYMENT_VISA_TOGGLE_HELP),
-    )
+        position["supervises"] = timing_cols[1].number_input(
+            tr("Anzahl unterstellter Mitarbeiter", "Direct reports"),
+            min_value=0,
+            value=position.get("supervises", 0),
+            step=1,
+        )
 
-    toggle_row_2 = st.columns(3)
-    employment["overtime_expected"] = toggle_row_2[0].toggle(
-        tr("Überstunden?", "Overtime expected?"),
-        value=bool(employment.get("overtime_expected")),
-        help=tr(*EMPLOYMENT_OVERTIME_TOGGLE_HELP),
-    )
-    employment["security_clearance_required"] = toggle_row_2[1].toggle(
-        tr("Sicherheitsüberprüfung?", "Security clearance required?"),
-        value=bool(employment.get("security_clearance_required")),
-        help=tr(*EMPLOYMENT_SECURITY_TOGGLE_HELP),
-    )
-    employment["shift_work"] = toggle_row_2[2].toggle(
-        tr("Schichtarbeit?", "Shift work?"),
-        value=bool(employment.get("shift_work")),
-        help=tr(*EMPLOYMENT_SHIFT_TOGGLE_HELP),
-    )
+        with st.expander(tr("Weitere Rollen-Details", "Additional role details")):
+            position["performance_indicators"] = st.text_area(
+                tr("Leistungskennzahlen", "Performance indicators"),
+                value=position.get("performance_indicators", ""),
+                height=80,
+            )
+            position["decision_authority"] = st.text_area(
+                tr("Entscheidungsbefugnisse", "Decision-making authority"),
+                value=position.get("decision_authority", ""),
+                height=80,
+            )
 
-    if employment.get("travel_required"):
-        with st.expander(tr("Details zur Reisetätigkeit", "Travel details"), expanded=True):
-            col_share, col_region, col_details = st.columns((1, 2, 2))
-            share_default = int(employment.get("travel_share") or 0)
-            employment["travel_share"] = col_share.number_input(
-                tr("Reiseanteil (%)", "Travel share (%)"),
+        render_section_heading(
+            tr("Beschäftigung & Arbeitsmodell", "Employment & working model"),
+            icon="🧭",
+        )
+
+        job_type_options = {
+            "full_time": tr("Vollzeit", "Full-time"),
+            "part_time": tr("Teilzeit", "Part-time"),
+            "contract": tr("Freelance / Contract", "Contract"),
+            "internship": tr("Praktikum", "Internship"),
+            "working_student": tr("Werkstudent:in", "Working student"),
+            "trainee_program": tr("Traineeprogramm", "Trainee program"),
+            "apprenticeship": tr("Ausbildung", "Apprenticeship"),
+            "temporary": tr("Befristet", "Temporary"),
+            "other": tr("Sonstiges", "Other"),
+        }
+        contract_options = {
+            "permanent": tr("Unbefristet", "Permanent"),
+            "fixed_term": tr("Befristet", "Fixed term"),
+            "contract": tr("Werkvertrag", "Contract"),
+            "other": tr("Sonstiges", "Other"),
+        }
+        policy_options = {
+            "onsite": tr("Vor Ort", "Onsite"),
+            "hybrid": tr("Hybrid", "Hybrid"),
+            "remote": tr("Remote", "Remote"),
+        }
+
+        job_cols = st.columns(3)
+        job_keys = list(job_type_options.keys())
+        job_default = employment.get("job_type", job_keys[0])
+        job_index = job_keys.index(job_default) if job_default in job_keys else 0
+        employment["job_type"] = job_cols[0].selectbox(
+            tr("Beschäftigungsart", "Employment type"),
+            options=job_keys,
+            index=job_index,
+            format_func=lambda key: job_type_options[key],
+        )
+
+        contract_keys = list(contract_options.keys())
+        contract_default = employment.get("contract_type", contract_keys[0])
+        contract_index = contract_keys.index(contract_default) if contract_default in contract_keys else 0
+        employment["contract_type"] = job_cols[1].selectbox(
+            tr("Vertragsform", "Contract type"),
+            options=contract_keys,
+            index=contract_index,
+            format_func=lambda key: contract_options[key],
+        )
+
+        policy_keys = list(policy_options.keys())
+        policy_default = employment.get("work_policy", policy_keys[0])
+        policy_index = policy_keys.index(policy_default) if policy_default in policy_keys else 0
+        employment["work_policy"] = job_cols[2].selectbox(
+            tr("Arbeitsmodell", "Work policy"),
+            options=policy_keys,
+            index=policy_index,
+            format_func=lambda key: policy_options[key],
+        )
+
+        schedule_options = {
+            "standard": tr("Standard", "Standard"),
+            "flexitime": tr("Gleitzeit", "Flexitime"),
+            "shift": tr("Schichtarbeit", "Shift work"),
+            "weekend": tr("Wochenendarbeit", "Weekend work"),
+            "other": tr("Sonstiges", "Other"),
+        }
+        schedule_keys = list(schedule_options.keys())
+        stored_schedule = str(employment.get("work_schedule") or "").strip()
+        custom_schedule_value = ""
+        if stored_schedule and stored_schedule not in schedule_keys:
+            custom_schedule_value = stored_schedule
+            schedule_default = "other"
+        else:
+            schedule_default = stored_schedule or schedule_keys[0]
+        schedule_index = schedule_keys.index(schedule_default) if schedule_default in schedule_keys else 0
+
+        st.divider()
+        schedule_container = st.container()
+        schedule_cols = schedule_container.columns((2, 1, 1))
+        schedule_selection = schedule_cols[0].selectbox(
+            tr("Arbeitszeitmodell", "Work schedule"),
+            options=schedule_keys,
+            index=schedule_index,
+            format_func=lambda key: schedule_options[key],
+        )
+        if schedule_selection == "other":
+            custom_value = (
+                schedule_cols[0]
+                .text_input(
+                    tr("Individuelles Modell", "Custom schedule"),
+                    value=custom_schedule_value,
+                    placeholder=tr(
+                        "Arbeitszeitmodell beschreiben",
+                        "Describe the working time model",
+                    ),
+                )
+                .strip()
+            )
+            employment["work_schedule"] = custom_value
+        else:
+            employment["work_schedule"] = schedule_selection
+
+        remote_col = schedule_cols[1]
+        if employment.get("work_policy") in {"hybrid", "remote"}:
+            employment["remote_percentage"] = remote_col.number_input(
+                tr("Remote-Anteil (%)", "Remote share (%)"),
                 min_value=0,
                 max_value=100,
-                step=5,
-                value=share_default,
+                value=int(employment.get("remote_percentage") or 0),
             )
+        else:
+            remote_col.empty()
+            employment.pop("remote_percentage", None)
 
-            scope_options = [
-                ("germany", tr("Deutschland", "Germany")),
-                ("europe", tr("Europa", "Europe")),
-                ("worldwide", tr("Weltweit", "Worldwide")),
-            ]
-            scope_lookup = {value: label for value, label in scope_options}
-            current_scope = employment.get("travel_region_scope", "germany")
-            scope_index = next(
-                (idx for idx, (value, _) in enumerate(scope_options) if value == current_scope),
-                0,
+        contract_end_col = schedule_cols[2]
+        if employment.get("contract_type") == "fixed_term":
+            contract_end_default = _default_date(employment.get("contract_end"), fallback=date.today())
+            contract_end_value = contract_end_col.date_input(
+                tr("Vertragsende", "Contract end"),
+                value=contract_end_default,
+                format="YYYY-MM-DD",
             )
-            selected_scope = col_region.selectbox(
-                tr("Reiseregion", "Travel region"),
-                options=[value for value, _ in scope_options],
-                format_func=lambda opt: scope_lookup[opt],
-                index=scope_index,
+            employment["contract_end"] = (
+                contract_end_value.isoformat()
+                if isinstance(contract_end_value, date)
+                else employment.get("contract_end", "")
             )
-            employment["travel_region_scope"] = selected_scope
+        else:
+            contract_end_col.empty()
+            employment.pop("contract_end", None)
 
-            stored_regions = employment.get("travel_regions", [])
-            stored_continents = employment.get("travel_continents", [])
-
-            if selected_scope == "germany":
-                selected_regions = col_region.multiselect(
-                    tr("Bundesländer", "Federal states"),
-                    options=GERMAN_STATES,
-                    default=[region for region in stored_regions if region in GERMAN_STATES],
-                )
-                employment["travel_regions"] = selected_regions
-                employment.pop("travel_continents", None)
-            elif selected_scope == "europe":
-                selected_regions = col_region.multiselect(
-                    tr("Länder (Europa)", "Countries (Europe)"),
-                    options=EUROPEAN_COUNTRIES,
-                    default=[region for region in stored_regions if region in EUROPEAN_COUNTRIES],
-                )
-                employment["travel_regions"] = selected_regions
-                employment.pop("travel_continents", None)
-            else:
-                continent_options = list(CONTINENT_COUNTRIES.keys())
-                selected_continents = col_region.multiselect(
-                    tr("Kontinente", "Continents"),
-                    options=continent_options,
-                    default=[continent for continent in stored_continents if continent in continent_options],
-                )
-                employment["travel_continents"] = selected_continents
-                base_continents = selected_continents or continent_options
-                available_countries = sorted(
-                    {country for continent in base_continents for country in CONTINENT_COUNTRIES.get(continent, [])}
-                )
-                selected_countries = col_region.multiselect(
-                    tr("Länder", "Countries"),
-                    options=available_countries,
-                    default=[country for country in stored_regions if country in available_countries],
-                )
-                employment["travel_regions"] = selected_countries
-
-            employment["travel_details"] = text_input_with_state(
-                tr("Zusatzinfos", "Additional details"),
-                target=employment,
-                field="travel_details",
-                widget_factory=col_details.text_input,
-            )
-    else:
-        for field_name in (
-            "travel_share",
-            "travel_region_scope",
-            "travel_regions",
-            "travel_continents",
-            "travel_details",
-        ):
-            employment.pop(field_name, None)
-
-    if employment.get("relocation_support"):
-        employment["relocation_details"] = text_input_with_state(
-            tr("Relocation-Details", "Relocation details"),
-            target=employment,
-            field="relocation_details",
+        toggle_row_1 = st.columns(3)
+        employment["travel_required"] = toggle_row_1[0].toggle(
+            tr("Reisetätigkeit?", "Travel required?"),
+            value=bool(employment.get("travel_required")),
+            help=tr(*EMPLOYMENT_TRAVEL_TOGGLE_HELP),
         )
-    else:
-        employment.pop("relocation_details", None)
+        employment["relocation_support"] = toggle_row_1[1].toggle(
+            tr("Relocation?", "Relocation?"),
+            value=bool(employment.get("relocation_support")),
+            help=tr(*EMPLOYMENT_RELOCATION_TOGGLE_HELP),
+        )
+        employment["visa_sponsorship"] = toggle_row_1[2].toggle(
+            tr("Visum-Sponsoring?", "Visa sponsorship?"),
+            value=bool(employment.get("visa_sponsorship")),
+            help=tr(*EMPLOYMENT_VISA_TOGGLE_HELP),
+        )
 
-    # Inline follow-up questions for Position, Location and Employment section
-    _render_followups_for_step("team", data)
+        toggle_row_2 = st.columns(3)
+        employment["overtime_expected"] = toggle_row_2[0].toggle(
+            tr("Überstunden?", "Overtime expected?"),
+            value=bool(employment.get("overtime_expected")),
+            help=tr(*EMPLOYMENT_OVERTIME_TOGGLE_HELP),
+        )
+        employment["security_clearance_required"] = toggle_row_2[1].toggle(
+            tr("Sicherheitsüberprüfung?", "Security clearance required?"),
+            value=bool(employment.get("security_clearance_required")),
+            help=tr(*EMPLOYMENT_SECURITY_TOGGLE_HELP),
+        )
+        employment["shift_work"] = toggle_row_2[2].toggle(
+            tr("Schichtarbeit?", "Shift work?"),
+            value=bool(employment.get("shift_work")),
+            help=tr(*EMPLOYMENT_SHIFT_TOGGLE_HELP),
+        )
+
+        if employment.get("travel_required"):
+            with st.expander(tr("Details zur Reisetätigkeit", "Travel details"), expanded=True):
+                col_share, col_region, col_details = st.columns((1, 2, 2))
+                share_default = int(employment.get("travel_share") or 0)
+                employment["travel_share"] = col_share.number_input(
+                    tr("Reiseanteil (%)", "Travel share (%)"),
+                    min_value=0,
+                    max_value=100,
+                    step=5,
+                    value=share_default,
+                )
+
+                scope_options = [
+                    ("germany", tr("Deutschland", "Germany")),
+                    ("europe", tr("Europa", "Europe")),
+                    ("worldwide", tr("Weltweit", "Worldwide")),
+                ]
+                scope_lookup = {value: label for value, label in scope_options}
+                current_scope = employment.get("travel_region_scope", "germany")
+                scope_index = next(
+                    (idx for idx, (value, _) in enumerate(scope_options) if value == current_scope),
+                    0,
+                )
+                selected_scope = col_region.selectbox(
+                    tr("Reiseregion", "Travel region"),
+                    options=[value for value, _ in scope_options],
+                    format_func=lambda opt: scope_lookup[opt],
+                    index=scope_index,
+                )
+                employment["travel_region_scope"] = selected_scope
+
+                stored_regions = employment.get("travel_regions", [])
+                stored_continents = employment.get("travel_continents", [])
+
+                if selected_scope == "germany":
+                    selected_regions = col_region.multiselect(
+                        tr("Bundesländer", "Federal states"),
+                        options=GERMAN_STATES,
+                        default=[region for region in stored_regions if region in GERMAN_STATES],
+                    )
+                    employment["travel_regions"] = selected_regions
+                    employment.pop("travel_continents", None)
+                elif selected_scope == "europe":
+                    selected_regions = col_region.multiselect(
+                        tr("Länder (Europa)", "Countries (Europe)"),
+                        options=EUROPEAN_COUNTRIES,
+                        default=[region for region in stored_regions if region in EUROPEAN_COUNTRIES],
+                    )
+                    employment["travel_regions"] = selected_regions
+                    employment.pop("travel_continents", None)
+                else:
+                    continent_options = list(CONTINENT_COUNTRIES.keys())
+                    selected_continents = col_region.multiselect(
+                        tr("Kontinente", "Continents"),
+                        options=continent_options,
+                        default=[continent for continent in stored_continents if continent in continent_options],
+                    )
+                    employment["travel_continents"] = selected_continents
+                    base_continents = selected_continents or continent_options
+                    available_countries = sorted(
+                        {country for continent in base_continents for country in CONTINENT_COUNTRIES.get(continent, [])}
+                    )
+                    selected_countries = col_region.multiselect(
+                        tr("Länder", "Countries"),
+                        options=available_countries,
+                        default=[country for country in stored_regions if country in available_countries],
+                    )
+                    employment["travel_regions"] = selected_countries
+
+                employment["travel_details"] = text_input_with_state(
+                    tr("Zusatzinfos", "Additional details"),
+                    target=employment,
+                    field="travel_details",
+                    widget_factory=col_details.text_input,
+                )
+        else:
+            for field_name in (
+                "travel_share",
+                "travel_region_scope",
+                "travel_regions",
+                "travel_continents",
+                "travel_details",
+            ):
+                employment.pop(field_name, None)
+
+        if employment.get("relocation_support"):
+            employment["relocation_details"] = text_input_with_state(
+                tr("Relocation-Details", "Relocation details"),
+                target=employment,
+                field="relocation_details",
+            )
+        else:
+            employment.pop("relocation_details", None)
+
+    # GREP:STEP_TEAM_LAYOUT_V1
+    render_step_layout(
+        title,
+        subtitle,
+        known_cb=_render_team_known,
+        missing_cb=_render_team_missing,
+        missing_paths=missing_here,
+        tools_cb=_render_team_tools,
+    )
 
 
 def step_team(context: WizardContext) -> None:

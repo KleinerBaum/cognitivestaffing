@@ -48,6 +48,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - The strict JSON extraction toggle was removed from the UI; strict parsing now stays enabled by default and relies on automatic repair/fallback flows when payloads are invalid.
 - Team & Structure now enforces the job title as a required field and keeps the AI team advisor disabled until job title and reporting-line details are available, preventing empty prompts from running.
 - Company step now uses the shared Known/Missing step layout with a dedicated tools expander for assistants.
+- Team & Structure step now uses the shared Known/Missing step layout with a dedicated tools expander for assistants.
 
 ### Removed
 - Diary template and OneDrive upload tab have been retired; the landing page now focuses solely on the wizard and export flows.

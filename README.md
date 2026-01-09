@@ -75,6 +75,7 @@ Every step MUST render in the same top-down pattern:
    - One primary action: continue.
 
 The Company step now uses the shared `render_step_layout` helper to align with the Known/Missing/Tools structure (`wizard/step_layout.py`).
+The Team & Structure step now uses the shared `render_step_layout` helper to align with the Known/Missing/Tools structure (`wizard/step_layout.py`).
 
 ### Tools & assistants (UX rule)
 
