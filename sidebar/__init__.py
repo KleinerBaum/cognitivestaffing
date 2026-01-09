@@ -108,7 +108,7 @@ STEP_KEY_ALIASES: dict[str, str] = {
 PATH_PREFIX_STEP_MAP: tuple[tuple[str, str], ...] = (
     ("company.", "company"),
     ("position.", "team"),
-    ("location.", "team"),
+    ("location.", "company"),
     ("employment.", "team"),
     ("responsibilities.", "role_tasks"),
     ("requirements.", "skills"),
