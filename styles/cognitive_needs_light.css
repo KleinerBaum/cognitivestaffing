@@ -74,6 +74,8 @@
   --shadow-strong: 0 28px 58px rgba(31, 115, 180, 0.2);
   --focus-ring: rgba(31, 181, 197, 0.32);
   --focus-ring-contrast: rgba(236, 245, 255, 0.95);
+  --focus-border: rgba(24, 201, 212, 0.7);
+  --ring-accent: rgba(24, 201, 212, 0.22);
   --accent-glow: drop-shadow(0 0 12px rgba(31, 181, 197, 0.28));
   --button-gradient: linear-gradient(130deg, rgba(31, 181, 197, 0.95), rgba(42, 159, 237, 0.9), rgba(255, 182, 92, 0.9));
   --button-gradient-hover: linear-gradient(130deg, rgba(31, 159, 214, 0.98), rgba(31, 181, 197, 0.96), rgba(248, 148, 107, 0.92));
@@ -1028,12 +1030,62 @@ footer, #MainMenu {
 }
 
 .onboarding-source-inputs > div[data-testid="stHorizontalBlock"] div[data-testid="column"] {
-  flex: 1 1 0;
   min-width: 0;
 }
 
 .onboarding-source-inputs > div[data-testid="stHorizontalBlock"] div[data-testid="column"] > div {
   width: 100%;
+}
+
+.onboarding-source__panel {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  box-shadow: 0 12px 30px rgba(52, 113, 171, 0.18);
+  display: grid;
+  gap: var(--space-sm);
+  padding: clamp(1rem, 2vw, 1.5rem);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.onboarding-source__panel:focus-within {
+  border-color: var(--focus-border);
+  box-shadow: 0 0 0 1px var(--focus-border), 0 0 0 5px var(--ring-accent);
+}
+
+.onboarding-source__or {
+  align-items: center;
+  color: var(--text-muted);
+  display: flex;
+  font-weight: 600;
+  height: 100%;
+  justify-content: center;
+  min-height: 10rem;
+  position: relative;
+  width: 100%;
+}
+
+.onboarding-source__or::before {
+  background: var(--border-subtle);
+  bottom: 0;
+  content: "";
+  left: 50%;
+  position: absolute;
+  top: 0;
+  width: 1px;
+}
+
+.onboarding-source__or span {
+  background: var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  color: var(--text-strong);
+  font-size: var(--font-size-caption);
+  letter-spacing: 0.08em;
+  padding: 0.25rem 0.85rem;
+  position: relative;
+  text-transform: uppercase;
+  z-index: 1;
 }
 
 .onboarding-source-inputs
@@ -1054,6 +1106,20 @@ footer, #MainMenu {
 
   .onboarding-source-inputs > div[data-testid="stHorizontalBlock"] div[data-testid="column"] {
     flex: 1 1 100%;
+    max-width: 100%;
+  }
+
+  .onboarding-source__or {
+    min-height: 0;
+    padding: var(--space-sm) 0;
+  }
+
+  .onboarding-source__or::before {
+    height: 1px;
+    left: 0;
+    right: 0;
+    top: 50%;
+    width: auto;
   }
 }
 
