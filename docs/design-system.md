@@ -29,8 +29,8 @@
 | `--space-xl` | Hero/Panel padding | Innenabstand für Panels/Hero | `1.5rem` |
 | `--space-2xl` | Large layout breaks | Große Layout-Abstände | `2.25rem` |
 
-## Hero & Banner Tokens / Hero- & Banner-Tokens
-Shared hero/banner tokens drive the onboarding hero (`wizard/layout.py`) and the global banner (`.app-banner`) so both themes render consistent panel spacing and typography.
+## Hero Tokens / Hero-Tokens
+Shared hero tokens drive the onboarding hero (`wizard/layout.py`) so both themes render consistent panel spacing and typography. The UI now uses a single onboarding hero (no global banner), so banner-specific styling is considered legacy and should not be referenced in new UI work.
 
 | Token | Purpose (EN) | Zweck (DE) | Value |
 | --- | --- | --- | --- |
@@ -53,27 +53,6 @@ Shared hero/banner tokens drive the onboarding hero (`wizard/layout.py`) and the
 | `--hero-panel-subheadline-margin` | Subheadline top margin | Oberer Abstand der Subheadline | `0.85rem` |
 | `--hero-image-filter` | Hero illustration filter | Filter für Hero-Grafik | Theme-specific |
 | `--hero-copy-max-width` | Max width for hero copy | Maximale Breite für Hero-Text | `640px` |
-| `--hero-banner-bg` | Global banner background | Hintergrund des globalen Banners | Theme-specific gradient |
-| `--hero-banner-overlay` | Global banner overlay | Overlay des globalen Banners | Theme-specific gradient |
-| `--hero-banner-border` | Global banner border | Rahmenfarbe des Banners | Theme-specific RGBA |
-| `--hero-banner-logo-bg` | Banner logo tile background | Hintergrund der Logo-Kachel | Theme-specific RGBA |
-| `--hero-banner-logo-border` | Banner logo tile border | Rahmen der Logo-Kachel | Theme-specific RGBA |
-| `--hero-banner-logo-shadow` | Banner logo tile shadow | Schatten der Logo-Kachel | Theme-specific |
-| `--hero-banner-meta-bg` | Banner meta badge background | Hintergrund für Meta-Badges | Theme-specific RGBA |
-| `--hero-banner-meta-border` | Banner meta badge border | Rahmen für Meta-Badges | Theme-specific RGBA |
-| `--hero-banner-gap` | Banner layout gap | Layout-Abstand im Banner | `clamp(1rem, 3vw, 2rem)` |
-| `--hero-banner-padding` | Banner padding | Innenabstand im Banner | `clamp(1.2rem, 1rem + 1.8vw, 2rem) clamp(1.4rem, 1rem + 2vw, 2.4rem)` |
-| `--hero-banner-radius` | Banner corner radius | Eckenradius des Banners | `var(--radius)` |
-| `--hero-banner-eyebrow-size` | Banner eyebrow size | Schriftgröße für Eyebrow im Banner | `0.8rem` |
-| `--hero-banner-eyebrow-letter-spacing` | Banner eyebrow letter spacing | Zeichenabstand Eyebrow im Banner | `0.22em` |
-| `--hero-banner-eyebrow-margin` | Banner eyebrow margin | Abstand unter Eyebrow | `0.35rem` |
-| `--hero-banner-headline-size` | Banner headline size | Größe der Banner-Überschrift | `clamp(1.6rem, 1.2rem + 1.6vw, 2.3rem)` |
-| `--hero-banner-subtitle-size` | Banner subtitle size | Größe der Banner-Subline | `clamp(1rem, 0.95rem + 0.4vw, 1.2rem)` |
-| `--hero-banner-subtitle-line-height` | Banner subtitle line height | Zeilenhöhe der Banner-Subline | `1.6` |
-| `--hero-banner-subtitle-margin` | Banner subtitle margin | Abstand oberhalb der Banner-Subline | `0.6rem` |
-| `--hero-banner-meta-size` | Banner meta text size | Schriftgröße für Meta-Text | `0.9rem` |
-| `--hero-banner-meta-line-height` | Banner meta line height | Zeilenhöhe für Meta-Text | `1.6` |
-| `--hero-banner-meta-margin` | Banner meta top margin | Abstand oberhalb der Meta-Zeile | `0.9rem` |
 
 ## Brand & Interaction Tokens / Marken- & Interaktions-Tokens
 | Token | Purpose (EN) | Zweck (DE) | Value |
@@ -139,6 +118,8 @@ The palette keeps token names aligned between both modes; only the values differ
 - **DE:** Die Tokens werden per `var(--token-name)` in Streamlit-CSS-Snippets genutzt (siehe `COMPACT_STEP_STYLE` in `wizard/layout.py`). Für die Kompatibilität außerhalb des Themes sind Fallback-Werte hinterlegt.
 - **EN:** Brand colours are only applied to sidebar hero panels when the contrast ratio between background and text reaches WCAG AA (≥ 4.5:1); otherwise the UI falls back to the neutral accent tokens. Mobile adjustments target ≤ 768 px to keep forms usable on tablets.
 - **DE:** Markenfarben werden nur dann im Sidebar-Hero genutzt, wenn der Kontrast zwischen Hintergrund und Text die WCAG-AA-Schwelle (≥ 4,5:1) erfüllt; andernfalls greift der neutrale Akzentton. Mobile Anpassungen zielen auf ≤ 768 px ab, damit Formulare auch auf Tablets nutzbar bleiben.
+- **EN:** Sidebar hero/stepper styles are defined in the shared theme stylesheets (`styles/cognitive_needs.css`, `styles/cognitive_needs_light.css`), not inline in `app.py`.
+- **DE:** Sidebar-Hero/Stepper-Stile liegen in den gemeinsamen Theme-Stylesheets (`styles/cognitive_needs.css`, `styles/cognitive_needs_light.css`) und nicht inline in `app.py`.
 - **EN:** The onboarding hero includes a primary CTA and a compact timeline; keep these elements within the hero container and style them using existing accent/surface tokens to preserve visual hierarchy.
 - **DE:** Der Onboarding-Hero enthält eine primäre CTA und eine kompakte Timeline; diese Elemente bleiben innerhalb des Hero-Containers und werden mit bestehenden Akzent-/Surface-Tokens gestylt, damit die visuelle Hierarchie erhalten bleibt.
 - **EN:** Any hover or motion effects in the onboarding hero must be disabled under `prefers-reduced-motion: reduce` to respect accessibility preferences.
@@ -147,8 +128,8 @@ The palette keeps token names aligned between both modes; only the values differ
 ## Components / Komponenten
 
 ### Onboarding hero / Onboarding-Hero
-- **Structure (EN):** The hero lives in the onboarding step container and uses `.onboarding-hero` with a headline, supporting copy, and a `.onboarding-hero__cta` primary button. The compact timeline is rendered as `.onboarding-hero__timeline` with individual steps inside `.onboarding-hero__timeline-item` rows for consistent spacing.
-- **Struktur (DE):** Der Hero befindet sich im Onboarding-Container und nutzt `.onboarding-hero` mit Headline, Begleittext und einer primären `.onboarding-hero__cta`-Schaltfläche. Die kompakte Timeline wird als `.onboarding-hero__timeline` mit einzelnen `.onboarding-hero__timeline-item`-Zeilen gerendert.
+- **Structure (EN):** The hero lives in the onboarding step container and uses `.onboarding-hero` with a headline, supporting copy, and a `.onboarding-hero__cta` primary button. The CTA anchors to `#onboarding-source` so it scrolls directly to the URL/upload panels. The compact timeline is rendered as `.onboarding-hero__timeline` with each `.onboarding-hero__timeline-item` containing `.onboarding-hero__timeline-icon`, `.onboarding-hero__timeline-title`, and `.onboarding-hero__timeline-description`.
+- **Struktur (DE):** Der Hero befindet sich im Onboarding-Container und nutzt `.onboarding-hero` mit Headline, Begleittext und einer primären `.onboarding-hero__cta`-Schaltfläche. Die CTA verlinkt auf `#onboarding-source`, damit direkt zu den URL-/Upload-Panels gescrollt wird. Die kompakte Timeline wird als `.onboarding-hero__timeline` gerendert, jede `.onboarding-hero__timeline-item` enthält `.onboarding-hero__timeline-icon`, `.onboarding-hero__timeline-title` und `.onboarding-hero__timeline-description`.
 - **CTA (EN):** Keep the CTA within the hero panel; use accent tokens (`--accent`, `--accent-strong`) and focus ring tokens for keyboard focus.
 - **CTA (DE):** Die CTA bleibt im Hero-Panel; nutze Akzent-Tokens (`--accent`, `--accent-strong`) sowie Fokus-Tokens für Tastaturfokus.
 
