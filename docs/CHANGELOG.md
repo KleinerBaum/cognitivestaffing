@@ -38,6 +38,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Summary exports now centralize downloads in a compact artifact list, keeping export buttons in the Exports tab.
 - Background hero image processing is now cached per theme to avoid repeated processing on reruns.
 - Hero/banner styling now relies on shared theme tokens for backgrounds, borders, spacing, and typography so onboarding and global headers remain consistent across dark/light modes.
+- Onboarding hero styles now live in shared theme CSS, with hover micro-interactions and reduced-motion handling across dark/light themes.
 - Onboarding source inputs now render URL and upload options as separate panels with an OR divider, token-based focus rings, and responsive stacking for mobile screens.
 - Onboarding now renders a single hero block above the URL/upload call-to-action while the global banner is suppressed on the onboarding step to avoid stacked headers.
 - Onboarding hero copy now uses a human-centric headline, adds a primary CTA with a three-step timeline, and aligns product naming to Cognitive Staffing — Recruitment Need Analysis.

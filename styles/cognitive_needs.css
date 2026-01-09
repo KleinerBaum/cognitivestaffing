@@ -342,6 +342,181 @@ section.main > div.block-container {
   gap: 0.4rem;
 }
 
+.onboarding-hero {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hero-panel-gap);
+  align-items: center;
+  margin: var(--hero-panel-margin);
+  padding: var(--hero-panel-padding);
+  background: var(--hero-panel-bg);
+  border: 1px solid var(--hero-panel-border);
+  border-radius: var(--hero-panel-radius);
+  box-shadow: var(--shadow-medium);
+  overflow: hidden;
+}
+
+.onboarding-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--hero-overlay);
+  pointer-events: none;
+}
+
+.onboarding-hero > * {
+  position: relative;
+  z-index: 1;
+}
+
+.onboarding-hero__logo {
+  flex: 0 1 clamp(200px, 28vw, 320px);
+  display: flex;
+  justify-content: center;
+}
+
+.onboarding-hero__logo img {
+  width: clamp(180px, 24vw, 320px);
+  height: auto;
+  filter: var(--hero-image-filter);
+}
+
+.onboarding-hero__copy {
+  flex: 1 1 280px;
+  max-width: var(--hero-copy-max-width, 640px);
+}
+
+.onboarding-hero__eyebrow {
+  font-size: var(--hero-panel-eyebrow-size);
+  letter-spacing: var(--hero-panel-eyebrow-letter-spacing);
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: var(--hero-panel-eyebrow-margin);
+}
+
+.onboarding-hero__headline {
+  margin: 0;
+  font-size: var(--hero-panel-headline-size);
+  font-weight: var(--hero-panel-headline-weight);
+  line-height: var(--hero-panel-headline-line-height);
+  color: var(--text-strong);
+}
+
+.onboarding-hero__subheadline {
+  margin-top: var(--hero-panel-subheadline-margin);
+  font-size: var(--hero-panel-subheadline-size);
+  color: var(--text-muted);
+  line-height: var(--hero-panel-subheadline-line-height);
+}
+
+.onboarding-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-md);
+  align-items: center;
+  margin-top: var(--space-md);
+}
+
+.onboarding-hero__cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.65rem 1.4rem;
+  border-radius: 999px;
+  background: linear-gradient(120deg, var(--accent-strong), var(--accent));
+  color: var(--text-on-accent);
+  font-weight: 600;
+  text-decoration: none;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.2);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.onboarding-hero__cta:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.onboarding-hero__cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.28);
+}
+
+.onboarding-hero__timeline {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-md);
+  margin-top: var(--space-md);
+  padding: 0;
+  list-style: none;
+}
+
+.onboarding-hero__timeline-item {
+  padding: var(--space-md);
+  border-radius: var(--radius-md);
+  background: var(--surface-0);
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-soft);
+  transition: transform var(--transition-base), box-shadow var(--transition-base);
+}
+
+.onboarding-hero__timeline-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-medium);
+}
+
+.onboarding-hero__timeline-icon {
+  font-size: 1.2rem;
+  margin-bottom: var(--space-xs);
+  display: inline-flex;
+}
+
+.onboarding-hero__timeline-title {
+  font-weight: 600;
+  margin-bottom: var(--space-2xs);
+  color: var(--text-strong);
+}
+
+.onboarding-hero__timeline-description {
+  font-size: var(--font-size-caption);
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+@media (max-width: 768px) {
+  .onboarding-hero {
+    justify-content: center;
+    text-align: center;
+  }
+
+  .onboarding-hero__copy {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
+
+  .onboarding-hero__timeline {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 540px) {
+  .onboarding-hero {
+    padding: var(--hero-panel-padding-compact);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .onboarding-hero__cta,
+  .onboarding-hero__timeline-item {
+    transition: none;
+  }
+
+  .onboarding-hero__cta:hover,
+  .onboarding-hero__timeline-item:hover {
+    transform: none;
+  }
+}
+
 .insight-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
