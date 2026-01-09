@@ -6859,29 +6859,11 @@ def _boolean_widget_key(prefix: str, value: str) -> str:
     return f"{prefix}.{digest}"
 
 
-def _render_boolean_download_button(
-    *,
-    boolean_query: str,
-    job_title_value: str,
-    key: str = "download_boolean",
-) -> None:
-    """Render the download button for Boolean strings."""
+def _safe_export_stem(value: str, *, fallback: str) -> str:
+    """Return a filesystem-safe stem for exports."""
 
-    download_label = tr(
-        "⬇️ Boolean-String herunterladen",
-        "⬇️ Download Boolean string",
-    )
-    safe_title = job_title_value or "boolean-search"
-    safe_stem = re.sub(r"[^A-Za-z0-9_-]+", "-", safe_title).strip("-")
-    safe_stem = safe_stem or "boolean-search"
-    st.download_button(
-        download_label,
-        boolean_query or "",
-        file_name=f"{safe_stem}.txt",
-        mime="text/plain",
-        key=key,
-        disabled=not bool(boolean_query),
-    )
+    safe_stem = re.sub(r"[^A-Za-z0-9_-]+", "-", value).strip("-")
+    return safe_stem or fallback
 
 
 def _render_boolean_interactive_section(
@@ -7031,10 +7013,11 @@ def _render_boolean_interactive_section(
             )
         )
 
-    _render_boolean_download_button(
-        boolean_query=approved_query,
-        job_title_value=job_title_value,
-        key=download_key,
+    st.caption(
+        tr(
+            "Downloads stehen gesammelt im Summary-Export-Bereich bereit.",
+            "Downloads are centralized in the Summary exports area.",
+        )
     )
 
     st.session_state[BOOLEAN_WIDGET_KEYS] = sorted(set(registry_keys))
@@ -10970,6 +10953,19 @@ class JobAdContext:
     style_description: str
 
 
+@dataclass(frozen=True)
+class ExportArtifact:
+    """Represent a downloadable export artifact in the Summary tab."""
+
+    label: tuple[str, str]
+    description: tuple[str, str]
+    payload: bytes | str
+    file_name: str
+    mime: str
+    key: str
+    enabled: bool = True
+
+
 def _render_role_tasks_tab(
     profile: NeedAnalysisProfile,
     boolean_skill_terms: Sequence[str],
@@ -11276,7 +11272,7 @@ def _render_job_ad_tab(
                 "markdown": "Markdown",
                 "json": "JSON",
             }
-            format_choice = st.selectbox(
+            st.selectbox(
                 tr("Export-Format", "Export format"),
                 options=list(format_options.keys()),
                 format_func=lambda k: format_options[k],
@@ -11495,38 +11491,11 @@ def _render_job_ad_tab(
                 for finding in findings:
                     st.warning(finding)
 
-        format_choice = st.session_state.get(UIKeys.JOB_AD_FORMAT, "markdown")
-        font_choice = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE)
-        logo_bytes = _get_company_logo_bytes()
-        company_name = (
-            profile.company.brand_name
-            or profile.company.name
-            or str(_job_ad_get_value(profile_payload, "company.name") or "").strip()
-            or None
-        )
-        job_title = (
-            profile.position.job_title
-            or str(_job_ad_get_value(profile_payload, "position.job_title") or "").strip()
-            or "job-ad"
-        )
-        safe_stem = re.sub(r"[^A-Za-z0-9_-]+", "-", job_title).strip("-") or "job-ad"
-        export_font = font_choice if format_choice in {"docx", "pdf"} else None
-        export_logo = logo_bytes if format_choice in {"docx", "pdf"} else None
-        payload, mime, ext = prepare_download_data(
-            saved_job_ad,
-            format_choice,
-            key="job_ad",
-            title=job_title,
-            font=export_font,
-            logo=export_logo,
-            company_name=company_name,
-        )
-        st.download_button(
-            tr("⬇️ Anzeige herunterladen", "⬇️ Download job ad"),
-            payload,
-            file_name=f"{safe_stem}.{ext}",
-            mime=mime,
-            key="download_job_ad",
+        st.caption(
+            tr(
+                "Downloads stehen gesammelt im Summary-Export-Bereich bereit.",
+                "Downloads are centralized in the Summary exports area.",
+            )
         )
 
         render_section_heading(
@@ -11681,6 +11650,178 @@ def _render_followup_section(
         )
 
 
+def _collect_summary_export_artifacts(
+    *,
+    profile: NeedAnalysisProfile,
+    profile_payload: Mapping[str, Any],
+    profile_bytes: bytes,
+    profile_mime: str,
+    profile_filename: str,
+) -> list[ExportArtifact]:
+    """Gather export artifacts for the Summary export list."""
+
+    artifacts: list[ExportArtifact] = []
+
+    artifacts.append(
+        ExportArtifact(
+            label=("Profil (JSON)", "Profile (JSON)"),
+            description=(
+                "Aktueller Profilstand als JSON-Datei.",
+                "Current profile snapshot as a JSON file.",
+            ),
+            payload=profile_bytes,
+            file_name=profile_filename,
+            mime=profile_mime,
+            key="artifact.profile_json",
+        )
+    )
+
+    boolean_query = (
+        st.session_state.get(StateKeys.BOOLEAN_STR) or getattr(profile.generated, "boolean_search", "") or ""
+    )
+    boolean_query = str(boolean_query).strip()
+    job_title_value = (profile.position.job_title or "").strip()
+    boolean_stem = _safe_export_stem(job_title_value or "boolean-search", fallback="boolean-search")
+    boolean_description = (
+        "Freigegebener Boolean-String für die Suche.",
+        "Approved Boolean search string for sourcing.",
+    )
+    if not boolean_query:
+        boolean_description = (
+            "Noch kein freigegebener Boolean-String vorhanden.",
+            "No approved Boolean string yet.",
+        )
+    artifacts.append(
+        ExportArtifact(
+            label=("Boolean-String (TXT)", "Boolean string (TXT)"),
+            description=boolean_description,
+            payload=boolean_query or "",
+            file_name=f"{boolean_stem}.txt",
+            mime="text/plain",
+            key="artifact.boolean",
+            enabled=bool(boolean_query),
+        )
+    )
+
+    saved_job_ad = str(st.session_state.get(StateKeys.JOB_AD_MD) or getattr(profile.generated, "job_ad", "") or "")
+    saved_job_ad = saved_job_ad.strip()
+    format_choice = st.session_state.get(UIKeys.JOB_AD_FORMAT, "docx")
+    font_choice = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE)
+    logo_bytes = _get_company_logo_bytes()
+    company_name = (
+        profile.company.brand_name
+        or profile.company.name
+        or str(_job_ad_get_value(profile_payload, "company.name") or "").strip()
+        or None
+    )
+    job_title = (
+        profile.position.job_title
+        or str(_job_ad_get_value(profile_payload, "position.job_title") or "").strip()
+        or "job-ad"
+    )
+    job_ad_stem = _safe_export_stem(job_title, fallback="job-ad")
+    export_font = font_choice if format_choice in {"docx", "pdf"} else None
+    export_logo = logo_bytes if format_choice in {"docx", "pdf"} else None
+    job_ad_payload, job_ad_mime, job_ad_ext = prepare_download_data(
+        saved_job_ad,
+        format_choice,
+        key="job_ad",
+        title=job_title,
+        font=export_font,
+        logo=export_logo,
+        company_name=company_name,
+    )
+    job_ad_description = (
+        "Freigegebene Stellenanzeige basierend auf deinen Eingaben.",
+        "Approved job ad based on your inputs.",
+    )
+    if not saved_job_ad:
+        job_ad_description = (
+            "Noch keine freigegebene Stellenanzeige vorhanden.",
+            "No approved job ad yet.",
+        )
+    artifacts.append(
+        ExportArtifact(
+            label=("Stellenanzeige", "Job ad"),
+            description=job_ad_description,
+            payload=job_ad_payload,
+            file_name=f"{job_ad_stem}.{job_ad_ext}",
+            mime=job_ad_mime,
+            key="artifact.job_ad",
+            enabled=bool(saved_job_ad),
+        )
+    )
+
+    saved_guide = str(
+        st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD) or getattr(profile.generated, "interview_guide", "") or ""
+    ).strip()
+    guide_format = st.session_state.get(UIKeys.JOB_AD_FORMAT, "docx")
+    guide_title = profile.position.job_title or "interview-guide"
+    guide_stem = _safe_export_stem(guide_title, fallback="interview-guide")
+    guide_payload, guide_mime, guide_ext = prepare_download_data(
+        saved_guide,
+        guide_format,
+        key="interview",
+        title=guide_title,
+        font=export_font,
+        logo=export_logo,
+        company_name=profile.company.name,
+    )
+    guide_description = (
+        "Freigegebener Interviewleitfaden für das Auswahlteam.",
+        "Approved interview guide for the hiring panel.",
+    )
+    if not saved_guide:
+        guide_description = (
+            "Noch kein freigegebener Interviewleitfaden vorhanden.",
+            "No approved interview guide yet.",
+        )
+    artifacts.append(
+        ExportArtifact(
+            label=("Interviewleitfaden", "Interview guide"),
+            description=guide_description,
+            payload=guide_payload,
+            file_name=f"{guide_stem}.{guide_ext}",
+            mime=guide_mime,
+            key="artifact.interview",
+            enabled=bool(saved_guide),
+        )
+    )
+
+    return artifacts
+
+
+# GREP:ARTIFACT_LIST_V1
+def _render_artifact_list(artifacts: Sequence[ExportArtifact], *, lang: str) -> None:
+    """Render a compact list of export artifacts with download buttons."""
+
+    render_section_heading(tr("Dateien & Downloads", "Files & downloads", lang=lang), icon="📦")
+    st.caption(
+        tr(
+            "Hier findest du alle freigegebenen Exporte gesammelt an einem Ort.",
+            "All approved exports are collected here in one place.",
+            lang=lang,
+        )
+    )
+    for artifact in artifacts:
+        name_col, action_col = st.columns((2.4, 1), gap="small")
+        with name_col:
+            st.markdown(f"**{tr(*artifact.label, lang=lang)}**")
+            st.caption(tr(*artifact.description, lang=lang))
+            st.caption(artifact.file_name)
+        with action_col:
+            st.download_button(
+                tr("⬇️ Herunterladen", "⬇️ Download", lang=lang),
+                data=artifact.payload,
+                file_name=artifact.file_name,
+                mime=artifact.mime,
+                key=artifact.key,
+                disabled=not artifact.enabled,
+                width="stretch",
+            )
+    st.divider()
+
+
 def _render_summary_export_section(
     *,
     profile: NeedAnalysisProfile,
@@ -11700,6 +11841,7 @@ def _render_summary_export_section(
     else:
         summary_data = dict(raw_profile)
 
+    # GREP:SUMMARY_EXPORTS_V1
     st.caption(
         tr(
             "Alle verfügbaren Angaben werden automatisch in die finale Darstellung übernommen.",
@@ -11762,14 +11904,14 @@ def _render_summary_export_section(
     )
 
     st.divider()
-    st.download_button(
-        tr("⬇️ JSON-Profil exportieren", "⬇️ Export JSON profile"),
-        profile_bytes,
-        file_name=profile_filename,
-        mime=profile_mime,
-        width="stretch",
-        key="download_profile_json",
+    artifacts = _collect_summary_export_artifacts(
+        profile=profile,
+        profile_payload=profile_payload,
+        profile_bytes=profile_bytes,
+        profile_mime=profile_mime,
+        profile_filename=profile_filename,
     )
+    _render_artifact_list(artifacts, lang=lang)
 
 
 def _step_summary(_schema: dict, _critical: list[str]) -> None:

@@ -3,23 +3,16 @@
 from __future__ import annotations
 
 import logging
-import re
 from typing import Mapping
 
 import streamlit as st
 
 from constants.keys import StateKeys, UIKeys
 from models.need_analysis import NeedAnalysisProfile
-from utils.export import prepare_download_data
 from utils.i18n import tr
 from utils.llm_state import is_llm_available, llm_disabled_message
 from wizard._agents import generate_interview_guide_content
-from wizard._logic import (
-    _get_company_logo_bytes,
-    approve_generated_preview,
-    discard_generated_preview,
-    update_saved_generated_output,
-)
+from wizard._logic import approve_generated_preview, discard_generated_preview, update_saved_generated_output
 from wizard.layout import render_section_heading
 
 logger = logging.getLogger(__name__)
@@ -247,26 +240,9 @@ def render_interview_guide_section(
         )
 
     if saved_guide:
-        guide_format = st.session_state.get(UIKeys.JOB_AD_FORMAT, "docx")
-        font_choice = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE)
-        logo_bytes = _get_company_logo_bytes()
-        guide_title = profile.position.job_title or "interview-guide"
-        safe_stem = re.sub(r"[^A-Za-z0-9_-]+", "-", guide_title).strip("-") or "interview-guide"
-        export_font = font_choice if guide_format in {"docx", "pdf"} else None
-        export_logo = logo_bytes if guide_format in {"docx", "pdf"} else None
-        payload, mime, ext = prepare_download_data(
-            saved_guide,
-            guide_format,
-            key="interview",
-            title=guide_title,
-            font=export_font,
-            logo=export_logo,
-            company_name=profile.company.name,
-        )
-        st.download_button(
-            tr("⬇️ Leitfaden herunterladen", "⬇️ Download guide"),
-            payload,
-            file_name=f"{safe_stem}.{ext}",
-            mime=mime,
-            key="download_interview",
+        st.caption(
+            tr(
+                "Downloads stehen gesammelt im Summary-Export-Bereich bereit.",
+                "Downloads are centralized in the Summary exports area.",
+            )
         )
