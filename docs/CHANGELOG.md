@@ -30,6 +30,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Sidebar stepper navigation flag (`feature.sidebar_stepper_nav_v1`) to let users jump back to previous steps.
 
 ### Changed
+- Sidebar hero/stepper styles now live in the shared theme stylesheets instead of inline injection in `app.py`.
 - Sidebar settings now include an intro banner toggle that also hides the onboarding hero, clearer language labels, and an advanced expander for LLM-related options.
 - Global hero/banner and its inline intro controls no longer render outside onboarding steps to keep later steps focused on the wizard form.
 - Responsibility brainstormer suggestions now render in a sidebar checklist with bulk apply/dismiss controls instead of inline buttons, reducing main-form scrolling and delaying persistence until confirmation.
