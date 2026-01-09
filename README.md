@@ -50,7 +50,7 @@ The wizard supports German and English job ads and maps common DE/EN section hea
 7. Hiring Process
 8. Summary (Final Review + Exports)
 
-The onboarding step starts with a single hero block (logo + eyebrow/headline/subheadline) plus a primary CTA and a compact three-step timeline, followed immediately by a two-panel URL vs. upload call-to-action with an explicit OR divider so the first screen is focused and uncluttered. The hero copy stays bilingual and directs users to the onboarding source anchor to keep the value prop → action flow clear. The onboarding details expander reinforces the extraction process, privacy handling, and accuracy expectations in bilingual copy. Subsequent steps keep the layout focused on the form without any global hero/banner. Secondary messaging stays in helper text or expanders.
+The onboarding step starts with a single hero block (logo + eyebrow/headline/subheadline) plus a primary CTA and a compact three-step timeline, followed immediately by a two-panel URL vs. upload call-to-action with an explicit OR divider so the first screen is focused and uncluttered. The hero copy stays bilingual and directs users to the onboarding source anchor (`#onboarding-source`) to keep the value prop → action flow clear. The onboarding details expander reinforces the extraction process, privacy handling, and accuracy expectations in bilingual copy. Subsequent steps keep the layout focused on the form without any global hero/banner. Secondary messaging stays in helper text or expanders.
 
 Navigation is **linear Back/Next**. “Next” is **disabled** until required fields for the current step are filled.
 
@@ -104,7 +104,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
   - `wizard/`, `wizard_pages/`, `wizard_tools/` – step UIs + wizard utilities  
   - `wizard/step_registry.py` – canonical step order metadata  
   - `sidebar/`, `ui_views/`, `components/` – shared UI components  
-  - `styles/`, `images/` – styling and assets (including onboarding hero CTA/timeline styles, sidebar hero/stepper, and `.onboarding-source-inputs` layout rules)  
+  - `styles/`, `images/` – styling and assets (including onboarding hero CTA/timeline styles, sidebar hero/stepper theme CSS instead of inline `app.py`, and `.onboarding-source-inputs` layout rules)  
   - `docs/design-system.md` – theme tokens plus onboarding hero CTA/timeline, source input panels, and motion rules for dark/light UI
 
 - Data contract  
