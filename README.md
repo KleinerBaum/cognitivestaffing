@@ -173,6 +173,8 @@ MODEL_ROUTING__interview_guide = "gpt-4o-mini"
   - `sidebar/`
   - Feature flag: set `st.session_state["feature.sidebar_stepper_v1"] = True` to preview the sidebar stepper.
   - Navigation flag: set `st.session_state["feature.sidebar_stepper_nav_v1"] = True` to allow clicking previous steps in the sidebar stepper.
+- Sidebar settings (language, theme, intro banner, advanced LLM options):
+  - `sidebar/__init__.py`
 - Shared step layout pattern (recommended):
   - `wizard/step_layout.py` *(Known/Missing tabs with optional tools expander)*
   - `wizard/step_scaffold.py` *(add if not present; centralize Known/Missing/Validate/Nav)*

@@ -632,6 +632,7 @@ def _ensure_ui_defaults() -> None:
     st.session_state["lang"] = st.session_state[UIKeys.LANG_SELECT]
     if "ui.dark_mode" not in st.session_state:
         st.session_state["ui.dark_mode"] = st.session_state.get("dark_mode", True)
+    st.session_state.setdefault(UIKeys.INTRO_BANNER, True)
     _ensure_style_defaults()
 
 
@@ -881,9 +882,22 @@ def _render_settings() -> None:
         on_change=_on_theme_toggle,
     )
 
+    st.toggle(
+        tr("Intro anzeigen", "Show intro"),
+        value=bool(st.session_state.get(UIKeys.INTRO_BANNER, True)),
+        key=UIKeys.INTRO_BANNER,
+        help=tr(
+            "Steuert das Intro-Banner im Wizard und den Onboarding-Header.",
+            "Controls the intro banner across the wizard and the onboarding header.",
+        ),
+    )
+
     lang_code = st.session_state.get(UIKeys.LANG_SELECT, "de")
     lang_options: tuple[str, ...] = ("de", "en")
-    flag_lookup = {"de": "🇩🇪", "en": "🇬🇧"}
+    language_labels = {
+        "de": "🇩🇪 Deutsch (DE)",
+        "en": "🇬🇧 English (EN)",
+    }
     try:
         default_index = lang_options.index(lang_code)
     except ValueError:
@@ -894,70 +908,64 @@ def _render_settings() -> None:
         options=lang_options,
         index=default_index,
         key=UIKeys.LANG_SELECT,
-        format_func=lambda code: flag_lookup.get(code, code.upper()),
+        format_func=lambda code: language_labels.get(code, code.upper()),
     )
 
     st.session_state["lang"] = lang_choice
     st.session_state["ui.lang_toggle"] = st.session_state["lang"] == "en"
     _sync_style_instruction(st.session_state["lang"])
 
-    st.caption(
-        tr(
-            "Flaggen zeigen die verfügbaren Sprachen Deutsch und Englisch.",
-            "Flags indicate the available German and English language options.",
+    with st.expander(tr("Erweitert", "Advanced"), expanded=False):
+        mode_options: tuple[str, ...] = ("quick", "precise")
+        current_mode = str(st.session_state.get(StateKeys.REASONING_MODE, "precise") or "precise").lower()
+        try:
+            selected_index = mode_options.index(current_mode if current_mode in mode_options else "precise")
+        except ValueError:
+            selected_index = 1
+        option_labels = {
+            "quick": tr("⚡ Schnellmodus", "⚡ Quick mode"),
+            "precise": tr("🎯 Präzisionsmodus", "🎯 Precise mode"),
+        }
+        selected_mode = st.radio(
+            tr("LLM-Modus", "LLM mode"),
+            options=mode_options,
+            index=selected_index,
+            key=UIKeys.REASONING_MODE,
+            format_func=lambda value: option_labels.get(value, value.title()),
         )
-    )
+        _apply_reasoning_mode(selected_mode)
+        if selected_mode == "quick":
+            st.caption(
+                tr(
+                    f"Nutze {model_config.GPT4O_MINI} mit minimalem Denkaufwand für schnellere, kürzere Antworten.",
+                    f"Leans on {model_config.GPT4O_MINI} with minimal reasoning for faster, shorter outputs.",
+                )
+            )
+        else:
+            st.caption(
+                tr(
+                    f"Verwendet {model_config.O3} (Fallback {model_config.O4_MINI}/{model_config.GPT4O}) und erlaubt ausführliche Begründungen für maximale Genauigkeit.",
+                    f"Uses {model_config.O3} (fallback {model_config.O4_MINI}/{model_config.GPT4O}) and allows richer reasoning for maximum accuracy.",
+                )
+            )
 
-    mode_options: tuple[str, ...] = ("quick", "precise")
-    current_mode = str(st.session_state.get(StateKeys.REASONING_MODE, "precise") or "precise").lower()
-    try:
-        selected_index = mode_options.index(current_mode if current_mode in mode_options else "precise")
-    except ValueError:
-        selected_index = 1
-    option_labels = {
-        "quick": tr("⚡ Schnellmodus", "⚡ Quick mode"),
-        "precise": tr("🎯 Präzisionsmodus", "🎯 Precise mode"),
-    }
-    selected_mode = st.radio(
-        tr("LLM-Modus", "LLM mode"),
-        options=mode_options,
-        index=selected_index,
-        key=UIKeys.REASONING_MODE,
-        format_func=lambda value: option_labels.get(value, value.title()),
-    )
-    _apply_reasoning_mode(selected_mode)
-    if selected_mode == "quick":
+        cost_saver_active = bool(st.session_state.get(StateKeys.COST_SAVER, False))
+        st.toggle(
+            tr("💸 Kosten sparen", "💸 Cost saver"),
+            value=cost_saver_active,
+            key=UIKeys.COST_SAVER,
+            on_change=_on_cost_saver_toggle,
+            help=tr(
+                "Erzwingt das günstige Modell und senkt die Token-Obergrenzen für schnellere, günstigere Antworten.",
+                "Forces the lightweight model and tighter token caps for faster, cheaper responses.",
+            ),
+        )
         st.caption(
             tr(
-                f"Nutze {model_config.GPT4O_MINI} mit minimalem Denkaufwand für schnellere, kürzere Antworten.",
-                f"Leans on {model_config.GPT4O_MINI} with minimal reasoning for faster, shorter outputs.",
+                f"Aktiviert kostet weniger, nutzt standardmäßig {model_config.LIGHTWEIGHT_MODEL}.",
+                f"When enabled, routes through {model_config.LIGHTWEIGHT_MODEL} by default to save cost.",
             )
         )
-    else:
-        st.caption(
-            tr(
-                f"Verwendet {model_config.O3} (Fallback {model_config.O4_MINI}/{model_config.GPT4O}) und erlaubt ausführliche Begründungen für maximale Genauigkeit.",
-                f"Uses {model_config.O3} (fallback {model_config.O4_MINI}/{model_config.GPT4O}) and allows richer reasoning for maximum accuracy.",
-            )
-        )
-
-    cost_saver_active = bool(st.session_state.get(StateKeys.COST_SAVER, False))
-    st.toggle(
-        tr("💸 Kosten sparen", "💸 Cost saver"),
-        value=cost_saver_active,
-        key=UIKeys.COST_SAVER,
-        on_change=_on_cost_saver_toggle,
-        help=tr(
-            "Erzwingt das günstige Modell und senkt die Token-Obergrenzen für schnellere, günstigere Antworten.",
-            "Forces the lightweight model and tighter token caps for faster, cheaper responses.",
-        ),
-    )
-    st.caption(
-        tr(
-            f"Aktiviert kostet weniger, nutzt standardmäßig {model_config.LIGHTWEIGHT_MODEL}.",
-            f"When enabled, routes through {model_config.LIGHTWEIGHT_MODEL} by default to save cost.",
-        )
-    )
 
     st.divider()
 
