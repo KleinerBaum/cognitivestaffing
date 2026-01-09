@@ -19,6 +19,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Progress inbox on the Summary step now uses structured OpenAI outputs (when enabled) to map inbox updates to up to three tasks with progress, completion, or note actions; deterministic matching remains as the fallback when AI is unavailable.
 - Summary Edit now supports core company and team field updates via a dedicated profile editor component.
 - Summary Edit adds role/task and skills editing for responsibilities, requirements, and certificates in the Edit tab.
+- Summary Edit now includes compensation and hiring process fields so salary and interview details can be adjusted in-place.
 - Missing-field detection helpers in `wizard/missing_fields.py` with unit coverage.
 - Step-level status helpers for missing required vs. critical fields in `wizard/step_status.py` with unit coverage.
 - Step layout helper for consistent Known/Missing tabs with an optional tools expander.

@@ -288,7 +288,6 @@ from .metadata import (
     resolve_section_for_field,
 )
 from .step_status import StepMissing, compute_step_missing, iter_step_missing_fields
-from wizard_pages import WIZARD_PAGES, WizardPage
 from sidebar.salary import format_salary_range
 
 if TYPE_CHECKING:  # pragma: no cover - typing-only import path
@@ -11927,6 +11926,34 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
                     st.markdown(f"**{tr('Kritische Felder', 'Critical fields', lang=lang)}**")
                     _render_missing_list(missing.critical)
 
+    def _parse_optional_number(value: str) -> float | int | str | None:
+        cleaned = value.strip()
+        if not cleaned:
+            return None
+        normalized = cleaned.replace(" ", "").replace(",", ".")
+        try:
+            parsed = float(normalized)
+        except ValueError:
+            return cleaned
+        if parsed.is_integer():
+            return int(parsed)
+        return parsed
+
+    def _parse_optional_int(value: str) -> int | str | None:
+        cleaned = value.strip()
+        if not cleaned:
+            return None
+        normalized = cleaned.replace(" ", "").replace(",", ".")
+        try:
+            parsed = float(normalized)
+        except ValueError:
+            return cleaned
+        return int(parsed)
+
+    def _parse_optional_bool(value: str) -> bool:
+        cleaned = value.strip().lower()
+        return cleaned in {"1", "true", "yes", "y", "ja"}
+
     # Summary step – top-level tabs for overview, edit placeholder, exports,
     # and warnings/validation checks.
     # GREP:SUMMARY_TABS_V1
@@ -11986,10 +12013,10 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
                 lang=lang,
             )
         )
-        profile = _get_profile_state()
+        profile_state = _get_profile_state()
         render_section_heading(tr("Unternehmen (Kernfelder)", "Company core fields", lang=lang), icon="🏢")
         render_profile_editor(
-            profile=profile,
+            profile=profile_state,
             fields=(
                 ProfileEditorField(
                     path="company.name",
@@ -12041,7 +12068,7 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
             icon="👥",
         )
         render_profile_editor(
-            profile=profile,
+            profile=profile_state,
             fields=(
                 ProfileEditorField(
                     path="position.job_title",
@@ -12093,7 +12120,7 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
             )
         )
         render_profile_editor(
-            profile=profile,
+            profile=profile_state,
             fields=(
                 ProfileEditorField(
                     path="position.role_summary",
@@ -12135,7 +12162,7 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
             )
         )
         render_profile_editor(
-            profile=profile,
+            profile=profile_state,
             fields=(
                 ProfileEditorField(
                     path="requirements.hard_skills_required",
@@ -12197,20 +12224,158 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
             key_prefix="ui.summary.edit.skills",
             lang=lang,
         )
-        requirements = profile.get("requirements")
+        # GREP:SUMMARY_EDIT_COMP_INTERVIEW_V1
+        render_section_heading(
+            tr("Vergütung (Kernfelder)", "Compensation core fields", lang=lang),
+            icon="💶",
+        )
+        st.caption(
+            tr(
+                "Pflege Gehaltsrahmen, variable Vergütung und Benefits. Zahlen können als Ganzzahl oder Dezimalwert eingegeben werden.",
+                "Maintain salary ranges, variable pay, and benefits. Enter numbers as whole or decimal values.",
+                lang=lang,
+            )
+        )
+        render_profile_editor(
+            profile=profile_state,
+            fields=(
+                ProfileEditorField(
+                    path="compensation.salary_min",
+                    label=("Gehalt (Minimum)", "Salary (minimum)"),
+                    parser=_parse_optional_number,
+                ),
+                ProfileEditorField(
+                    path="compensation.salary_max",
+                    label=("Gehalt (Maximum)", "Salary (maximum)"),
+                    parser=_parse_optional_number,
+                ),
+                ProfileEditorField(
+                    path="compensation.currency",
+                    label=("Währung", "Currency"),
+                ),
+                ProfileEditorField(
+                    path="compensation.period",
+                    label=("Zeitraum", "Period"),
+                    help_text=(
+                        "Zum Beispiel Jahr oder Monat.",
+                        "For example, year or month.",
+                    ),
+                ),
+                ProfileEditorField(
+                    path="compensation.variable_pay",
+                    label=("Variable Vergütung", "Variable pay"),
+                    help_text=(
+                        "true/false oder ja/nein.",
+                        "Use true/false or yes/no.",
+                    ),
+                    parser=_parse_optional_bool,
+                ),
+                ProfileEditorField(
+                    path="compensation.bonus_percentage",
+                    label=("Bonus (%)", "Bonus (%)"),
+                    parser=_parse_optional_number,
+                ),
+                ProfileEditorField(
+                    path="compensation.commission_structure",
+                    label=("Provisionsmodell", "Commission structure"),
+                ),
+                ProfileEditorField(
+                    path="compensation.equity_offered",
+                    label=("Mitarbeiterbeteiligung", "Equity offered"),
+                    help_text=(
+                        "true/false oder ja/nein.",
+                        "Use true/false or yes/no.",
+                    ),
+                    parser=_parse_optional_bool,
+                ),
+                ProfileEditorField(
+                    path="compensation.benefits",
+                    label=("Benefits", "Benefits"),
+                    help_text=(
+                        "Eine Zeile pro Benefit oder kommagetrennt.",
+                        "One benefit per line or comma-separated.",
+                    ),
+                    widget="textarea",
+                    formatter=format_list,
+                    parser=parse_list,
+                ),
+            ),
+            key_prefix="ui.summary.edit.compensation",
+            lang=lang,
+        )
+        render_section_heading(
+            tr("Bewerbungsprozess (Kernfelder)", "Hiring process core fields", lang=lang),
+            icon="🧑‍💼",
+        )
+        st.caption(
+            tr(
+                "Dokumentiere den Ablauf, Verantwortliche und Hinweise für Bewerbende.",
+                "Document the flow, owners, and guidance for candidates.",
+                lang=lang,
+            )
+        )
+        render_profile_editor(
+            profile=profile_state,
+            fields=(
+                ProfileEditorField(
+                    path="process.hiring_manager_name",
+                    label=("Hiring Manager", "Hiring manager"),
+                ),
+                ProfileEditorField(
+                    path="process.hiring_manager_role",
+                    label=("Rolle des Hiring Managers", "Hiring manager role"),
+                ),
+                ProfileEditorField(
+                    path="process.interview_stages",
+                    label=("Interviewstufen (Anzahl)", "Interview stages (count)"),
+                    parser=_parse_optional_int,
+                ),
+                ProfileEditorField(
+                    path="process.hiring_process",
+                    label=("Bewerbungsprozess", "Hiring process"),
+                    help_text=(
+                        "Eine Zeile pro Schritt oder kommagetrennt.",
+                        "One step per line or comma-separated.",
+                    ),
+                    widget="textarea",
+                    formatter=format_list,
+                    parser=parse_list,
+                ),
+                ProfileEditorField(
+                    path="process.recruitment_timeline",
+                    label=("Recruiting-Zeitrahmen", "Recruitment timeline"),
+                ),
+                ProfileEditorField(
+                    path="process.process_notes",
+                    label=("Prozessnotizen", "Process notes"),
+                    widget="textarea",
+                ),
+                ProfileEditorField(
+                    path="process.application_instructions",
+                    label=("Bewerbungsanweisungen", "Application instructions"),
+                    widget="textarea",
+                ),
+                ProfileEditorField(
+                    path="process.onboarding_process",
+                    label=("Onboarding-Prozess", "Onboarding process"),
+                    widget="textarea",
+                ),
+            ),
+            key_prefix="ui.summary.edit.process",
+            lang=lang,
+        )
+        requirements = profile_state.get("requirements")
         if isinstance(requirements, dict):
             certificates = requirements.get("certificates", [])
             if isinstance(certificates, str):
                 normalized_certificates = parse_list(certificates)
             elif isinstance(certificates, list):
-                normalized_certificates = [
-                    str(item).strip() for item in certificates if str(item).strip()
-                ]
+                normalized_certificates = [str(item).strip() for item in certificates if str(item).strip()]
             else:
                 normalized_certificates = []
             requirements["certificates"] = normalized_certificates
             requirements["certifications"] = list(normalized_certificates)
-        st.session_state[StateKeys.PROFILE] = profile
+        st.session_state[StateKeys.PROFILE] = profile_state
 
     with export_tab:
         _render_summary_export_section(
