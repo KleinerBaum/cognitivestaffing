@@ -6,7 +6,7 @@ from io import BytesIO
 import mimetypes
 from pathlib import Path
 import sys
-from typing import Final, cast
+from typing import cast
 
 from PIL import Image, ImageEnhance, UnidentifiedImageError
 import streamlit as st
@@ -59,14 +59,10 @@ from utils.i18n import tr  # noqa: E402
 from state import ensure_state  # noqa: E402
 from state.autosave import maybe_render_autosave_prompt  # noqa: E402
 from components.chatkit_widget import inject_chatkit_script  # noqa: E402
-from constants.keys import UIKeys  # noqa: E402
 import sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
 
 APP_VERSION = "1.2.0"
-INTRO_BANNER_STATE_KEY: Final[str] = UIKeys.INTRO_BANNER
-ONBOARDING_STEP_KEY: Final[str] = "jobad"
-
 setup_tracing()
 
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
@@ -106,8 +102,6 @@ else:
 
 if MODEL_ID and "router.resolved_model" not in st.session_state:
     st.session_state["router.resolved_model"] = MODEL_ID
-
-wizard_state = st.session_state.setdefault("wizard", {})
 
 if st.session_state.get("openai_api_key_missing"):
     st.warning(
@@ -171,101 +165,6 @@ def inject_global_css() -> None:
 inject_global_css()
 inject_chatkit_script()
 
-
-def _set_intro_banner_visibility(visible: bool) -> None:
-    """Persist whether the intro banner should be shown on reruns."""
-
-    st.session_state[INTRO_BANNER_STATE_KEY] = visible
-
-
-def render_app_banner() -> None:
-    """Render the global hero banner with logo and bilingual copy."""
-
-    eyebrow = tr("Recruiting-Bedarfsanalyse", "Recruitment Need Analysis")
-    headline = tr(
-        "Aus der Stellenanzeige zum vollständigen Stellenprofil",
-        "From job posting to a complete job profile",
-    )
-    subtitle = tr(
-        "Füge eine URL oder Datei hinzu und starte den Wizard mit klaren Anforderungen.",
-        "Add a URL or file to start the wizard with clear requirements.",
-    )
-    helper_text = tr(
-        "Enthält ESCO-Skill-Mapping sowie Markt- und Gehalts-Insights.",
-        "Includes ESCO skill mapping plus market and salary insights.",
-    )
-
-    if APP_LOGO_DATA_URI:
-        logo_html = f"<img src='{APP_LOGO_DATA_URI}' alt='Cognitive Staffing — Recruitment Need Analysis' />"
-    elif APP_LOGO_IMAGE:
-        buffer = BytesIO()
-        APP_LOGO_IMAGE.save(buffer, format="PNG")
-        encoded = b64encode(buffer.getvalue()).decode("ascii")
-        logo_html = f"<img src='data:image/png;base64,{encoded}' alt='Cognitive Staffing — Recruitment Need Analysis' />"
-    elif APP_LOGO_BUFFER:
-        encoded = b64encode(APP_LOGO_BUFFER.getvalue()).decode("ascii")
-        mime_type, _ = mimetypes.guess_type(getattr(APP_LOGO_BUFFER, "name", "logo.png"))
-        logo_html = (
-            f"<img src='data:{mime_type or 'image/png'};base64,{encoded}' "
-            "alt='Cognitive Staffing — Recruitment Need Analysis' />"
-        )
-    else:
-        logo_html = "<span class='app-banner__logo-placeholder'>🧭</span>"
-
-    banner_html = f"""
-    <div class="app-banner">
-        <div class="app-banner__logo">{logo_html}</div>
-        <div class="app-banner__copy">
-            <div class="app-banner__eyebrow">{eyebrow}</div>
-            <h1 class="app-banner__headline">{headline}</h1>
-            <p class="app-banner__subtitle">{subtitle}</p>
-            <p class="app-banner__meta">{helper_text}</p>
-        </div>
-    </div>
-    """
-
-    st.markdown(banner_html, unsafe_allow_html=True)
-
-
-def render_intro_banner_controls(showing: bool) -> None:
-    """Render a toggle to hide or show the intro banner."""
-
-    if showing:
-        hide_label = tr("Intro ausblenden", "Hide intro")
-        hide_help = tr(
-            "Blendet das Intro aus, damit mehr Platz für das Formular bleibt.",
-            "Hide the intro to focus on the form.",
-        )
-        st.button(
-            hide_label,
-            key="hide_intro_banner",
-            help=hide_help,
-            on_click=lambda: _set_intro_banner_visibility(False),
-        )
-    else:
-        show_label = tr("Intro einblenden", "Show intro")
-        show_help = tr(
-            "Zeigt das Intro wieder an, falls es ausgeblendet wurde.",
-            "Show the intro banner again if it was hidden.",
-        )
-        st.button(
-            show_label,
-            key="show_intro_banner",
-            help=show_help,
-            on_click=lambda: _set_intro_banner_visibility(True),
-        )
-
-
-intro_banner_visible = st.session_state.setdefault(INTRO_BANNER_STATE_KEY, True)
-
-current_step_key = wizard_state.get("current_step")
-is_onboarding_step = current_step_key in (None, ONBOARDING_STEP_KEY)
-
-if intro_banner_visible and not is_onboarding_step:
-    render_app_banner()
-
-if not is_onboarding_step:
-    render_intro_banner_controls(intro_banner_visible)
 
 SIDEBAR_STYLE = """
 <style>
