@@ -126,6 +126,34 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
 - **Cost saver toggle (sidebar)**: when enabled, the wizard forces the lightweight model route and clamps `max_completion_tokens` to a tighter ceiling for cheaper, faster responses. Explicit model overrides still take priority if a caller sets one directly.
 - **Quick vs. Precise mode**: Quick lowers reasoning effort and Precise raises it; both respect the cost saver toggle when it is enabled.
 
+### Cost controls
+
+Use these environment variables (or Streamlit secrets) to cap spend and steer model choices:
+
+- **`OPENAI_SESSION_TOKEN_LIMIT` / `OPENAI_TOKEN_BUDGET`**: session-wide token budget guard. Once the limit is exceeded, OpenAI calls stop with a bilingual warning.
+- **`REASONING_EFFORT`**: hint for reasoning depth (`none`/`minimal`/`low`/`medium`/`high`). Lower values reduce cost; higher values unlock more deliberative responses.
+- **`MODEL_ROUTING__<task>` overrides**: per-task model routing overrides (task keys match `ModelTask` in `config/models.py`, e.g. `job_ad`, `interview_guide`, `profile_summary`, `salary_estimate`, `follow_up_questions`).
+
+The sidebar includes a token usage summary with a per-request table (see `sidebar/__init__.py`) so you can review spend while running the wizard.
+
+**Example `.env` (low-cost defaults):**
+
+```bash
+OPENAI_SESSION_TOKEN_LIMIT=12000
+REASONING_EFFORT=minimal
+MODEL_ROUTING__job_ad=gpt-4o-mini
+MODEL_ROUTING__interview_guide=gpt-4o-mini
+```
+
+**Example `.streamlit/secrets.toml`:**
+
+```toml
+OPENAI_TOKEN_BUDGET = "12000"
+REASONING_EFFORT = "minimal"
+MODEL_ROUTING__job_ad = "gpt-4o-mini"
+MODEL_ROUTING__interview_guide = "gpt-4o-mini"
+```
+
 ---
 
 ## Repository map (where to change what)
