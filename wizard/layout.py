@@ -660,13 +660,13 @@ ONBOARDING_HERO_STYLE = """
     position: relative;
     display: flex;
     flex-wrap: wrap;
-    gap: clamp(1rem, 3vw, 2.75rem);
+    gap: var(--hero-panel-gap);
     align-items: center;
-    margin: 1.2rem 0 1.4rem;
-    padding: clamp(1.4rem, 1rem + 2vw, 2.4rem);
+    margin: var(--hero-panel-margin);
+    padding: var(--hero-panel-padding);
     background: var(--hero-panel-bg);
     border: 1px solid var(--hero-panel-border);
-    border-radius: clamp(1.2rem, 0.8rem + 1vw, 1.75rem);
+    border-radius: var(--hero-panel-radius);
     box-shadow: var(--shadow-medium);
     overflow: hidden;
 }
@@ -696,24 +696,24 @@ ONBOARDING_HERO_STYLE = """
     max-width: var(--hero-copy-max-width, 640px);
 }
 .onboarding-hero__eyebrow {
-    font-size: 0.8rem;
-    letter-spacing: 0.22em;
+    font-size: var(--hero-panel-eyebrow-size);
+    letter-spacing: var(--hero-panel-eyebrow-letter-spacing);
     text-transform: uppercase;
     color: var(--accent);
-    margin-bottom: 0.5rem;
+    margin-bottom: var(--hero-panel-eyebrow-margin);
 }
 .onboarding-hero__headline {
     margin: 0;
-    font-size: clamp(1.9rem, 1.2rem + 2vw, 2.6rem);
-    font-weight: 700;
-    line-height: 1.2;
+    font-size: var(--hero-panel-headline-size);
+    font-weight: var(--hero-panel-headline-weight);
+    line-height: var(--hero-panel-headline-line-height);
     color: var(--text-strong);
 }
 .onboarding-hero__subheadline {
-    margin-top: 0.85rem;
-    font-size: clamp(1.05rem, 0.95rem + 0.45vw, 1.25rem);
+    margin-top: var(--hero-panel-subheadline-margin);
+    font-size: var(--hero-panel-subheadline-size);
     color: var(--text-muted);
-    line-height: 1.6;
+    line-height: var(--hero-panel-subheadline-line-height);
 }
 @media (max-width: 768px) {
     .onboarding-hero {
@@ -727,7 +727,7 @@ ONBOARDING_HERO_STYLE = """
 }
 @media (max-width: 540px) {
     .onboarding-hero {
-        padding: clamp(1.1rem, 0.9rem + 1.2vw, 1.6rem);
+        padding: var(--hero-panel-padding-compact);
     }
 }
 </style>

@@ -157,6 +157,42 @@
   --hero-panel-border: rgba(56, 192, 255, 0.26);
   --hero-image-filter: brightness(0.99) saturate(1.04) drop-shadow(0 22px 44px rgba(3, 8, 18, 0.52));
   --hero-copy-max-width: 640px;
+  --hero-panel-gap: clamp(1rem, 3vw, 2.75rem);
+  --hero-panel-padding: clamp(1.4rem, 1rem + 2vw, 2.4rem);
+  --hero-panel-padding-compact: clamp(1.1rem, 0.9rem + 1.2vw, 1.6rem);
+  --hero-panel-margin: 1.2rem 0 1.4rem;
+  --hero-panel-radius: clamp(1.2rem, 0.8rem + 1vw, 1.75rem);
+  --hero-panel-eyebrow-size: 0.8rem;
+  --hero-panel-eyebrow-letter-spacing: 0.22em;
+  --hero-panel-eyebrow-margin: 0.5rem;
+  --hero-panel-headline-line-height: 1.2;
+  --hero-panel-headline-size: clamp(1.9rem, 1.2rem + 2vw, 2.6rem);
+  --hero-panel-headline-weight: 700;
+  --hero-panel-subheadline-line-height: 1.6;
+  --hero-panel-subheadline-size: clamp(1.05rem, 0.95rem + 0.45vw, 1.25rem);
+  --hero-panel-subheadline-margin: 0.85rem;
+
+  --hero-banner-bg: linear-gradient(135deg, rgba(47, 216, 197, 0.22), rgba(154, 166, 255, 0.28));
+  --hero-banner-border: rgba(87, 182, 255, 0.32);
+  --hero-banner-overlay: linear-gradient(120deg, rgba(7, 18, 32, 0.32), rgba(15, 43, 65, 0.2));
+  --hero-banner-logo-bg: rgba(4, 15, 28, 0.6);
+  --hero-banner-logo-border: rgba(87, 182, 255, 0.42);
+  --hero-banner-logo-shadow: 0 20px 40px rgba(2, 6, 16, 0.32);
+  --hero-banner-meta-bg: rgba(47, 216, 197, 0.2);
+  --hero-banner-meta-border: rgba(87, 182, 255, 0.32);
+  --hero-banner-gap: clamp(1rem, 3vw, 2rem);
+  --hero-banner-padding: clamp(1.2rem, 1rem + 1.8vw, 2rem) clamp(1.4rem, 1rem + 2vw, 2.4rem);
+  --hero-banner-radius: var(--radius);
+  --hero-banner-eyebrow-size: 0.8rem;
+  --hero-banner-eyebrow-letter-spacing: 0.22em;
+  --hero-banner-eyebrow-margin: 0.35rem;
+  --hero-banner-headline-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.3rem);
+  --hero-banner-subtitle-size: clamp(1rem, 0.95rem + 0.4vw, 1.2rem);
+  --hero-banner-subtitle-line-height: 1.6;
+  --hero-banner-subtitle-margin: 0.6rem;
+  --hero-banner-meta-size: 0.9rem;
+  --hero-banner-meta-line-height: 1.6;
+  --hero-banner-meta-margin: 0.9rem;
 
   --blur: 14px;
   --bg-image: none;
@@ -206,12 +242,12 @@ section.main > div.block-container {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: clamp(1rem, 3vw, 2rem);
-  padding: clamp(1.2rem, 1rem + 1.8vw, 2rem) clamp(1.4rem, 1rem + 2vw, 2.4rem);
+  gap: var(--hero-banner-gap);
+  padding: var(--hero-banner-padding);
   margin-bottom: var(--space-lg);
-  border-radius: var(--radius);
-  background: linear-gradient(135deg, rgba(47, 216, 197, 0.22), rgba(154, 166, 255, 0.28));
-  border: 1px solid rgba(87, 182, 255, 0.32);
+  border-radius: var(--hero-banner-radius);
+  background: var(--hero-banner-bg);
+  border: 1px solid var(--hero-banner-border);
   box-shadow: var(--shadow-medium);
   position: relative;
   overflow: hidden;
@@ -221,7 +257,7 @@ section.main > div.block-container {
   content: "";
   position: absolute;
   inset: 0;
-  background: linear-gradient(120deg, rgba(7, 18, 32, 0.32), rgba(15, 43, 65, 0.2));
+  background: var(--hero-banner-overlay);
   pointer-events: none;
 }
 
@@ -234,9 +270,9 @@ section.main > div.block-container {
   width: clamp(72px, 8vw, 96px);
   height: clamp(72px, 8vw, 96px);
   border-radius: var(--radius-sm);
-  background: rgba(4, 15, 28, 0.6);
-  border: 1px solid rgba(87, 182, 255, 0.42);
-  box-shadow: 0 20px 40px rgba(2, 6, 16, 0.32);
+  background: var(--hero-banner-logo-bg);
+  border: 1px solid var(--hero-banner-logo-border);
+  box-shadow: var(--hero-banner-logo-shadow);
   overflow: hidden;
   z-index: 1;
 }
@@ -263,40 +299,40 @@ section.main > div.block-container {
 }
 
 .app-banner__eyebrow {
-  font-size: 0.8rem;
-  letter-spacing: 0.22em;
+  font-size: var(--hero-banner-eyebrow-size);
+  letter-spacing: var(--hero-banner-eyebrow-letter-spacing);
   text-transform: uppercase;
   color: var(--accent-strong);
-  margin-bottom: 0.35rem;
+  margin-bottom: var(--hero-banner-eyebrow-margin);
 }
 
 .app-banner__headline {
   margin: 0;
   font-family: var(--font-family-heading);
-  font-size: clamp(1.6rem, 1.2rem + 1.6vw, 2.3rem);
+  font-size: var(--hero-banner-headline-size);
   font-weight: 700;
   line-height: 1.2;
 }
 
 .app-banner__subtitle {
-  margin: 0.6rem 0 0;
+  margin: var(--hero-banner-subtitle-margin) 0 0;
   color: var(--text-muted);
-  font-size: clamp(1rem, 0.95rem + 0.4vw, 1.2rem);
-  line-height: 1.6;
+  font-size: var(--hero-banner-subtitle-size);
+  line-height: var(--hero-banner-subtitle-line-height);
 }
 
 .app-banner__meta {
-  margin-top: 0.9rem;
+  margin-top: var(--hero-banner-meta-margin);
   color: var(--text-muted);
-  font-size: 0.9rem;
-  line-height: 1.6;
+  font-size: var(--hero-banner-meta-size);
+  line-height: var(--hero-banner-meta-line-height);
 }
 
 .app-banner__meta-badge {
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
-  background: rgba(47, 216, 197, 0.2);
-  border: 1px solid rgba(87, 182, 255, 0.32);
+  background: var(--hero-banner-meta-bg);
+  border: 1px solid var(--hero-banner-meta-border);
   color: var(--text-strong);
   font-size: 0.85rem;
   display: inline-flex;
