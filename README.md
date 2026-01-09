@@ -104,7 +104,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
   - `wizard/`, `wizard_pages/`, `wizard_tools/` – step UIs + wizard utilities  
   - `wizard/step_registry.py` – canonical step order metadata  
   - `sidebar/`, `ui_views/`, `components/` – shared UI components  
-  - `styles/`, `images/` – styling and assets (including sidebar hero/stepper and `.onboarding-source-inputs` layout rules)  
+  - `styles/`, `images/` – styling and assets (including onboarding hero CTA/timeline styles, sidebar hero/stepper, and `.onboarding-source-inputs` layout rules)  
   - `docs/design-system.md` – theme tokens plus onboarding hero CTA/timeline, source input panels, and motion rules for dark/light UI
 
 - Data contract  
