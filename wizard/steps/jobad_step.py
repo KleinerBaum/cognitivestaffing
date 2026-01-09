@@ -61,7 +61,7 @@ def _step_onboarding(schema: dict) -> None:
 
     with st.container():
         render_section_heading(
-            tr("Pflichtangaben für den Start", "Required details to get started"),
+            tr("Stellenanzeige bereitstellen", "Provide the job posting"),
             icon="📌",
         )
 
@@ -90,10 +90,10 @@ def _step_onboarding(schema: dict) -> None:
         url_column, upload_column = st.columns(2, gap="large")
         with url_column:
             st.text_input(
-                tr("Stellenanzeigen-URL einfügen", "Provide the job posting URL"),
+                tr("Stellenanzeigen-URL hinzufügen", "Add the job posting URL"),
                 key=UIKeys.PROFILE_URL_INPUT,
                 on_change=flow.on_url_changed,
-                placeholder=tr("Bitte URL eingeben", "Enter the job posting URL"),
+                placeholder=tr("Stellenanzeigen-URL eingeben", "Enter the job posting URL"),
                 help=tr(
                     "Die URL muss ohne Login erreichbar sein. Wir übernehmen den Inhalt automatisch.",
                     "The URL needs to be accessible without authentication. We will fetch the content automatically.",
@@ -105,14 +105,14 @@ def _step_onboarding(schema: dict) -> None:
             st.file_uploader(
                 tr(
                     "Stellenanzeige hochladen (PDF/DOCX/TXT)",
-                    "Upload job posting (PDF/DOCX/TXT)",
+                    "Upload the job posting (PDF/DOCX/TXT)",
                 ),
                 type=["pdf", "docx", "txt"],
                 key=UIKeys.PROFILE_FILE_UPLOADER,
                 on_change=flow.on_file_uploaded,
                 help=tr(
-                    "Direkt nach dem Upload beginnen wir mit der Analyse.",
-                    "We start analysing immediately after the upload finishes.",
+                    "Nach dem Upload starten wir sofort die Analyse.",
+                    "We start the analysis right after the upload finishes.",
                 ),
                 disabled=locked,
             )
@@ -120,24 +120,24 @@ def _step_onboarding(schema: dict) -> None:
     with st.expander(tr("Was passiert?", "What happens?"), expanded=False):
         intro_lines = [
             tr(
-                "Unstrukturierte Bedarfsklärung verbrennt gleich im ersten Schritt kostbare Recruiting-Insights.",
-                "Unstructured intake burns expensive recruiting intelligence in the very first step.",
+                "Eine klare Stellenanzeige hilft, Anforderungen direkt von Anfang an zu erfassen.",
+                "A clear job posting helps capture requirements right from the start.",
             ),
             tr(
-                "Unsere OpenAI-API-Agents erfassen jedes Detail und strukturieren Anforderungen in Echtzeit.",
-                "Our OpenAI API agents capture every nuance and structure requirements in real time.",
+                "Unsere OpenAI-API-Agents extrahieren Inhalte und strukturieren sie in Echtzeit.",
+                "Our OpenAI API agents extract the content and structure it in real time.",
             ),
             tr(
                 "ESCO-Skillgraph und Marktprofile liefern Kontext für Skills, Seniorität und Branchensprache.",
                 "ESCO skill graphs and market profiles add context for skills, seniority, and industry language.",
             ),
             tr(
-                "Ein dynamischer Info-Gathering-Prozess baut einen vollständigen Datensatz für diese Vakanz auf.",
-                "A dynamic info gathering process assembles a complete dataset for this specific vacancy.",
+                "Der dynamische Fragenprozess ergänzt fehlende Details Schritt für Schritt.",
+                "The dynamic question flow fills in missing details step by step.",
             ),
             tr(
-                "So entstehen Inputs für interne Kommunikations-Automation & Folgeschritte – Ziel: glückliche Kandidat:innen nachhaltig platzieren.",
-                "These inputs fuel internal communication automation and downstream steps – goal: place happy candidates sustainably.",
+                "So entsteht ein vollständiger Datensatz für die Vakanz und die folgenden Exporte.",
+                "This builds a complete dataset for the role and the exports that follow.",
             ),
         ]
 

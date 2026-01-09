@@ -741,25 +741,25 @@ def build_onboarding_hero_copy(
 ) -> OnboardingHeroCopy:
     """Build the localized onboarding hero copy from the shared templates."""
 
-    eyebrow = tr("Recruiting Intelligence", "Recruiting intelligence")
+    eyebrow = tr("Recruiting-Intake", "Recruiting intake")
     title = format_message(
         default=(
-            "Intelligenzgestützter Recruiting-Kickstart",
-            "Intelligence-powered recruiting kickoff",
+            "Aus der Stellenanzeige zum vollständigen Stellenprofil",
+            "From job posting to a complete job profile",
         ),
         context=profile_context,
         variants=[
             (
                 (
-                    "Intelligenzgestützter Recruiting-Kickstart für {job_title} bei {company_name}",
-                    "Intelligence-powered recruiting kickoff for {job_title} at {company_name}",
+                    "Stellenanzeige für {job_title} bei {company_name} in ein vollständiges Stellenprofil verwandeln",
+                    "Turn the job posting for {job_title} at {company_name} into a complete job profile",
                 ),
                 ("job_title", "company_name"),
             ),
             (
                 (
-                    "Intelligenzgestützter Recruiting-Kickstart für {job_title}",
-                    "Intelligence-powered recruiting kickoff for {job_title}",
+                    "Stellenanzeige für {job_title} in ein vollständiges Stellenprofil verwandeln",
+                    "Turn the job posting for {job_title} into a complete job profile",
                 ),
                 ("job_title",),
             ),
@@ -767,22 +767,22 @@ def build_onboarding_hero_copy(
     )
     subtitle = format_message(
         default=(
-            "Teile den Einstieg über URL oder Datei und sichere jede relevante Insight gleich am Anfang.",
-            "Share a URL or file to capture every crucial insight from the very first step.",
+            "Füge URL oder Datei hinzu und wir extrahieren die Anforderungen direkt für den Start.",
+            "Add a URL or file and we will extract the requirements right away to get started.",
         ),
         context=profile_context,
         variants=[
             (
                 (
-                    "Übermittle den Startpunkt für {job_title} bei {company_name} über URL oder Datei und sichere jede Insight.",
-                    "Provide the entry point for {job_title} at {company_name} via URL or upload to secure every insight.",
+                    "Füge die Stellenanzeige für {job_title} bei {company_name} als URL oder Datei hinzu und wir extrahieren die Anforderungen.",
+                    "Add the job posting for {job_title} at {company_name} via URL or file and we will extract the requirements.",
                 ),
                 ("job_title", "company_name"),
             ),
             (
                 (
-                    "Übermittle den Startpunkt für {job_title} über URL oder Datei und sichere jede Insight.",
-                    "Provide the entry point for the {job_title} role via URL or upload to secure every insight.",
+                    "Füge die Stellenanzeige für {job_title} als URL oder Datei hinzu und wir extrahieren die Anforderungen.",
+                    "Add the job posting for {job_title} via URL or file and we will extract the requirements.",
                 ),
                 ("job_title",),
             ),
