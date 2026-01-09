@@ -86,6 +86,8 @@ Shared hero/banner tokens drive the onboarding hero (`wizard/layout.py`) and the
 | `--accent-2` | Secondary accent | Zweiter Akzent | `#FFC368` (dark) / `#FFB65C` (light) |
 | `--focus-ring` | Focus halo colour | Fokus-Markierung | `rgba(56, 192, 255, 0.5)` (dark) / `rgba(31, 181, 197, 0.32)` (light) |
 | `--focus-ring-contrast` | Focus outline base | Fokus-Kontur | `rgba(2, 9, 20, 0.96)` (dark) / `rgba(236, 245, 255, 0.95)` (light) |
+| `--focus-border` | Focus border for panels | Fokus-Rahmen für Panels | `rgba(56, 192, 255, 0.8)` (dark) / `rgba(24, 201, 212, 0.7)` (light) |
+| `--ring-accent` | Focus ring accent glow | Akzent-Glow für Fokus | `rgba(56, 192, 255, 0.35)` (dark) / `rgba(24, 201, 212, 0.22)` (light) |
 
 ### Palette & Accessibility / Farbpalette & Barrierefreiheit
 - **EN:** The navy (`#0C1F3D` dark / `#2A4A85` light) anchors both themes, while teal (`#1FB5C5`) and amber (`#FFC368`/`#FFB65C`) accents provide hierarchy and state feedback. Each pairing below exceeds WCAG AA (≥ 4.5:1) for body text so headings and controls stay legible on bright monitors.
@@ -141,3 +143,25 @@ The palette keeps token names aligned between both modes; only the values differ
 - **DE:** Der Onboarding-Hero enthält eine primäre CTA und eine kompakte Timeline; diese Elemente bleiben innerhalb des Hero-Containers und werden mit bestehenden Akzent-/Surface-Tokens gestylt, damit die visuelle Hierarchie erhalten bleibt.
 - **EN:** Any hover or motion effects in the onboarding hero must be disabled under `prefers-reduced-motion: reduce` to respect accessibility preferences.
 - **DE:** Hover- oder Motion-Effekte im Onboarding-Hero müssen unter `prefers-reduced-motion: reduce` deaktiviert werden, um Barrierefreiheit zu respektieren.
+
+## Components / Komponenten
+
+### Onboarding hero / Onboarding-Hero
+- **Structure (EN):** The hero lives in the onboarding step container and uses `.onboarding-hero` with a headline, supporting copy, and a `.onboarding-hero__cta` primary button. The compact timeline is rendered as `.onboarding-hero__timeline` with individual steps inside `.onboarding-hero__timeline-item` rows for consistent spacing.
+- **Struktur (DE):** Der Hero befindet sich im Onboarding-Container und nutzt `.onboarding-hero` mit Headline, Begleittext und einer primären `.onboarding-hero__cta`-Schaltfläche. Die kompakte Timeline wird als `.onboarding-hero__timeline` mit einzelnen `.onboarding-hero__timeline-item`-Zeilen gerendert.
+- **CTA (EN):** Keep the CTA within the hero panel; use accent tokens (`--accent`, `--accent-strong`) and focus ring tokens for keyboard focus.
+- **CTA (DE):** Die CTA bleibt im Hero-Panel; nutze Akzent-Tokens (`--accent`, `--accent-strong`) sowie Fokus-Tokens für Tastaturfokus.
+
+### Source input panels / Quell-Input-Panels
+- **Structure (EN):** The URL vs. upload choices are grouped in `.onboarding-source-inputs`, with each panel styled via `.onboarding-source__panel`. The OR divider uses `.onboarding-source__or` and its `::before` line for the visual separator.
+- **Struktur (DE):** Die URL- und Upload-Auswahl liegt in `.onboarding-source-inputs`, jede Fläche nutzt `.onboarding-source__panel`. Der OR-Trenner verwendet `.onboarding-source__or` und die `::before`-Linie als Separator.
+- **Responsive rules (EN):** For ≤ 768 px, panels stack vertically and the OR divider becomes a horizontal rule via `.onboarding-source__or::before`, while columns collapse to a single column.
+- **Responsive rules (DE):** Für ≤ 768 px stapeln sich die Panels vertikal und der OR-Trenner wird über `.onboarding-source__or::before` als horizontale Linie dargestellt; die Spalten reduzieren sich auf eine.
+
+## Motion rules / Bewegungsregeln
+- **Hover (EN):** CTA and panels may use subtle hover transitions via `--transition-base` and accent tokens; avoid additional motion that competes with the primary flow.
+- **Hover (DE):** CTA und Panels dürfen dezente Hover-Transitions über `--transition-base` und Akzent-Tokens nutzen; vermeide zusätzliche Motion, die vom Hauptflow ablenkt.
+- **Load animation (EN):** Follow-up highlight flashes (`.fu-highlight`, `.fu-highlight-soft`) are allowed to draw attention to missing fields.
+- **Load animation (DE):** Follow-up-Highlights (`.fu-highlight`, `.fu-highlight-soft`) dürfen fehlende Felder kurz hervorheben.
+- **Reduced motion (EN):** Disable highlight animations and other non-essential motion under `prefers-reduced-motion: reduce`.
+- **Reduced motion (DE):** Deaktiviere Highlight-Animationen und nicht notwendige Motion unter `prefers-reduced-motion: reduce`.

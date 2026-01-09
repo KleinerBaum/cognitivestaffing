@@ -939,6 +939,13 @@ footer, #MainMenu {
   }
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .fu-highlight,
+  .fu-highlight-soft {
+    animation: none;
+  }
+}
+
 .missing-badge {
   display: inline-flex;
   align-items: center;
