@@ -797,33 +797,55 @@ def _step_company() -> None:
 
     profile = _get_profile_state()
     profile_context = _build_profile_context(profile)
-    company_header = _format_dynamic_message(
-        default=("Unternehmen", "Company"),
-        context=profile_context,
-        variants=[
+    is_client_view = st.session_state.get(StateKeys.WIZARD_LAST_STEP) == "client"
+    default_header = ("Kunde", "Client") if is_client_view else ("Unternehmen", "Company")
+    default_caption = (
+        ("Basisinformationen zum Kunden angeben.", "Provide basic information about the client.")
+        if is_client_view
+        else ("Basisinformationen zum Unternehmen angeben.", "Provide basic information about the company.")
+    )
+    variants = [
+        (
+            (
+                "{company_name} in {primary_city}",
+                "{company_name} in {primary_city}",
+            ),
+            ("company_name", "primary_city"),
+        ),
+        (
+            (
+                "{company_name} im Überblick",
+                "{company_name} overview",
+            ),
+            ("company_name",),
+        ),
+    ]
+    if is_client_view:
+        variants = [
             (
                 (
-                    "{company_name} in {primary_city}",
-                    "{company_name} in {primary_city}",
+                    "Kunde {company_name} in {primary_city}",
+                    "Client {company_name} in {primary_city}",
                 ),
                 ("company_name", "primary_city"),
             ),
             (
                 (
-                    "{company_name} im Überblick",
-                    "{company_name} overview",
+                    "Kunde {company_name} im Überblick",
+                    "Client {company_name} overview",
                 ),
                 ("company_name",),
             ),
-        ],
+        ]
+    company_header = _format_dynamic_message(
+        default=default_header,
+        context=profile_context,
+        variants=variants,
     )
     missing_here = _compute_company_missing_fields(profile)
 
     company_caption = _format_dynamic_message(
-        default=(
-            "Basisinformationen zum Unternehmen angeben.",
-            "Provide basic information about the company.",
-        ),
+        default=default_caption,
         context=profile_context,
         variants=[
             (

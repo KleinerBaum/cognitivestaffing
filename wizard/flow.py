@@ -11668,7 +11668,12 @@ def _render_followup_section(
         return
 
     stored_snapshot = dict(st.session_state.get(StateKeys.SUMMARY_FOLLOWUP_SNAPSHOT, {}))
-    with st.form("summary_followups_form"):
+    use_form_mode = bool(st.session_state.get(StateKeys.WIZARD_STEP_FORM_MODE))
+    submit_label = tr(
+        "Folgeantworten anwenden",
+        "Apply follow-up answers",
+    )
+    if use_form_mode:
         for field_path, question_text in entry_specs:
             st.markdown(f"**{question_text}**")
             profile_text_input(
@@ -11678,11 +11683,19 @@ def _render_followup_section(
                 label_visibility="collapsed",
                 allow_callbacks=False,
             )
-        submit_label = tr(
-            "Folgeantworten anwenden",
-            "Apply follow-up answers",
-        )
         submitted = st.form_submit_button(submit_label, type="primary")
+    else:
+        with st.form("summary_followups_form"):
+            for field_path, question_text in entry_specs:
+                st.markdown(f"**{question_text}**")
+                profile_text_input(
+                    field_path,
+                    question_text,
+                    key=f"fu_{field_path}",
+                    label_visibility="collapsed",
+                    allow_callbacks=False,
+                )
+            submitted = st.form_submit_button(submit_label, type="primary")
 
     if not submitted:
         return

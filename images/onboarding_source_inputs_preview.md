@@ -3,6 +3,9 @@
 Binary screenshots are unavailable in this environment, so the onboarding URL vs. upload layout is documented as text. The layout below mirrors the two-panel OR structure.
 
 ```
+Quelle & Kontext / Source & context
+[ In-house (eigene Stelle) | Agentur / Auftraggeber ]
+
 ┌───────────────────────────── URL ─────────────────────────────┐   ┌──────────────────────────── Upload ───────────────────────────┐
 │ Stellenanzeigen-URL hinzufügen                                 │   │ Stellenanzeige hochladen (PDF/DOCX/TXT)                        │
 │ [ Text input ]                                                 │   │ [ File uploader ]                                              │

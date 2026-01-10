@@ -359,13 +359,23 @@ def _render_navigation_button(
         )
         wrapper_open = True
 
-    triggered = column.button(
-        label,
-        key=key,
-        type=button_type,
-        disabled=not button.enabled,
-        use_container_width=True,
-    )
+    use_form_submit = bool(st.session_state.get(StateKeys.WIZARD_STEP_FORM_MODE))
+    if use_form_submit:
+        triggered = column.form_submit_button(
+            label,
+            key=key,
+            type=button_type,
+            disabled=not button.enabled,
+            use_container_width=True,
+        )
+    else:
+        triggered = column.button(
+            label,
+            key=key,
+            type=button_type,
+            disabled=not button.enabled,
+            use_container_width=True,
+        )
 
     if wrapper_open:
         column.markdown("</div>", unsafe_allow_html=True)

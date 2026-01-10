@@ -180,6 +180,9 @@ class NavigationController:
         state = self.state
         if "current_step" not in state:
             state["current_step"] = self._pages[0].key
+        if "history" not in state or not isinstance(state.get("history"), list):
+            state["history"] = []
+        self._prune_history()
 
     def bootstrap_session_state(self) -> None:
         self._refresh_active_pages()
@@ -230,6 +233,9 @@ class NavigationController:
         current_key = self.state.get("current_step")
         if mark_current_complete and isinstance(current_key, str):
             self.mark_step_completed(current_key, skipped=skipped)
+            self._push_history(current_key)
+        elif isinstance(current_key, str):
+            self._pop_history_if_target(target_key)
 
         self._session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, None)
         self.set_current_step(target_key)
@@ -263,6 +269,13 @@ class NavigationController:
 
     def previous_key(self, page: WizardPage) -> str | None:
         self._refresh_active_pages()
+        history = self._history_stack()
+        while history:
+            candidate = history[-1]
+            if candidate in self._page_map and candidate != page.key:
+                return candidate
+            history.pop()
+        self.state["history"] = history
         index = self._pages.index(page)
         if index == 0:
             return None
@@ -469,11 +482,42 @@ class NavigationController:
         if [page.key for page in ordered] != [page.key for page in self._pages]:
             self._pages = ordered
             self._page_map = {page.key: page for page in ordered}
+        self._prune_history()
 
     def _resolve_nearest_active_key(self, current: object) -> str:
         active_keys = tuple(page.key for page in self._pages)
         key = current if isinstance(current, str) else ""
         return step_registry.resolve_nearest_active_step_key(key, active_keys) or self._pages[0].key
+
+    def _history_stack(self) -> list[str]:
+        raw_history = self.state.get("history")
+        if isinstance(raw_history, list):
+            return [entry for entry in raw_history if isinstance(entry, str)]
+        return []
+
+    def _set_history_stack(self, history: Sequence[str]) -> None:
+        self.state["history"] = list(history)
+
+    def _push_history(self, step_key: str) -> None:
+        history = self._history_stack()
+        if not history or history[-1] != step_key:
+            history.append(step_key)
+        self._set_history_stack(history)
+
+    def _pop_history_if_target(self, target_key: str) -> None:
+        history = self._history_stack()
+        if history and history[-1] == target_key:
+            history.pop()
+            self._set_history_stack(history)
+
+    def _prune_history(self) -> None:
+        history = self._history_stack()
+        if not history:
+            return
+        active_keys = {page.key for page in self._pages}
+        cleaned = [key for key in history if key in active_keys]
+        if cleaned != history:
+            self._set_history_stack(cleaned)
 
     def handle_step_exception(self, page: WizardPage, error: Exception) -> None:
         logger.warning("Failed to render wizard step '%s'", page.key, exc_info=error)

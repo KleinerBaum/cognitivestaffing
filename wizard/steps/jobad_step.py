@@ -77,6 +77,25 @@ def _step_onboarding(schema: dict) -> None:
             tr("Stellenanzeige bereitstellen", "Provide the job posting"),
             icon="📌",
         )
+        context_key = UIKeys.SOURCE_CONTEXT
+        if context_key not in st.session_state:
+            st.session_state[context_key] = "in_house"
+        st.radio(
+            tr("Quelle & Kontext", "Source & context"),
+            options=["in_house", "agency"],
+            format_func=lambda value: tr(
+                "In-house (eigene Stelle)",
+                "In-house (internal role)",
+            )
+            if value == "in_house"
+            else tr("Agentur / Auftraggeber", "Agency / client"),
+            key=context_key,
+            help=tr(
+                "Diese Auswahl bestimmt, ob als nächstes Unternehmens- oder Kundendetails abgefragt werden.",
+                "This selection decides whether the next step captures company or client details.",
+            ),
+            horizontal=True,
+        )
 
         if st.session_state.get("source_error"):
             fallback_message = tr(

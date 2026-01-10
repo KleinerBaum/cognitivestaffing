@@ -245,8 +245,13 @@ class WizardRouter:
         st.session_state[StateKeys.WIZARD_STEP_UI_KEYS] = stored
 
     def _should_enable_form_fade(self) -> bool:
+        if self._form_mode_enabled():
+            return False
         flag = st.session_state.get(StateKeys.WIZARD_STEP_FORM_FADE, app_config.WIZARD_STEP_FORM_FADE)
         return bool(flag)
+
+    def _form_mode_enabled(self) -> bool:
+        return bool(st.session_state.get(StateKeys.WIZARD_STEP_FORM_MODE))
 
     @contextmanager
     def _step_panel_wrapper(self, enabled: bool, step_key: str) -> Iterator[None]:

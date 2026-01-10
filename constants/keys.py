@@ -69,6 +69,7 @@ class UIKeys:
     DEBUG_API_MODE = "ui.debug.api_mode"
     SUMMARY_POSITION_REPORTING_MANAGER_NAME = "ui.summary.position.reporting_manager_name"
     CONTACT_POSITION_REPORTING_MANAGER_NAME = "ui.contact.position.reporting_manager_name"
+    SOURCE_CONTEXT = "ui.source.context"
 
 
 class ProfilePaths(StrEnum):
@@ -281,6 +282,7 @@ class StateKeys:
     STEP_FAILURES = "wizard.step_failures"
     STEP_AI_SKIPPED = "wizard.step_ai_skipped"
     WIZARD_STEP_FORM_FADE = "wizard.step_form_fade"
+    WIZARD_STEP_FORM_MODE = "wizard.step_form_mode"
     PROFILE_REPAIR_FIELDS = "wizard.profile_repair_fields"
 
 
