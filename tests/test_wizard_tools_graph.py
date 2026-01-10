@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 
-from wizard_tools import graph
+from wizard_tools.experimental import graph
 
 
 def test_add_stage_generates_canonical_identifier() -> None:

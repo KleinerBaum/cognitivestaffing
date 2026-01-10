@@ -105,6 +105,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
 
 - Wizard UI  
   - `wizard/`, `wizard_pages/`, `wizard_tools/` – step UIs + wizard utilities (legacy `wizard_pages` proxies the step registry)  
+  - `wizard_tools/experimental/` – opt-in stage graph tooling for agent workflows (`ENABLE_AGENT_GRAPH=1`)  
   - `wizard/step_registry.py` – canonical step definitions (metadata + renderers + ordering)  
   - `sidebar/`, `ui_views/`, `components/` – shared UI components  
   - `styles/`, `images/` – styling and assets (including onboarding hero CTA/timeline styles, sidebar hero/stepper theme CSS instead of inline `app.py`, and `.onboarding-source-inputs` layout rules)  

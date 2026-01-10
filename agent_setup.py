@@ -1,40 +1,58 @@
 # agent_setup.py
+from __future__ import annotations
+
+import os
+
 from agents import Agent, FileSearchTool, WebSearchTool  # hosted tools
 from prompts import prompt_registry
 from wizard_tools import (
-    add_stage,
-    update_stage,
-    remove_stage,
-    connect_stages,
-    disconnect,
-    list_graph,
-    save_graph,
-    load_graph,
-    upload_jobad,
-    extract_vacancy_fields,
+    attach_context,
     detect_gaps,
+    export_profile,
+    extract_vacancy_fields,
     generate_followups,
+    generate_jd,
+    get_run,
+    index_documents,
     ingest_answers,
-    validate_profile,
+    log_event,
     map_esco_skills,
     market_salary_enrich,
-    generate_jd,
-    export_profile,
-    index_documents,
-    semantic_search,
-    attach_context,
-    run_stage,
-    run_all,
-    retry_stage,
-    set_model,
-    set_reasoning_effort,
-    set_tool_choice,
-    set_temperature,
-    set_max_output_tokens,
     redact_pii,
-    log_event,
-    get_run,
+    semantic_search,
+    upload_jobad,
+    validate_profile,
 )
+
+
+def _graph_tools_enabled() -> bool:
+    return os.getenv("ENABLE_AGENT_GRAPH", "").lower() in {"1", "true", "yes", "on"}
+
+
+def _experimental_graph_tools() -> list[object]:
+    if not _graph_tools_enabled():
+        return []
+
+    from wizard_tools.experimental import execution, graph
+
+    return [
+        graph.add_stage,
+        graph.update_stage,
+        graph.remove_stage,
+        graph.connect_stages,
+        graph.disconnect,
+        graph.list_graph,
+        graph.save_graph,
+        graph.load_graph,
+        execution.run_stage,
+        execution.run_all,
+        execution.retry_stage,
+        execution.set_model,
+        execution.set_reasoning_effort,
+        execution.set_tool_choice,
+        execution.set_temperature,
+        execution.set_max_output_tokens,
+    ]
 
 
 def build_wizard_agent(vector_store_ids: list[str] | None = None) -> Agent:
@@ -44,15 +62,7 @@ def build_wizard_agent(vector_store_ids: list[str] | None = None) -> Agent:
     # Optionally allow browsing for salary benchmarks, etc.
     hosted.append(WebSearchTool())
 
-    function_tools = [
-        add_stage,
-        update_stage,
-        remove_stage,
-        connect_stages,
-        disconnect,
-        list_graph,
-        save_graph,
-        load_graph,
+    function_tools: list[object] = [
         upload_jobad,
         extract_vacancy_fields,
         detect_gaps,
@@ -66,18 +76,11 @@ def build_wizard_agent(vector_store_ids: list[str] | None = None) -> Agent:
         index_documents,
         semantic_search,
         attach_context,
-        run_stage,
-        run_all,
-        retry_stage,
-        set_model,
-        set_reasoning_effort,
-        set_tool_choice,
-        set_temperature,
-        set_max_output_tokens,
         redact_pii,
         log_event,
         get_run,
     ]
+    function_tools.extend(_experimental_graph_tools())
 
     return Agent(
         name="Recruitment Wizard",
