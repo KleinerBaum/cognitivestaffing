@@ -47,6 +47,8 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Job-ad extraction now surfaces a progress indicator that tracks structured extraction and follow-up generation.
 
 ### Changed
+- `app.py` now renders the guided-flow UI kit stepper/context/progress elements and inline saved feedback to stabilize the baseline wizard UX.
+- Wizard navigation now validates required fields on Next click without disabling the button, keeping navigation responsive while still blocking incomplete steps.
 - Wizard navigation now renders an emoji stepper with active/done/upcoming styling, and the layout reserves space for validation messaging to prevent shifts.
 - README now documents the reserved validation area and origin markers, and the UX preview text assets now cover the stepper, origin markers, and validation area in `images/`.
 - Wizard step metadata and renderers now live in a single step registry, with legacy `wizard_pages` modules proxying the registry to avoid drift.

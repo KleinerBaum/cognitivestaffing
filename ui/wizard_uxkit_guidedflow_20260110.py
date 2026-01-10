@@ -9,6 +9,8 @@ import uuid
 
 import streamlit as st
 
+from utils.i18n import tr
+
 
 # ---------- Types ----------
 Origin = Literal["extracted", "suggested", "manual"]
@@ -420,7 +422,14 @@ def render_context_bar(
     step_label = active[idx - 1].label
 
     nonce = wiz.state["nonce"]
-    left = _esc(f"Schritt {idx}/{total} · {step_label} 👇")
+    lang = st.session_state.get("lang", "de")
+    left = _esc(
+        tr(
+            "Schritt {current}/{total} · {label} 👇",
+            "Step {current}/{total} · {label} 👇",
+            lang=lang,
+        ).format(current=idx, total=total, label=step_label)
+    )
     right = _esc(legend_right)
 
     st.markdown(
@@ -436,15 +445,18 @@ def render_context_bar(
 
 def render_saved_badge_if_recent(wiz: Wizard, widget_key: str, *, within_s: float = 1.8) -> None:
     if wiz.recently_saved(widget_key, within_s=within_s):
-        st.markdown("<span class='wiz-saved'>✅ gespeichert</span>", unsafe_allow_html=True)
+        lang = st.session_state.get("lang", "de")
+        label = tr("✅ gespeichert", "✅ saved", lang=lang)
+        st.markdown(f"<span class='wiz-saved'>{_esc(label)}</span>", unsafe_allow_html=True)
 
 
 def origin_badge_html(origin: Origin) -> str:
     origin_norm = origin if origin in ("extracted", "suggested", "manual") else "manual"
+    lang = st.session_state.get("lang", "de")
     label = {
-        "extracted": "extrahiert",
-        "suggested": "vorgeschlagen",
-        "manual": "manuell",
+        "extracted": tr("extrahiert", "extracted", lang=lang),
+        "suggested": tr("vorgeschlagen", "suggested", lang=lang),
+        "manual": tr("manuell", "manual", lang=lang),
     }[origin_norm]
     return f"<span class='wiz-origin {origin_norm}'>{_esc(label)}</span>"
 
@@ -493,14 +505,21 @@ def render_progress_and_microcopy(
     st.progress(pct)
 
     active = wiz.active_steps()
+    lang = st.session_state.get("lang", "de")
     if mode == "visited":
-        st.caption("Noch ein paar Klicks – du bist fast da 🚀")
+        st.caption(tr("Noch ein paar Klicks – du bist fast da 🚀", "Just a few clicks to go 🚀", lang=lang))
         return
 
     remaining_steps = max(0, len(active) - (wiz.current_index() + 1))
     remaining_sec = remaining_steps * est_seconds_per_step
     if remaining_sec <= 15:
-        st.caption(done_caption)
+        st.caption(tr(done_caption, "Almost there 🚀", lang=lang))
     else:
         mins = max(1, int(round(remaining_sec / 60)))
-        st.caption(f"Noch ~{mins} Minute{'n' if mins != 1 else ''} – du bist fast da 🚀")
+        st.caption(
+            tr(
+                f"Noch ~{mins} Minute{'n' if mins != 1 else ''} – du bist fast da 🚀",
+                f"~{mins} minute{'s' if mins != 1 else ''} left – almost there 🚀",
+                lang=lang,
+            )
+        )
