@@ -47,6 +47,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Changed
 - Wizard navigation now renders an emoji stepper with active/done/upcoming styling, and the layout reserves space for validation messaging to prevent shifts.
+- README now documents the reserved validation area and origin markers, and the UX preview text assets now cover the stepper, origin markers, and validation area in `images/`.
 - Wizard step metadata and renderers now live in a single step registry, with legacy `wizard_pages` modules proxying the registry to avoid drift.
 - Wizard navigation state now stores under a wizard-specific `wiz:<wizard_id>:` namespace with legacy aliasing for the default wizard session.
 - Navigation validation warnings now render in a reserved inline area below the controls to avoid layout shifts.
