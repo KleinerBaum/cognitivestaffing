@@ -109,4 +109,3 @@ def test_prepare_payload_builds_chat_and_responses(monkeypatch: pytest.MonkeyPat
     assert "response_format" in chat_request.payload
     assert "schema" not in chat_request.payload["response_format"]
     assert chat_request.api_mode_override == APIMode.CLASSIC.value
-

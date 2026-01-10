@@ -658,6 +658,30 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
         return StructuredExtractionOutcome(content=empty_payload, source=source, low_confidence=True)
 
     parser = get_need_analysis_output_parser()
+
+    def _attempt_schema_repair(err: NeedAnalysisParserError) -> StructuredExtractionOutcome | None:
+        if not err.raw_text:
+            return None
+        repair_result = parse_profile_json(err.raw_text, errors=err.errors)
+        if repair_result.payload is None:
+            return None
+        canonical_payload = canonicalize_profile_payload(repair_result.payload)
+        try:
+            repaired_model = NeedAnalysisProfile.model_validate(canonical_payload)
+        except ValidationError as repair_error:
+            logger.warning(
+                "Structured extraction repair retry failed for %s: %s",
+                prompt_digest,
+                repair_error,
+            )
+            return None
+        logger.info("Structured extraction repaired invalid JSON for %s.", prompt_digest)
+        return StructuredExtractionOutcome(
+            content=repaired_model.model_dump_json(),
+            source="chat" if low_confidence else source,
+            low_confidence=True,
+        )
+
     try:
         profile, raw_data = parser.parse(content.content)
     except NeedAnalysisParserError as err:
@@ -689,6 +713,9 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
                         source="chat" if low_confidence else source,
                         low_confidence=True,
                     )
+        repaired_outcome = _attempt_schema_repair(err)
+        if repaired_outcome is not None:
+            return repaired_outcome
         if err.data:
             report = _generate_error_report(err.data)
             if report:
@@ -860,6 +887,10 @@ def _extract_json_outcome(
                 max_completion_tokens=_EXTRACTION_MAX_COMPLETION_TOKENS,
                 reasoning_effort=effort,
                 verbosity=get_active_verbosity(),
+                json_schema={
+                    "name": "need_analysis_profile",
+                    "schema": NEED_ANALYSIS_SCHEMA,
+                },
                 task=ModelTask.EXTRACTION,
             )
         except Exception as exc2:  # pragma: no cover - network/SDK issues

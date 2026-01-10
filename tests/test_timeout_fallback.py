@@ -69,4 +69,3 @@ def test_timeout_marks_model_unavailable_and_falls_back(
     assert model_config.get_model_for(model_config.ModelTask.EXTRACTION) == attempts[1]
     timeout_logs = [record for record in caplog.records if "timeout" in record.message.lower()]
     assert len(timeout_logs) == 1
-

@@ -16,9 +16,7 @@ def _load_registry_from_path(path: Path, version: str | None) -> dict[str, Any]:
 
 
 @lru_cache(maxsize=512)
-def _resolve_prompt_value(
-    path: Path, key: str, locale: str | None, version: str | None
-) -> Any:
+def _resolve_prompt_value(path: Path, key: str, locale: str | None, version: str | None) -> Any:
     data: Any = _load_registry_from_path(path, version)
     for part in key.split("."):
         if isinstance(data, dict) and part in data:
@@ -41,6 +39,7 @@ def _resolve_prompt_value(
         return data[short]
 
     raise KeyError(f"Prompt key '{key}' missing locale '{locale}'")
+
 
 _PROMPTS_PATH = Path(__file__).resolve().parent / "registry.yaml"
 
@@ -127,5 +126,6 @@ def clear_prompt_cache() -> None:
         cache_clear = getattr(func, "cache_clear", None)
         if callable(cache_clear):  # pragma: no branch - defensive
             cache_clear()
+
 
 __all__ = ["PromptRegistry", "clear_prompt_cache", "prompt_registry"]

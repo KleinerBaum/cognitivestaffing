@@ -52,10 +52,7 @@ def main() -> None:
 
     removed, remaining = scrub_env_file(env_file, keys=keys)
     removed_keys = ", ".join(keys)
-    print(
-        f"Removed {removed} override lines from {env_file} (kept {remaining}).\n"
-        f"Cleared keys: {removed_keys}"
-    )
+    print(f"Removed {removed} override lines from {env_file} (kept {remaining}).\nCleared keys: {removed_keys}")
 
 
 if __name__ == "__main__":

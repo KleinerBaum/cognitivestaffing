@@ -41,7 +41,9 @@ def test_team_advice_uses_text_mode(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_team_advice_pipeline_fallback(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(team_advice_pipeline, "advise_team_structure", lambda *_, **__: (_ for _ in ()).throw(RuntimeError()))
+    monkeypatch.setattr(
+        team_advice_pipeline, "advise_team_structure", lambda *_, **__: (_ for _ in ()).throw(RuntimeError())
+    )
 
     advice = team_advice_pipeline.generate_team_advice({}, lang="en")
 

@@ -54,9 +54,7 @@ def _trim_sections(schema: Mapping[str, Any], sections: Collection[str]) -> dict
 
 
 @lru_cache(maxsize=8)
-def _load_schema_cached(
-    section_tuple: tuple[str, ...] | None, _schema_version: str | None
-) -> dict[str, Any]:
+def _load_schema_cached(section_tuple: tuple[str, ...] | None, _schema_version: str | None) -> dict[str, Any]:
     """Return the canonical NeedAnalysis JSON schema with optional section limiting."""
 
     try:

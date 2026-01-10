@@ -538,6 +538,59 @@ def test_structured_extraction_returns_validated_payload(monkeypatch: pytest.Mon
     assert json.loads(result) == sample_data
 
 
+def test_structured_extraction_repairs_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Structured extraction should retry a schema-guided repair on invalid JSON."""
+
+    captured: dict[str, Any] = {}
+
+    class _DummyParser:
+        def parse(self, _text: str):
+            raise NeedAnalysisParserError(
+                "Structured extraction did not return valid JSON.",
+                raw_text="bad json",
+                data=None,
+                original=ValueError("bad json"),
+                errors=[{"loc": ("company", "name"), "msg": "missing"}],
+            )
+
+    def _fake_responses(*_args: Any, **_kwargs: Any) -> ResponsesCallResult:
+        return ResponsesCallResult(
+            content="bad json",
+            usage={},
+            response_id="resp_999",
+            raw_response={},
+        )
+
+    def _fake_parse_profile_json(raw: str, *, errors=None):  # type: ignore[unused-argument]
+        captured["errors"] = errors
+        payload = NeedAnalysisProfile().model_dump()
+        payload["company"]["name"] = "Recovered"
+        payload["position"]["job_title"] = "Engineer"
+        return JsonRepairResult(
+            payload=payload,
+            status=JsonRepairStatus.REPAIRED,
+            issues=["json parse failed"],
+        )
+
+    monkeypatch.setattr(client, "get_need_analysis_output_parser", lambda: _DummyParser())
+    monkeypatch.setattr(client, "call_responses_safe", _fake_responses)
+    monkeypatch.setattr(client, "parse_profile_json", _fake_parse_profile_json)
+
+    payload = {
+        "messages": [{"role": "user", "content": "Extract"}],
+        "model": "gpt-test",
+        "reasoning_effort": None,
+        "verbosity": None,
+    }
+
+    result = client._structured_extraction(payload)
+
+    result_payload = json.loads(result.content)
+    assert result.low_confidence is True
+    assert result_payload["company"]["name"] == "Recovered"
+    assert captured["errors"]
+
+
 def test_extract_json_skips_plain_fallback_when_structured_succeeds(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

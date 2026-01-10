@@ -57,9 +57,7 @@ def test_execute_response_prunes_chat_fields_in_responses_mode(monkeypatch):
             captured.update(kwargs)
             return SimpleNamespace(output=[], usage={}, output_text="", id="resp")
 
-    dummy_client = SimpleNamespace(
-        responses=_DummyResponses(), chat=SimpleNamespace(completions=_DummyResponses())
-    )
+    dummy_client = SimpleNamespace(responses=_DummyResponses(), chat=SimpleNamespace(completions=_DummyResponses()))
 
     monkeypatch.setattr(openai_api, "client", dummy_client, raising=False)
     monkeypatch.setattr(openai_api.openai_client, "get_client", lambda: dummy_client)
