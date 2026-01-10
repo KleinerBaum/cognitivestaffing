@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from wizard.step_registry import STEPS, get_step, step_keys
+from wizard.step_registry import STEPS, get_step, resolve_active_step_keys, step_keys
 
 
 def test_step_registry_order() -> None:
@@ -26,3 +26,10 @@ def test_step_registry_lookup() -> None:
     assert step is not None
     assert step.key == "team"
     assert get_step("unknown") is None
+
+
+def test_step_registry_active_keys_respects_schema() -> None:
+    profile = {"position": {}}
+    session_state = {"_schema": {"properties": {"company": {}, "position": {}}}}
+    active = resolve_active_step_keys(profile, session_state)
+    assert "team" not in active
