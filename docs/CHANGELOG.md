@@ -17,6 +17,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Required-field ownership validation to keep `wizard_pages` metadata aligned with `PAGE_FOLLOWUP_PREFIXES`, plus supporting tests and documentation.
 - Session-level OpenAI token budget guard configurable via `OPENAI_SESSION_TOKEN_LIMIT`/`OPENAI_TOKEN_BUDGET`; further calls are blocked with a bilingual warning once the cap is exceeded.
 - Documented cost controls and low-cost model routing examples (including `MODEL_ROUTING__<task>` overrides and sidebar token usage references) in the README and LLM configuration guide.
+- Single-page wizard mode that renders all steps sequentially in expanders with a top-level missing-fields validation summary.
 - Wizard unification maintainability audit covering wizard step metadata, renderers, and agent tools (`docs/refactor/wizard-unification-audit.md`).
 - Bilingual extraction fallback banner on the Company step when `meta.extraction_fallback_active` is set so recruiters know to validate prefilled fields.
 - Progress inbox on the Summary step now uses structured OpenAI outputs (when enabled) to map inbox updates to up to three tasks with progress, completion, or note actions; deterministic matching remains as the fallback when AI is unavailable.

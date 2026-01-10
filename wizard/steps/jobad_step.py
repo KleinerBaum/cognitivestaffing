@@ -5,6 +5,7 @@ from typing import Mapping
 
 import streamlit as st
 
+from constants.flow_mode import FlowMode
 from constants.keys import StateKeys, UIKeys
 from utils.i18n import tr
 from wizard.components.extraction_settings_panel import render_extraction_settings_panel
@@ -182,18 +183,21 @@ def _step_onboarding(schema: dict) -> None:
             st_module=st,
         )
 
-    review_rendered = flow._render_extraction_review()
+    review_rendered = False
+    if flow.get_flow_mode() != FlowMode.SINGLE_PAGE:
+        review_rendered = flow._render_extraction_review()
 
     if not review_rendered:
         flow._render_followups_for_step("jobad", profile)
 
-    if st.button(
-        tr("Weiter ▶", "Next ▶"),
-        type="primary",
-        key="onboarding_next_compact",
-        disabled=locked,
-    ):
-        flow._advance_from_onboarding()
+    if flow.get_flow_mode() != FlowMode.SINGLE_PAGE:
+        if st.button(
+            tr("Weiter ▶", "Next ▶"),
+            type="primary",
+            key="onboarding_next_compact",
+            disabled=locked,
+        ):
+            flow._advance_from_onboarding()
 
 
 def step_jobad(context: WizardContext) -> None:

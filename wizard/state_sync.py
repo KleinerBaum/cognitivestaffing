@@ -25,6 +25,8 @@ def prime_widget_state_from_profile(data: Mapping[str, Any]) -> None:
     """Synchronise Streamlit widget state from ``data``."""
 
     for path, value in iter_profile_scalars(data):
+        if path in st.session_state:
+            continue
         normalized = _normalize_semantic_empty(value)
         if normalized is None:
             st.session_state.pop(path, None)
