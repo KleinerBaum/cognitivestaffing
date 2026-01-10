@@ -87,6 +87,8 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Diary template and OneDrive upload tab have been retired; the landing page now focuses solely on the wizard and export flows.
 
 ### Fixed
+- ESCO occupation selector now uses a dedicated widget session-state key to avoid Streamlit
+  widget mutation errors while keeping profile state in sync.
 - Team & Structure missing-tab follow-ups no longer re-render the reporting-line input, preventing the follow-up widget from overwriting a value already set in the main form.
 - Follow-up generation now validates response schemas, retries once with strict JSON guidance, and surfaces clearer fallback notices when invalid payloads are returned.
 - OpenAI timeouts now trigger a one-shot fallback to the next model with a friendly "taking longer" notice instead of looping on the stalled tier.

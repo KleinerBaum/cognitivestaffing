@@ -118,7 +118,7 @@ def test_render_esco_occupation_selector_updates_profile(
         on_change,
         **kwargs,
     ):
-        assert key == UIKeys.POSITION_ESCO_OCCUPATION
+        assert key == UIKeys.POSITION_ESCO_OCCUPATION_WIDGET
         assert st.session_state[key] == []
         assert any("Data Analyst" in format_func(opt) for opt in options)
         assert kwargs.get("label_visibility") == "collapsed"
@@ -198,7 +198,7 @@ def test_render_esco_occupation_selector_consumes_override(
         on_change,
         **kwargs,
     ):
-        assert key == UIKeys.POSITION_ESCO_OCCUPATION
+        assert key == UIKeys.POSITION_ESCO_OCCUPATION_WIDGET
         assert st.session_state[key] == ["uri:1"]
         assert StateKeys.UI_ESCO_OCCUPATION_OVERRIDE not in st.session_state
         assert any("Data Scientist" in format_func(opt) for opt in options)

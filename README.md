@@ -269,3 +269,5 @@ tests.
 
 - Optional flow helpers (for example, company autofill suggestions) may be unavailable in slim flow
   variants; missing optional dependencies are expected and only logged at debug level.
+- ESCO occupation selector state is split between widget and profile keys to avoid Streamlit
+  session-state mutation errors; keep widget changes on `ui.position.esco_occupation_widget`.

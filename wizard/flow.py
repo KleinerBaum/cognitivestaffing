@@ -6647,35 +6647,31 @@ def _render_esco_occupation_selector(
 
     selected_ids = [sid for sid in selected_ids if sid in option_ids]
 
+    widget_key = UIKeys.POSITION_ESCO_OCCUPATION_WIDGET
+    profile_key = UIKeys.POSITION_ESCO_OCCUPATION
+
     override_sentinel = object()
     override_raw = st.session_state.pop(StateKeys.UI_ESCO_OCCUPATION_OVERRIDE, override_sentinel)
+    existing_widget_ids = [sid for sid in _coerce_occupation_ids(st.session_state.get(widget_key)) if sid in option_ids]
     if override_raw is override_sentinel:
-        widget_value = [
-            sid
-            for sid in _coerce_occupation_ids(st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION))
-            if sid in option_ids
-        ]
-        if not widget_value:
-            widget_value = list(selected_ids)
+        if existing_widget_ids:
+            widget_value = list(existing_widget_ids)
+        else:
+            widget_value = [
+                sid for sid in _coerce_occupation_ids(st.session_state.get(profile_key)) if sid in option_ids
+            ]
+            if not widget_value:
+                widget_value = list(selected_ids)
     else:
         widget_value = [sid for sid in _coerce_occupation_ids(override_raw) if sid in option_ids]
 
-    st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = widget_value
+    st.session_state[widget_key] = widget_value
+    st.session_state[profile_key] = widget_value
 
     def _current_selection() -> list[str]:
         """Return the ESCO occupation URIs currently selected in the widget."""
 
-        if StateKeys.UI_ESCO_OCCUPATION_OVERRIDE in st.session_state:
-            return [
-                sid
-                for sid in _coerce_occupation_ids(st.session_state.get(StateKeys.UI_ESCO_OCCUPATION_OVERRIDE))
-                if sid in option_ids
-            ]
-        return [
-            sid
-            for sid in _coerce_occupation_ids(st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION))
-            if sid in option_ids
-        ]
+        return [sid for sid in _coerce_occupation_ids(st.session_state.get(widget_key)) if sid in option_ids]
 
     container = parent.container() if parent is not None else st.container()
     render_target = container
@@ -6723,6 +6719,7 @@ def _render_esco_occupation_selector(
         """Persist ESCO occupation selections and sync dependent state."""
 
         current_ids = _current_selection()
+        st.session_state[profile_key] = current_ids
         _apply_esco_selection(current_ids, options, lang=lang_code)
 
     selection_label = tr("Empfohlene Berufe", "Suggested occupations")
@@ -6731,7 +6728,7 @@ def _render_esco_occupation_selector(
     render_target.multiselect(
         selection_label,
         options=option_ids,
-        key=UIKeys.POSITION_ESCO_OCCUPATION,
+        key=widget_key,
         format_func=lambda value: format_map.get(value, value),
         on_change=_on_change,
         label_visibility="collapsed",
@@ -6741,7 +6738,7 @@ def _render_esco_occupation_selector(
         ),
     )
 
-    selected_ids = list(st.session_state.get(UIKeys.POSITION_ESCO_OCCUPATION, []))
+    selected_ids = list(st.session_state.get(widget_key, []))
     selected_labels = [format_map.get(opt, opt) for opt in selected_ids]
     available_ids = [opt for opt in option_ids if opt not in selected_ids]
     available_labels = [format_map.get(opt, opt) for opt in available_ids]
