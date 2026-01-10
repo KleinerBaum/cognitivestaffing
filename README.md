@@ -195,6 +195,7 @@ MODEL_ROUTING__interview_guide = "gpt-4o-mini"
   - Feature flag: set `st.session_state["feature.sidebar_stepper_v1"] = True` to preview the sidebar stepper.
   - Navigation flag: set `st.session_state["feature.sidebar_stepper_nav_v1"] = True` to allow clicking previous steps in the sidebar stepper.
   - Step-panel fade: set `WIZARD_STEP_FORM_FADE=1` (env/secrets) or `st.session_state["wizard.step_form_fade"] = True` to enable the optional step fade wrapper.
+  - Form-based fade mode: toggle `USE_FORM_PANEL_FADE` in `app.py` to render wizard steps inside a `st.form` with submit-based navigation.
 - Sidebar settings (language, theme, intro banner, advanced LLM options):
   - `sidebar/__init__.py`
 - Shared step layout pattern (recommended):

@@ -18,6 +18,8 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Shared Streamlit wizard UX kit module with a compatibility shim in `ui/`.
 - Registry integrity test that validates step keys, required fields, and legacy indices alignment.
 - Dynamic-flow planning artifacts outlining the conditional NeedAnalysis roadmap (`docs/dynamic_flow_plan.md` and `docs/dynamic_flow_tasks.json`).
+- Form-based wizard panel fade mode toggle in `app.py`, rendering steps inside `st.form` with submit-driven navigation.
+- Onboarding source context selection that branches into company or client detail steps without exposing both in the stepper.
 - Canonical wizard services for gap detection and profile validation, shared by the UI flow and wizard tools.
 - Conditional step activation predicates so inactive wizard steps are skipped in navigation and deep links.
 - Required-field ownership validation to keep `wizard_pages` metadata aligned with `PAGE_FOLLOWUP_PREFIXES`, plus supporting tests and documentation.
@@ -48,6 +50,8 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Changed
 - `app.py` now renders the guided-flow UI kit stepper/context/progress elements and inline saved feedback to stabilize the baseline wizard UX.
+- Wizard back navigation now prefers a history stack so branching paths return to the actual previous step.
+- Company step headers and captions now adapt when the client branch is active.
 - Wizard navigation now validates required fields on Next click without disabling the button, keeping navigation responsive while still blocking incomplete steps.
 - Wizard navigation now renders an emoji stepper with active/done/upcoming styling, and the layout reserves space for validation messaging to prevent shifts.
 - README now documents the reserved validation area and origin markers, and the UX preview text assets now cover the stepper, origin markers, and validation area in `images/`.

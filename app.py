@@ -83,6 +83,7 @@ import sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
 
 APP_VERSION = "1.2.0"
+USE_FORM_PANEL_FADE = False
 setup_tracing()
 
 # --- Page config early (keine doppelten Titel/Icon-Resets) ---
@@ -97,6 +98,8 @@ st.set_page_config(
 ROOT = APP_ROOT
 ensure_state()
 st.session_state.setdefault("app_version", APP_VERSION)
+st.session_state[StateKeys.WIZARD_STEP_FORM_MODE] = USE_FORM_PANEL_FADE
+st.session_state[StateKeys.WIZARD_STEP_FORM_FADE] = USE_FORM_PANEL_FADE
 
 MODEL_ID = cast(str | None, st.session_state.get("router.resolved_model"))
 if LLM_ENABLED:
@@ -287,7 +290,7 @@ def _mark_saved_if_profile_changed(wiz: Wizard) -> str:
 
 inject_global_css()
 inject_layout_stability_css()
-inject_wizard_uxkit_css(enable_form_fade=False)
+inject_wizard_uxkit_css(enable_form_fade=USE_FORM_PANEL_FADE)
 inject_chatkit_script()
 legacy_stepper.STEP_NAVIGATION_ENABLED = False
 
@@ -302,6 +305,7 @@ profile = st.session_state.get(StateKeys.PROFILE)
 profile_data = profile if isinstance(profile, Mapping) else {}
 active_keys = resolve_active_step_keys(profile_data, st.session_state)
 origin_wiz = _build_display_wizard(active_keys, lang, profile_data)
+_sync_display_wizard(origin_wiz, active_keys)
 origins_key = origin_wiz.k("_origins")
 st.session_state.setdefault("wizard.ui.origins_key", origins_key)
 st.session_state.setdefault(origins_key, {})
@@ -311,7 +315,11 @@ context_slot = st.container()
 progress_slot = st.container()
 saved_slot = st.container()
 
-run_wizard()
+if USE_FORM_PANEL_FADE:
+    with st.form(key=origin_wiz.k("form", origin_wiz.current_step().id, origin_wiz.state["nonce"])):
+        run_wizard()
+else:
+    run_wizard()
 
 lang = st.session_state.get("lang", "de")
 profile = st.session_state.get(StateKeys.PROFILE)

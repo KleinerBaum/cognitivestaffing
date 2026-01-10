@@ -9,6 +9,7 @@ def test_step_registry_order() -> None:
     assert step_keys() == (
         "jobad",
         "company",
+        "client",
         "team",
         "role_tasks",
         "skills",
@@ -27,6 +28,7 @@ def test_step_registry_integrity() -> None:
     expected_step_order = (
         "jobad",
         "company",
+        "client",
         "team",
         "role_tasks",
         "skills",
@@ -37,6 +39,7 @@ def test_step_registry_integrity() -> None:
     expected_section_indexes = {
         "jobad": 0,
         "company": 1,
+        "client": 1,
         "team": 2,
         "role_tasks": 3,
         "skills": 3,

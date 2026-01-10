@@ -6,6 +6,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
 
+from constants.keys import UIKeys
 from wizard.navigation_types import StepNextResolver, WizardContext
 
 StepPredicate = Callable[[Mapping[str, object], Mapping[str, object]], bool]
@@ -50,6 +51,25 @@ def _team_step_active(profile: Mapping[str, object], session_state: Mapping[str,
     return True
 
 
+def _resolve_source_context(session_state: Mapping[str, object]) -> str:
+    raw = session_state.get(UIKeys.SOURCE_CONTEXT)
+    if isinstance(raw, str) and raw.strip().lower() == "agency":
+        return "agency"
+    return "in_house"
+
+
+def _company_step_active(_profile: Mapping[str, object], session_state: Mapping[str, object]) -> bool:
+    return _resolve_source_context(session_state) != "agency"
+
+
+def _client_step_active(_profile: Mapping[str, object], session_state: Mapping[str, object]) -> bool:
+    return _resolve_source_context(session_state) == "agency"
+
+
+def _jobad_next_step_id(_context: WizardContext, session_state: Mapping[str, object]) -> str | None:
+    return "client" if _resolve_source_context(session_state) == "agency" else "company"
+
+
 def _render_jobad_step(context: WizardContext) -> None:
     from wizard.steps import jobad_step
 
@@ -60,6 +80,50 @@ def _render_company_step(context: WizardContext) -> None:
     from wizard.steps import company_step
 
     company_step.step_company(context)
+
+
+def _render_client_step(context: WizardContext) -> None:
+    from wizard.steps import company_step
+
+    company_step.step_company(context)
+
+
+COMPANY_REQUIRED_FIELDS: Final[tuple[str, ...]] = (
+    "company.name",
+    "company.contact_email",
+    "department.name",
+    "location.primary_city",
+)
+
+COMPANY_SUMMARY_FIELDS: Final[tuple[str, ...]] = (
+    "company.name",
+    "company.legal_name",
+    "company.brand_name",
+    "company.tagline",
+    "company.industry",
+    "company.industries",
+    "company.size",
+    "company.website",
+    "company.mission",
+    "company.hq_location",
+    "company.locations",
+    "company.culture",
+    "company.values",
+    "company.brand_keywords",
+    "company.description",
+    "company.contact_name",
+    "company.contact_email",
+    "company.contact_phone",
+    "company.logo_url",
+    "company.brand_color",
+    "company.claim",
+    "company.benefits",
+    "department.name",
+    "department.function",
+    "department.leader_name",
+    "department.leader_title",
+    "department.strategic_goals",
+)
 
 
 def _render_team_step(context: WizardContext) -> None:
@@ -122,6 +186,7 @@ WIZARD_STEPS: Final[tuple[StepDefinition, ...]] = (  # GREP:STEP_REGISTRY_V2
         summary_fields=(),
         allow_skip=False,
         renderer=_render_jobad_step,
+        next_step_id=_jobad_next_step_id,
     ),
     StepDefinition(
         key="company",
@@ -138,43 +203,32 @@ WIZARD_STEPS: Final[tuple[StepDefinition, ...]] = (  # GREP:STEP_REGISTRY_V2
                 "We pre-filled fields from the job ad; tweak them if the posting was incomplete.",
             ),
         ),
-        required_fields=(
-            "company.name",
-            "company.contact_email",
-            "department.name",
-            "location.primary_city",
-        ),
-        summary_fields=(
-            "company.name",
-            "company.legal_name",
-            "company.brand_name",
-            "company.tagline",
-            "company.industry",
-            "company.industries",
-            "company.size",
-            "company.website",
-            "company.mission",
-            "company.hq_location",
-            "company.locations",
-            "company.culture",
-            "company.values",
-            "company.brand_keywords",
-            "company.description",
-            "company.contact_name",
-            "company.contact_email",
-            "company.contact_phone",
-            "company.logo_url",
-            "company.brand_color",
-            "company.claim",
-            "company.benefits",
-            "department.name",
-            "department.function",
-            "department.leader_name",
-            "department.leader_title",
-            "department.strategic_goals",
-        ),
+        required_fields=COMPANY_REQUIRED_FIELDS,
+        summary_fields=COMPANY_SUMMARY_FIELDS,
         allow_skip=False,
         renderer=_render_company_step,
+        is_active=_company_step_active,
+    ),
+    StepDefinition(
+        key="client",
+        label=("Kunde", "Client"),
+        panel_header=("Kunde", "Client"),
+        panel_subheader=("Ansprechpartner & Kontext", "Client contact & context"),
+        panel_intro_variants=(
+            (
+                "Erfasse die wichtigsten Kundendetails, damit Rollenanforderungen klar bleiben.",
+                "Capture key client details so role requirements stay clear.",
+            ),
+            (
+                "Diese Angaben helfen, das Profil sauber von der Agentur zu trennen.",
+                "These details keep the client profile distinct from the agency.",
+            ),
+        ),
+        required_fields=COMPANY_REQUIRED_FIELDS,
+        summary_fields=COMPANY_SUMMARY_FIELDS,
+        allow_skip=False,
+        renderer=_render_client_step,
+        is_active=_client_step_active,
     ),
     StepDefinition(
         key="team",
