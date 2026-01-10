@@ -35,6 +35,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Feature-flagged sidebar stepper that summarizes per-step missing fields in the sidebar.
 - Sidebar stepper navigation flag (`feature.sidebar_stepper_nav_v1`) to let users jump back to previous steps.
 - Deterministic Rheinbahn job ad fixture plus a tiny loader for regression tests.
+- Streamlit AppTest regression coverage for the ESCO occupation selector to guard against widget state mutation errors.
 
 ### Changed
 - Wizard step metadata and renderers now live in a single step registry, with legacy `wizard_pages` modules proxying the registry to avoid drift.
