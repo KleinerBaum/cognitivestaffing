@@ -120,7 +120,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
   - `role_field_map.json` – role-dependent field priorities
   - `wizard/services/followups.py` – canonical follow-up generation (LLM + fallback)
   - `wizard/missing_fields.py` – pure helpers for missing-field detection
-  - `wizard/services/` – canonical gap + validation services shared by UI and agent tools
+  - `wizard/services/` – canonical gap, validation, and job description services shared by UI and agent tools
   - `wizard/step_status.py` – step-level missing required/critical status helpers
 
 - LLM & pipelines  
