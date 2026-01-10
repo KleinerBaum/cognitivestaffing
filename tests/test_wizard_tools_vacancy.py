@@ -5,6 +5,8 @@ import json
 import pytest
 
 from wizard_tools import vacancy
+from wizard.services.gaps import detect_missing_critical_fields
+from wizard.services.validation import validate_profile
 
 
 def test_upload_jobad_prefers_text_over_sources() -> None:
@@ -33,8 +35,10 @@ def test_extract_vacancy_fields_handles_empty_text() -> None:
 def test_detect_gaps_and_followups_cover_missing_fields() -> None:
     profile = {"requirements": {}}
     gaps = json.loads(vacancy.detect_gaps(profile))["gaps"]
-    fields = {entry["field"] for entry in gaps}
-    assert {"position.job_title", "position.location", "requirements.hard_skills_required"}.issubset(fields)
+    fields = [entry["field"] for entry in gaps]
+    service_fields = detect_missing_critical_fields(profile)
+    assert fields == service_fields
+    assert {"position.job_title", "requirements.hard_skills_required"}.issubset(fields)
 
     followups = json.loads(vacancy.generate_followups(profile, role_context="remote team"))
     assert any("role context" in question for question in followups["questions"])
@@ -53,9 +57,13 @@ def test_validate_profile_reports_issues() -> None:
     profile = {"compensation": {"salary": {"min": 100000, "max": 90000}}}
     result = json.loads(vacancy.validate_profile(profile, config))
 
+    service_result = validate_profile(profile, jurisdiction="DE")
+
     assert result["ok"] is False
-    assert "Location is required" in result["issues"][0]
-    assert "Salary minimum cannot exceed maximum." in result["issues"][1]
+    assert result["issues"] == service_result.issues
+    assert result["missing_required"] == service_result.missing_required
+    assert any("Location is required" in issue for issue in result["issues"])
+    assert "Salary minimum cannot exceed maximum." in result["issues"]
 
 
 def test_map_esco_skills_and_salary_enrichment() -> None:

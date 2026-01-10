@@ -8,6 +8,8 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 from agents import function_tool
+from wizard.services.gaps import detect_missing_critical_fields
+from wizard.services.validation import validate_profile as validate_profile_service
 
 
 class ExtractionConfig(BaseModel):
@@ -56,15 +58,8 @@ def detect_gaps(profile_json: Dict[str, Any]) -> str:
     """Return list of missing/ambiguous fields."""
 
     profile = profile_json or {}
-    position = profile.get("position", {})
-    requirements = profile.get("requirements", {})
-    gaps: list[dict[str, str]] = []
-    if not position.get("job_title"):
-        gaps.append({"field": "position.job_title", "reason": "missing"})
-    if not position.get("location"):
-        gaps.append({"field": "position.location", "reason": "missing"})
-    if not requirements.get("hard_skills_required"):
-        gaps.append({"field": "requirements.hard_skills_required", "reason": "missing"})
+    missing_fields = detect_missing_critical_fields(profile)
+    gaps = [{"field": field, "reason": "missing"} for field in missing_fields]
     return json.dumps({"gaps": gaps})
 
 
@@ -95,18 +90,9 @@ def ingest_answers(qa_pairs: List[Dict[str, str]], profile_json: Dict[str, Any])
 def validate_profile(profile_json: Dict[str, Any], config: ValidationConfig) -> str:
     """Validate profile (comp bands, location, legal)."""
 
-    issues: list[str] = []
     profile = profile_json or {}
-    if config.jurisdiction and not profile.get("position", {}).get("location"):
-        issues.append(f"Location is required for {config.jurisdiction} reviews.")
-    compensation = profile.get("compensation", {})
-    salary = compensation.get("salary")
-    if isinstance(salary, dict):
-        minimum = salary.get("min")
-        maximum = salary.get("max")
-        if isinstance(minimum, (int, float)) and isinstance(maximum, (int, float)) and minimum > maximum:
-            issues.append("Salary minimum cannot exceed maximum.")
-    return json.dumps({"ok": not issues, "issues": issues})
+    result = validate_profile_service(profile, jurisdiction=config.jurisdiction)
+    return json.dumps({"ok": result.ok, "issues": result.issues, "missing_required": result.missing_required})
 
 
 @function_tool

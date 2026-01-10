@@ -2,36 +2,20 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
-from functools import lru_cache
-from pathlib import Path
 from typing import Iterable
 
 from wizard.metadata import field_belongs_to_page
 from wizard.missing_fields import get_path_value, missing_fields
+from wizard.services.gaps import load_critical_fields
 from wizard_pages.base import WizardPage
 
 
-_ROOT = Path(__file__).resolve().parents[1]
-
-
-@lru_cache(maxsize=1)
-def load_critical_fields() -> tuple[str, ...]:
-    """Load critical field paths from ``critical_fields.json``."""  # GREP:CRITICAL_FIELDS_CACHE_V1
-
-    with (_ROOT / "critical_fields.json").open("r", encoding="utf-8") as file:
-        payload = json.load(file)
-    raw_fields = payload.get("critical", [])
-    return tuple(field for field in raw_fields if isinstance(field, str))
+__all__ = ["StepMissing", "compute_step_missing", "is_step_complete", "iter_step_missing_fields"]
 
 
 def _critical_fields_for_step(step_meta: WizardPage) -> tuple[str, ...]:
-    return tuple(
-        field
-        for field in load_critical_fields()
-        if field_belongs_to_page(field, step_meta.key)
-    )
+    return tuple(field for field in load_critical_fields() if field_belongs_to_page(field, step_meta.key))
 
 
 @dataclass(frozen=True)

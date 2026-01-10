@@ -7,26 +7,9 @@ from constants.keys import StateKeys
 from wizard._logic import get_in
 from wizard.followups import followup_has_response
 from wizard.metadata import PAGE_FOLLOWUP_PREFIXES
+from wizard.services.validation import is_value_present
 from wizard.types import LocalizedText
 from wizard_pages.base import WizardPage
-
-
-def is_value_present(value: object | None) -> bool:
-    """Return ``True`` when ``value`` should count as populated."""
-
-    if value is None:
-        return False
-    if isinstance(value, str):
-        return bool(value.strip())
-    if isinstance(value, (list, tuple, set)):
-        return any(is_value_present(item) for item in value)
-    if isinstance(value, Mapping):
-        return any(is_value_present(item) for item in value.values())
-    if isinstance(value, bool):
-        return value
-    if isinstance(value, (int, float)):
-        return bool(value)
-    return True
 
 
 def validate_required_field_inputs(

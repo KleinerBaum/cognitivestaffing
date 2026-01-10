@@ -149,6 +149,7 @@ from wizard.date_utils import (
 )
 from wizard.sections.compensation_assistant import render_compensation_assistant
 from wizard.sections import followups as followup_sections
+from wizard.services.gaps import detect_missing_critical_fields
 from wizard.ai_skip import render_skip_cta, render_skipped_banner
 from wizard.step_registry import WIZARD_STEPS, resolve_active_step_keys, step_keys as _step_registry_keys
 
@@ -561,7 +562,7 @@ from core.suggestions import (
     get_skill_suggestions,
     get_static_benefit_shortlist,
 )
-from question_logic import ask_followups, CRITICAL_FIELDS  # nutzt deine neue Definition
+from question_logic import ask_followups  # nutzt deine neue Definition
 from pipelines.followups import generate_followups
 from components import widget_factory
 from components.stepper import render_stepper as _render_stepper
@@ -4325,10 +4326,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         "must": unique_normalized(data.get("requirements", {}).get("hard_skills_required", [])),
         "nice": unique_normalized(data.get("requirements", {}).get("hard_skills_optional", [])),
     }
-    missing: list[str] = []
-    for field in CRITICAL_FIELDS:
-        if not get_in(data, field, None):
-            missing.append(field)
+    missing = detect_missing_critical_fields(data if isinstance(data, Mapping) else {})
 
     followup_candidates: list[Mapping[str, object]] = []
     followup_source = "llm"
@@ -4482,7 +4480,7 @@ def _apply_extraction_failure_fallback(
         "must": unique_normalized(profile_data.get("requirements", {}).get("hard_skills_required", [])),
         "nice": unique_normalized(profile_data.get("requirements", {}).get("hard_skills_optional", [])),
     }
-    missing_fields = [field for field in CRITICAL_FIELDS if not get_in(profile_data, field, None)]
+    missing_fields = detect_missing_critical_fields(profile_data if isinstance(profile_data, Mapping) else {})
     st.session_state[StateKeys.EXTRACTION_MISSING] = missing_fields
     st.session_state[StateKeys.PROFILE_METADATA] = safe_metadata
     if error:

@@ -8,16 +8,18 @@ explicit also makes type-checking and unit tests straightforward.
 
 from __future__ import annotations
 
-from typing import Callable, Final, Mapping, Sequence
+from typing import Callable, Final, Mapping, Sequence, cast
 
 import streamlit as st
 
 from constants.keys import ProfilePaths, StateKeys
-from question_logic import CRITICAL_FIELDS
 from wizard._logic import get_in
 from wizard_pages import WIZARD_PAGES, WizardPage
 from wizard.company_validators import persist_contact_email, persist_primary_city
+from wizard.services.gaps import detect_missing_critical_fields, field_is_contextually_optional, load_critical_fields
 
+# Critical fields loaded from ``critical_fields.json`` for reuse across UI/service layers.
+CRITICAL_FIELDS: Final[tuple[str, ...]] = load_critical_fields()
 # Index of the first data-entry step ("Unternehmen" / "Company").
 COMPANY_STEP_INDEX: Final[int] = 1
 
@@ -116,9 +118,7 @@ def _build_field_section_map() -> dict[str, int]:
 
 FIELD_SECTION_MAP: dict[str, int] = _build_field_section_map()
 PAGE_FIELD_MAP: dict[str, str] = {
-    field: page_key
-    for page_key, fields in PAGE_PROGRESS_FIELDS.items()
-    for field in fields
+    field: page_key for page_key, fields in PAGE_PROGRESS_FIELDS.items() for field in fields
 }
 CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(
     PAGE_SECTION_INDEXES[key] for key in _CRITICAL_SECTION_KEYS if key in PAGE_SECTION_INDEXES
@@ -164,7 +164,7 @@ def field_belongs_to_page(field: str, page_key: str) -> bool:
     if PAGE_FIELD_MAP.get(field) == page_key:
         return True
 
-    for prefix in PAGE_FOLLOWUP_PREFIXES.get(page_key, ()): 
+    for prefix in PAGE_FOLLOWUP_PREFIXES.get(page_key, ()):
         if field.startswith(prefix):
             return True
 
@@ -194,31 +194,19 @@ def validate_required_fields_by_page(
     for page in pages or WIZARD_PAGES:
         for field in page.required_fields:
             if not field_belongs_to_page(field, page.key):
-                errors.append(
-                    f"{page.key}: required field '{field}' is not mapped to this page."
-                )
+                errors.append(f"{page.key}: required field '{field}' is not mapped to this page.")
             matching_pages = _matching_followup_pages(field)
             if matching_pages and page.key not in matching_pages:
                 errors.append(
-                    f"{page.key}: required field '{field}' matches follow-up prefixes for "
-                    f"{', '.join(matching_pages)}."
+                    f"{page.key}: required field '{field}' matches follow-up prefixes for {', '.join(matching_pages)}."
                 )
     return errors
 
 
 def _field_is_contextually_optional(field: str, profile_data: Mapping[str, object]) -> bool:
-    """Return ``True`` when a field can be skipped given the current context."""
+    """Backward-compatible wrapper for contextual optionality checks."""
 
-    work_policy = str(get_in(profile_data, "employment.work_policy", "") or "").strip().lower()
-    travel_required = get_in(profile_data, "employment.travel_required", None)
-
-    if field == str(ProfilePaths.LOCATION_PRIMARY_CITY) and work_policy == "remote":
-        return True
-
-    if field.startswith("employment.travel_") and travel_required is not True:
-        return True
-
-    return False
+    return field_is_contextually_optional(field, profile_data)
 
 
 def _normalize_followup_priority(priority: str | None) -> str:
@@ -328,33 +316,22 @@ def _lookup_string_value(field: str, profile_data: Mapping[str, object]) -> str 
 def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
     """Return critical fields missing from state or profile data."""
 
-    missing: list[str] = []
     profile_data = st.session_state.get(StateKeys.PROFILE, {}) or {}
-    for field in CRITICAL_FIELDS:
-        if _field_is_contextually_optional(field, profile_data):
-            continue
-        field_section = resolve_section_for_field(field)
-        if max_section is not None and field_section > max_section:
-            continue
-        validator = _VALIDATED_CRITICAL_FIELDS.get(field)
-        if validator is not None:
-            raw_value = _lookup_string_value(field, profile_data)
-            validator(raw_value)
-            profile_data = st.session_state.get(StateKeys.PROFILE, {}) or {}
-            value = get_in(profile_data, field, None)
-        else:
-            value = st.session_state.get(field)
-            if not value:
-                value = get_in(profile_data, field, None)
-        if isinstance(value, str):
-            value = value.strip()
-        if not value:
-            missing.append(field)
 
-    for question in st.session_state.get(StateKeys.FOLLOWUPS, []):
-        if question.get("priority") == "critical":
-            missing.append(question.get("field", ""))
-    return missing
+    def _refresh_profile() -> Mapping[str, object]:
+        latest = st.session_state.get(StateKeys.PROFILE, {}) or {}
+        return latest if isinstance(latest, Mapping) else {}
+
+    return detect_missing_critical_fields(
+        profile_data if isinstance(profile_data, Mapping) else {},
+        critical_fields=CRITICAL_FIELDS,
+        field_values=cast(Mapping[str, object], st.session_state),
+        followups=st.session_state.get(StateKeys.FOLLOWUPS, []),
+        max_section=max_section,
+        section_resolver=resolve_section_for_field,
+        field_validators=_VALIDATED_CRITICAL_FIELDS,
+        profile_refresher=_refresh_profile,
+    )
 
 
 __all__ = [
