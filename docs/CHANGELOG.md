@@ -37,6 +37,11 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Deterministic Rheinbahn job ad fixture plus a tiny loader for regression tests.
 - Streamlit AppTest regression coverage for the ESCO occupation selector to guard against widget state mutation errors.
 - Rule field path validation tests to ensure rule-based extraction stays aligned with the NeedAnalysis schema.
+- Wizard recovery UI now shows step-specific retry/reset controls plus a technical-details drawer with sanitized error context.
+
+### Removed
+- Binary wizard UI screenshot asset removed from the repository to keep diffs lightweight.
+- Job-ad extraction now surfaces a progress indicator that tracks structured extraction and follow-up generation.
 
 ### Changed
 - Wizard step metadata and renderers now live in a single step registry, with legacy `wizard_pages` modules proxying the registry to avoid drift.

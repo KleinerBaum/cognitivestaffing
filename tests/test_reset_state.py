@@ -3,7 +3,7 @@
 import streamlit as st
 
 from constants.keys import StateKeys, UIKeys
-from state import ensure_state, reset_state
+from state import ensure_state, reset_state, reset_step_ui_state, reset_wizard_ui_state
 
 
 def test_reset_state_preserves_control_preferences() -> None:
@@ -83,3 +83,36 @@ def test_reset_state_clears_profile_and_followups() -> None:
     assert st.session_state[StateKeys.FOLLOWUPS] == []
     assert StateKeys.FOLLOWUPS_RESPONSE_ID not in st.session_state
     assert not any(key.startswith("fu_") for key in st.session_state)
+
+
+def test_reset_wizard_ui_state_preserves_profile() -> None:
+    """Resetting UI state should keep the active profile intact."""
+
+    st.session_state.clear()
+    ensure_state()
+
+    st.session_state[StateKeys.PROFILE].setdefault("company", {})["name"] = "ACME"
+    st.session_state[UIKeys.PROFILE_URL_INPUT] = "https://example.com"
+    st.session_state[StateKeys.WIZARD_LAST_STEP] = "company"
+
+    reset_wizard_ui_state()
+
+    assert st.session_state[StateKeys.PROFILE]["company"]["name"] == "ACME"
+    assert UIKeys.PROFILE_URL_INPUT not in st.session_state
+    assert st.session_state[StateKeys.WIZARD_LAST_STEP] == ""
+
+
+def test_reset_step_ui_state_clears_scoped_keys() -> None:
+    """Retrying a step should only drop tracked UI keys."""
+
+    st.session_state.clear()
+    ensure_state()
+
+    st.session_state[StateKeys.PROFILE].setdefault("company", {})["name"] = "ACME"
+    st.session_state[UIKeys.COMPANY_LOGO] = "data"
+    st.session_state[StateKeys.WIZARD_STEP_UI_KEYS] = {"company": [UIKeys.COMPANY_LOGO]}
+
+    reset_step_ui_state("company")
+
+    assert st.session_state[StateKeys.PROFILE]["company"]["name"] == "ACME"
+    assert UIKeys.COMPANY_LOGO not in st.session_state

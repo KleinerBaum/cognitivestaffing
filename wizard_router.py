@@ -16,6 +16,7 @@ from openai_utils.errors import (
 )
 from utils.i18n import tr
 from utils.logging_context import log_context, set_wizard_step
+from state import diff_wizard_ui_state, snapshot_wizard_ui_state
 from wizard.company_validators import persist_contact_email, persist_primary_city
 from wizard.metadata import (
     PAGE_SECTION_INDEXES,
@@ -145,6 +146,8 @@ class WizardRouter:
             set_wizard_step(page.key)
             logger.info("Entering wizard step %s", page.key)
             st.session_state[StateKeys.STEP] = renderer.legacy_index
+            st.session_state[StateKeys.WIZARD_LAST_STEP] = page.key
+            st.session_state[StateKeys.WIZARD_LAST_COMPONENT] = None
             last_rendered = self._state.get("_last_rendered_step")
             if last_rendered != current_key:
                 st.session_state["_wizard_scroll_to_top"] = True
@@ -153,6 +156,7 @@ class WizardRouter:
             lang = st.session_state.get("lang", "de")
             summary_labels = [tr(de, en, lang=lang) for de, en in self._summary_labels]
             st.session_state["_wizard_step_summary"] = (renderer.legacy_index, summary_labels)
+            ui_snapshot = snapshot_wizard_ui_state()
             try:
                 renderer.callback(self._context)
             except (RerunException, StopException):  # pragma: no cover - Streamlit control flow
@@ -161,6 +165,8 @@ class WizardRouter:
                 self._controller.handle_step_exception(page, error)
             except Exception as error:  # pragma: no cover - defensive guard
                 self._controller.handle_step_exception(page, error)
+            finally:
+                self._record_step_ui_keys(page.key, ui_snapshot)
             missing = self._missing_required_fields(page)
             nav_state = build_navigation_state(
                 page=page,
@@ -193,6 +199,16 @@ class WizardRouter:
 
     def _build_progress_snapshots(self) -> list[PageProgressSnapshot]:
         return self._controller.build_progress_snapshots()
+
+    def _record_step_ui_keys(self, step_key: str, before: Mapping[str, object]) -> None:
+        after = snapshot_wizard_ui_state()
+        changed = diff_wizard_ui_state(before, after)
+        if not changed:
+            return
+        raw = st.session_state.get(StateKeys.WIZARD_STEP_UI_KEYS, {})
+        stored = dict(raw) if isinstance(raw, Mapping) else {}
+        stored[step_key] = sorted(changed)
+        st.session_state[StateKeys.WIZARD_STEP_UI_KEYS] = stored
 
     def _missing_required_fields(self, page: WizardPage) -> list[str]:
         missing = self._controller.resolve_missing_required_fields(page, validator=self._validate_required_field_inputs)

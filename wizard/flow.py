@@ -106,7 +106,7 @@ from openai_utils.errors import (
     NeedAnalysisPipelineError,
     SchemaValidationError,
 )
-from state import ensure_state
+from state import diff_wizard_ui_state, ensure_state, snapshot_wizard_ui_state
 from state.ai_failures import (
     get_skipped_steps,
     increment_step_failure,
@@ -3947,7 +3947,6 @@ def on_url_changed() -> None:
             )
         )
         return
-    st.session_state[StateKeys.EXTRACTION_SUMMARY] = {}
     try:
         doc = clean_structured_document(extract_text_from_url(url))
         _cache_brand_assets_from_html(url, getattr(doc, "raw_html", None))
@@ -4057,7 +4056,63 @@ def _build_llm_metadata(
     return llm_entries
 
 
-def _extract_and_summarize(text: str, schema: dict) -> None:
+class _WizardProgressTracker:
+    def __init__(self, *, lang: str) -> None:
+        self._lang = lang
+        self._steps: dict[str, str] = {
+            "structured_extraction": "pending",
+            "followups": "pending",
+        }
+        self._placeholder = st.empty()
+        self._progress = st.progress(0, text=tr("Analyse läuft…", "Analysis running…", lang=lang))
+        self._render()
+
+    def update(self, step: str, status: str) -> None:
+        if step not in self._steps:
+            return
+        self._steps[step] = status
+        self._render()
+
+    def complete(self) -> None:
+        self._render(final=True)
+
+    def _render(self, *, final: bool = False) -> None:
+        status_order = ("structured_extraction", "followups")
+        icon_map = {
+            "pending": "⏳",
+            "running": "🔄",
+            "done": "✅",
+            "failed": "⚠️",
+            "skipped": "⏭️",
+        }
+        labels = {
+            "structured_extraction": (
+                "Strukturierte Extraktion",
+                "Structured extraction",
+            ),
+            "followups": (
+                "Anschlussfragen",
+                "Follow-ups",
+            ),
+        }
+        lines = []
+        complete_count = 0
+        for step in status_order:
+            status = self._steps.get(step, "pending")
+            if status in {"done", "failed", "skipped"}:
+                complete_count += 1
+            icon = icon_map.get(status, "⏳")
+            label = tr(*labels[step], lang=self._lang)
+            lines.append(f"{icon} {label}")
+        progress_value = complete_count / len(status_order)
+        text = tr("Fortschritt", "Progress", lang=self._lang)
+        self._progress.progress(progress_value, text=f"{text} {int(progress_value * 100)}%")
+        self._placeholder.markdown("\n".join(f"- {line}" for line in lines))
+        if final:
+            self._progress.progress(1.0, text=tr("Analyse abgeschlossen", "Analysis complete", lang=self._lang))
+
+
+def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTracker | None = None) -> None:
     """Run extraction on ``text`` and store profile, summary, and missing fields."""
 
     raw_blocks = st.session_state.get(StateKeys.RAW_BLOCKS, []) or []
@@ -4181,6 +4236,9 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         logger.info("structured_extraction end cache_key=%s duration=%.2fs", extraction_cache_key, duration)
         return result
 
+    if progress:
+        progress.update("structured_extraction", "running")
+
     extraction_run = WorkflowRunner(
         [Task(name="structured_extraction", func=_structured_extraction_task, retries=1)],
         logger_=logger,
@@ -4203,6 +4261,9 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             llm_error = extraction_result.error or ExtractionError("structured_extraction skipped")
         else:
             llm_error = ExtractionError("structured_extraction missing result")
+
+    if progress:
+        progress.update("structured_extraction", "failed" if llm_error else "done")
 
     if llm_error:
         extracted_data = deepcopy(rule_patch)
@@ -4430,6 +4491,9 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         logger.info("followup_generation end cache_key=%s duration=%.2fs", followup_cache_key, duration)
         return result
 
+    if progress:
+        progress.update("followups", "running")
+
     followup_run = WorkflowRunner(
         [Task(name="followup_generation", func=_followup_generation_task, retries=1)],
         logger_=logger,
@@ -4462,6 +4526,14 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         )
         followup_source = "error"
         followup_reason = "generation_failed"
+
+    if progress:
+        if followup_result and followup_result.status is TaskStatus.SKIPPED:
+            progress.update("followups", "skipped")
+        elif followup_result and followup_result.status is TaskStatus.FAILED:
+            progress.update("followups", "failed")
+        else:
+            progress.update("followups", "done")
 
     filtered_followups = filter_followups_by_context(followup_candidates, data)
     st.session_state[StateKeys.FOLLOWUPS_SOURCE] = followup_source
@@ -4625,31 +4697,30 @@ def _maybe_run_extraction(schema: dict) -> None:
         current_meta = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
         return dict(current_meta) if isinstance(current_meta, Mapping) else {}
 
-    spinner_label = tr(
-        "Analysiere die Stellenbeschreibung…",
-        "Analyzing your job description…",
-    )
+    lang = st.session_state.get("lang", "de")
+    progress = _WizardProgressTracker(lang=lang)
     try:
-        with st.spinner(spinner_label):
-            with WIZARD_TRACER.start_as_current_span("llm.extract") as span:
-                try:
-                    _extract_and_summarize(raw_clean, schema)
-                except (
-                    ExtractionError,
-                    SchemaValidationError,
-                    LLMResponseFormatError,
-                    ExternalServiceError,
-                    NeedAnalysisPipelineError,
-                ) as span_exc:
-                    span.record_exception(span_exc)
-                    span.set_status(Status(StatusCode.ERROR, span_exc.__class__.__name__))
-                    raise
-                except Exception as span_exc:
-                    span.record_exception(span_exc)
-                    span.set_status(Status(StatusCode.ERROR, span_exc.__class__.__name__))
-                    raise
+        with WIZARD_TRACER.start_as_current_span("llm.extract") as span:
+            try:
+                _extract_and_summarize(raw_clean, schema, progress=progress)
+            except (
+                ExtractionError,
+                SchemaValidationError,
+                LLMResponseFormatError,
+                ExternalServiceError,
+                NeedAnalysisPipelineError,
+            ) as span_exc:
+                span.record_exception(span_exc)
+                span.set_status(Status(StatusCode.ERROR, span_exc.__class__.__name__))
+                raise
+            except Exception as span_exc:
+                span.record_exception(span_exc)
+                span.set_status(Status(StatusCode.ERROR, span_exc.__class__.__name__))
+                raise
     except LLMTimeoutError as exc:
         st.session_state.pop("__last_extracted_hash__", None)
+        progress.update("structured_extraction", "failed")
+        progress.update("followups", "skipped")
         warning_message = _resolve_extraction_warning(exc)
         _apply_extraction_failure_fallback(raw_clean, _current_metadata(), warning_message, error=exc)
     except (
@@ -4660,10 +4731,14 @@ def _maybe_run_extraction(schema: dict) -> None:
         NeedAnalysisPipelineError,
     ) as exc:
         st.session_state.pop("__last_extracted_hash__", None)
+        progress.update("structured_extraction", "failed")
+        progress.update("followups", "skipped")
         warning_message = _resolve_extraction_warning(exc)
         _apply_extraction_failure_fallback(raw_clean, _current_metadata(), warning_message, error=exc)
     except Exception as exc:
         st.session_state.pop("__last_extracted_hash__", None)
+        progress.update("structured_extraction", "failed")
+        progress.update("followups", "skipped")
         warning_message = tr(
             "⚠️ Extraktion fehlgeschlagen – bitte prüfen Sie die Felder manuell.",
             "⚠️ Extraction failed – please review the fields manually.",
@@ -4679,6 +4754,8 @@ def _maybe_run_extraction(schema: dict) -> None:
         )
     else:
         st.rerun()
+    finally:
+        progress.complete()
 
 
 def _skip_source() -> None:
@@ -6703,6 +6780,10 @@ def _render_esco_occupation_selector(
 ) -> None:
     """Render a picker for ESCO occupation suggestions."""
 
+    st.session_state[StateKeys.WIZARD_LAST_COMPONENT] = (
+        "ESCO-Berufsauswahl",
+        "ESCO occupation selector",
+    )
     raw_options = st.session_state.get(StateKeys.UI_ESCO_OCCUPATION_OPTIONS, []) or []
     options = [entry for entry in _sanitize_esco_options(raw_options) if entry.get("uri")]
     if not options:
@@ -12672,6 +12753,17 @@ def _single_page_step_header(page: WizardPage, *, is_complete: bool) -> str:
     return f"{status_icon} {page_label} · {status_label}"
 
 
+def _record_step_ui_keys(step_key: str, before: Mapping[str, object]) -> None:
+    after = snapshot_wizard_ui_state()
+    changed = diff_wizard_ui_state(before, after)
+    if not changed:
+        return
+    raw = st.session_state.get(StateKeys.WIZARD_STEP_UI_KEYS, {})
+    stored = dict(raw) if isinstance(raw, Mapping) else {}
+    stored[step_key] = sorted(changed)
+    st.session_state[StateKeys.WIZARD_STEP_UI_KEYS] = stored
+
+
 def _render_single_page_summary(missing_fields: Sequence[str]) -> None:
     """Render the single-page validation summary panel."""
 
@@ -12725,7 +12817,13 @@ def _render_single_page_wizard(
             expanded=not is_complete or page == ordered_pages[0],
         ):
             st.session_state[StateKeys.STEP] = renderer.legacy_index
-            renderer.callback(context)
+            st.session_state[StateKeys.WIZARD_LAST_STEP] = page.key
+            st.session_state[StateKeys.WIZARD_LAST_COMPONENT] = None
+            ui_snapshot = snapshot_wizard_ui_state()
+            try:
+                renderer.callback(context)
+            finally:
+                _record_step_ui_keys(page.key, ui_snapshot)
 
 
 def _run_wizard_v2(schema: Mapping[str, object], critical: Sequence[str]) -> None:
