@@ -50,6 +50,7 @@ class UIKeys:
     REQUIREMENTS_FETCH_ESCO_SUGGESTIONS = "ui.requirements.fetch_esco_suggestions"
     RESPONSIBILITY_SUGGEST = "ui.requirements.responsibilities.suggest"
     POSITION_ESCO_OCCUPATION = "ui.position.esco_occupation"
+    POSITION_ESCO_OCCUPATION_WIDGET = "ui.position.esco_occupation_widget"
     JOB_AD_FONT = "ui.job_ad.font"
     JOB_AD_FORMAT = "ui.job_ad.format"
     JOB_AD_LOGO_UPLOAD = "ui.job_ad.logo_upload"
