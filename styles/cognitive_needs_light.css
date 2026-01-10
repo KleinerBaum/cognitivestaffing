@@ -940,6 +940,38 @@ div[data-testid="stDownloadButton"] > button:disabled {
   transform: none;
 }
 
+/* === Wizard origin markers =============================================== */
+.wiz-field-label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+  color: var(--text-contrast-strong, rgba(15, 23, 42, 0.95));
+}
+
+.wiz-origin {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  padding: 0.08rem 0.42rem;
+  border-radius: 999px;
+  border: 1px solid rgba(128, 128, 128, 0.2);
+  font-size: 0.78rem;
+  font-weight: 500;
+  opacity: 0.85;
+  background: rgba(15, 23, 42, 0.06);
+  color: var(--text-contrast-muted, rgba(15, 23, 42, 0.72));
+}
+
+.wiz-origin.extracted::before {
+  content: "🔎 ";
+}
+
+.wiz-origin.suggested::before {
+  content: "🤖 ";
+}
+
 :where(input, textarea, select) {
   background: var(--control-surface) !important;
   border: 1px solid var(--border-strong) !important;

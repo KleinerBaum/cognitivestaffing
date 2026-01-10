@@ -189,6 +189,7 @@ MODEL_ROUTING__interview_guide = "gpt-4o-mini"
   - `sidebar/`
   - Feature flag: set `st.session_state["feature.sidebar_stepper_v1"] = True` to preview the sidebar stepper.
   - Navigation flag: set `st.session_state["feature.sidebar_stepper_nav_v1"] = True` to allow clicking previous steps in the sidebar stepper.
+  - Step-panel fade: set `WIZARD_STEP_FORM_FADE=1` (env/secrets) or `st.session_state["wizard.step_form_fade"] = True` to enable the optional step fade wrapper.
 - Sidebar settings (language, theme, intro banner, advanced LLM options):
   - `sidebar/__init__.py`
 - Shared step layout pattern (recommended):

@@ -280,6 +280,7 @@ class StateKeys:
     WIZARD_LAST_ERROR = "wizard.last_error"
     STEP_FAILURES = "wizard.step_failures"
     STEP_AI_SKIPPED = "wizard.step_ai_skipped"
+    WIZARD_STEP_FORM_FADE = "wizard.step_form_fade"
     PROFILE_REPAIR_FIELDS = "wizard.profile_repair_fields"
 
 

@@ -6,7 +6,12 @@ from typing import Any, Callable, Sequence, TypeVar
 
 import streamlit as st
 
-from wizard._logic import get_value, resolve_display_value, with_ai_badge
+from wizard._logic import (
+    get_value,
+    render_origin_label_html,
+    resolve_display_value,
+    with_ai_badge,
+)
 from wizard._widget_state import _build_on_change, _ensure_widget_state
 
 T = TypeVar("T")
@@ -77,6 +82,11 @@ def text_input(
     if updated_help is not None:
         call_kwargs["help"] = updated_help
 
+    origin_label = render_origin_label_html(decorated_label, path)
+    if origin_label:
+        st.markdown(origin_label, unsafe_allow_html=True)
+        call_kwargs.setdefault("label_visibility", "collapsed")
+
     return factory(
         decorated_label,
         value=display_value,
@@ -130,6 +140,11 @@ def select(
     if updated_help is not None:
         call_kwargs["help"] = updated_help
 
+    origin_label = render_origin_label_html(decorated_label, path)
+    if origin_label:
+        st.markdown(origin_label, unsafe_allow_html=True)
+        call_kwargs.setdefault("label_visibility", "collapsed")
+
     factory = widget_factory or st.selectbox
     return factory(
         decorated_label,
@@ -180,6 +195,11 @@ def multiselect(
     decorated_label, updated_help = with_ai_badge(label, path, help_text=call_kwargs.get("help"))
     if updated_help is not None:
         call_kwargs["help"] = updated_help
+
+    origin_label = render_origin_label_html(decorated_label, path)
+    if origin_label:
+        st.markdown(origin_label, unsafe_allow_html=True)
+        call_kwargs.setdefault("label_visibility", "collapsed")
 
     factory = widget_factory or st.multiselect
     selection = factory(

@@ -291,6 +291,7 @@ from ._logic import (  # noqa: F401 - re-exported for step modules
     _set_company_logo,
     _update_profile,
     _render_localized_error,
+    field_has_prefill,
     get_ai_contributions,
     get_in,
     _normalize_semantic_empty,
@@ -2674,17 +2675,6 @@ def _humanize_path(path: str, lang: str) -> str:
     return tr(readable, readable, lang=lang)
 
 
-def _field_has_prefill(path: str) -> bool:
-    """Return ``True`` when the field has extraction/source metadata."""
-
-    raw_metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
-    confidence_map = raw_metadata.get("field_confidence") or {}
-    rules_meta = raw_metadata.get("rules") or {}
-    if isinstance(confidence_map, Mapping) and path in confidence_map:
-        return True
-    return isinstance(rules_meta, Mapping) and path in rules_meta
-
-
 def _dynamic_step_hints(page_key: str, profile: Mapping[str, Any], intro_context: Mapping[str, str]) -> list[str]:
     """Return contextual intro hints per step based on extraction results."""
 
@@ -2703,7 +2693,7 @@ def _dynamic_step_hints(page_key: str, profile: Mapping[str, Any], intro_context
                 lang=lang,
             )
             hints.append(prompt)
-        elif _field_has_prefill(str(ProfilePaths.COMPANY_NAME)):
+        elif field_has_prefill(str(ProfilePaths.COMPANY_NAME)):
             note = tr(
                 "Wir haben Angaben aus der Anzeige vorbefüllt. Bitte gegenprüfen und bei Bedarf anpassen.",
                 "We've pre-filled company details from the job ad. Please review and adjust as needed.",
@@ -6425,7 +6415,7 @@ def _field_lock_config(
     source_info = _resolve_field_source_info(path)
 
     prefill_hint: str | None = None
-    if _field_has_prefill(path):
+    if field_has_prefill(path):
         descriptor = (
             source_info.descriptor_with_context()
             if source_info
