@@ -253,6 +253,18 @@ poetry install
 
 ---
 
+## Testing
+
+```bash
+poetry run pytest
+```
+
+Job ad fixtures live under `tests/fixtures/job_ads/`. Use the helper in
+`tests/fixtures/job_ads/__init__.py` to load UTF-8 fixture text for regression
+tests.
+
+---
+
 ## Troubleshooting
 
 - Optional flow helpers (for example, company autofill suggestions) may be unavailable in slim flow
