@@ -87,6 +87,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Fixed
 - Team & Structure missing-tab follow-ups no longer re-render the reporting-line input, preventing the follow-up widget from overwriting a value already set in the main form.
+- Follow-up generation now validates response schemas, retries once with strict JSON guidance, and surfaces clearer fallback notices when invalid payloads are returned.
 - OpenAI timeouts now trigger a one-shot fallback to the next model with a friendly "taking longer" notice instead of looping on the stalled tier.
 - Background thread pools now propagate the active session logging context so session identifiers stay visible inside worker logs.
 - OpenAI quota exhaustion now sets a session-level circuit breaker: retries stop immediately, a bilingual availability warning appears, and further AI-triggered actions are disabled to avoid repeated 429 failures.

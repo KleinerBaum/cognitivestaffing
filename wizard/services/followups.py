@@ -4,8 +4,13 @@ from __future__ import annotations
 
 import json
 import logging
+import re
+import time
 from dataclasses import dataclass
 from typing import Any, Mapping, Protocol, Sequence
+
+from jsonschema import ValidationError
+from jsonschema.validators import Draft202012Validator
 
 import config.models as model_settings
 from config import get_active_verbosity
@@ -208,10 +213,30 @@ def _normalize_question(item: Mapping[str, Any]) -> dict[str, Any] | None:
     return result
 
 
+_PII_EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", re.IGNORECASE)
+_PII_PHONE_RE = re.compile(r"\+?\d[\d\s().-]{6,}\d")
+_PII_URL_RE = re.compile(r"https?://\S+", re.IGNORECASE)
+
+
+def _sanitize_payload_snippet(payload: Any, *, max_length: int = 320) -> str:
+    try:
+        raw = json.dumps(payload, ensure_ascii=False)
+    except (TypeError, ValueError):
+        raw = str(payload)
+    redacted = _PII_EMAIL_RE.sub("[redacted-email]", raw)
+    redacted = _PII_PHONE_RE.sub("[redacted-phone]", redacted)
+    redacted = _PII_URL_RE.sub("[redacted-url]", redacted)
+    snippet = redacted.replace("\n", " ").strip()
+    if len(snippet) > max_length:
+        snippet = f"{snippet[:max_length]}…"
+    return snippet
+
+
 def _parse_followup_response(response: Any) -> dict[str, Any]:
     """Normalise a follow-up response into a mapping with a questions list."""
 
     default: dict[str, Any] = {"questions": []}
+    schema_name = str(FOLLOWUP_JSON_SCHEMA.get("name") or "followup")
 
     if response is None:
         return default
@@ -228,15 +253,39 @@ def _parse_followup_response(response: Any) -> dict[str, Any]:
         try:
             parsed = json.loads(payload)
         except (TypeError, ValueError):
-            return default
+            logger.warning(
+                "Follow-up response failed JSON parsing for schema '%s' (snippet=%s).",
+                schema_name,
+                _sanitize_payload_snippet(payload),
+            )
+            return {**default, "fallback_reason": "schema_invalid"}
         if not isinstance(parsed, Mapping):
-            return default
+            logger.warning(
+                "Follow-up response JSON was not an object for schema '%s' (snippet=%s).",
+                schema_name,
+                _sanitize_payload_snippet(parsed),
+            )
+            return {**default, "fallback_reason": "schema_invalid"}
         payload = parsed
 
     if isinstance(payload, Mapping):
+        try:
+            Draft202012Validator(FOLLOWUP_JSON_SCHEMA["schema"]).validate(payload)
+        except ValidationError:
+            logger.warning(
+                "Follow-up response failed schema validation '%s' (snippet=%s).",
+                schema_name,
+                _sanitize_payload_snippet(payload),
+            )
+            return {**default, "fallback_reason": "schema_invalid"}
         questions_raw = payload.get("questions")
         if not isinstance(questions_raw, list):
-            return default
+            logger.warning(
+                "Follow-up response missing questions list for schema '%s' (snippet=%s).",
+                schema_name,
+                _sanitize_payload_snippet(payload),
+            )
+            return {**default, "fallback_reason": "schema_invalid"}
 
         questions: list[dict[str, Any]] = []
         for item in questions_raw:
@@ -247,7 +296,12 @@ def _parse_followup_response(response: Any) -> dict[str, Any]:
 
         return {"questions": questions}
 
-    return default
+    logger.warning(
+        "Follow-up response was not a JSON object for schema '%s' (snippet=%s).",
+        schema_name,
+        _sanitize_payload_snippet(payload),
+    )
+    return {**default, "fallback_reason": "schema_invalid"}
 
 
 def _resolve_model(mode: str, cfg: FollowupModelConfig | None) -> str:
@@ -285,6 +339,14 @@ def generate_followups(
 
     lang = _normalize_locale(locale)
     system_prompt = prompt_registry.get("question_logic.followups.system", locale=lang)
+    strict_system_prompt = (
+        f"{system_prompt}\n\n"
+        + (
+            "Gib ausschließlich valides JSON gemäß dem Schema zurück. Keine Erklärungen."
+            if lang == "de"
+            else "Return valid JSON only that matches the schema. No explanations."
+        )
+    )
     user_payload: dict[str, Any] = {"profile": profile}
     if role_context:
         user_payload["role_context"] = role_context
@@ -299,11 +361,12 @@ def generate_followups(
     model = _resolve_model(mode, config_override)
 
     try:
+        messages = [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
+        ]
         response = call_llm(
-            [
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
-            ],
+            messages,
             model=model,
             temperature=config_override.temperature,
             json_schema=FOLLOWUP_JSON_SCHEMA,
@@ -319,11 +382,35 @@ def generate_followups(
         response_id = getattr(response, "response_id", None)
         if response_id:
             parsed["response_id"] = response_id
+        if parsed.get("fallback_reason") == "schema_invalid":
+            logger.info("Follow-up response schema invalid; retrying once with strict prompt.")
+            time.sleep(0.5)
+            response = call_llm(
+                [
+                    {"role": "system", "content": strict_system_prompt},
+                    {"role": "user", "content": json.dumps(user_payload, ensure_ascii=False)},
+                ],
+                model=model,
+                temperature=config_override.temperature,
+                json_schema=FOLLOWUP_JSON_SCHEMA,
+                tools=tools or None,
+                tool_choice=tool_choice,
+                max_completion_tokens=config_override.max_completion_tokens,
+                reasoning_effort=config_override.reasoning_effort,
+                task=model_settings.ModelTask.FOLLOW_UP_QUESTIONS,
+                previous_response_id=previous_response_id,
+                verbosity=get_active_verbosity(),
+            )
+            parsed = _parse_followup_response(response)
+            response_id = getattr(response, "response_id", None)
+            if response_id:
+                parsed["response_id"] = response_id
         if parsed.get("questions"):
             parsed.setdefault("source", "llm")
             return parsed
+        fallback_reason = parsed.get("fallback_reason") or "empty_result"
         logger.info("Follow-up generation returned no questions; using fallback prompts.")
-        return _fallback_followups(locale, reason="empty_result", role_context=role_context)
+        return _fallback_followups(locale, reason=fallback_reason, role_context=role_context)
     except Exception as exc:  # pragma: no cover - defensive guard for UI fallback
         logger.warning("Follow-up generation failed; returning fallback questions.", exc_info=exc)
         return _fallback_followups(locale, reason="llm_error", role_context=role_context)

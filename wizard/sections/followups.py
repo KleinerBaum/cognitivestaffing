@@ -124,6 +124,12 @@ def _render_followup_notice(source: str, reason: str, *, lang: str) -> None:
                 "The AI returned no follow-up questions – displaying default prompts instead.",
                 lang=lang,
             )
+        if reason == "schema_invalid":
+            detail = tr(
+                "Die KI-Antwort entsprach nicht dem erwarteten Format – Standardfragen werden angezeigt.",
+                "The AI response did not match the expected format – showing default prompts instead.",
+                lang=lang,
+            )
         st.info(detail)
         return
 
