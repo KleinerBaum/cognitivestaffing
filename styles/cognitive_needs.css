@@ -1425,3 +1425,12 @@ nav[data-testid="stSidebarNav"],
 [data-testid="stSidebarNav"] {
   display: none !important;
 }
+
+/* Wizard navigation stability (reserve space for steppers + validation messaging) */
+.wizard-stepper-shell {
+  min-height: 2.5rem;
+}
+
+.wizard-nav-warning-area {
+  min-height: 3.25rem;
+}

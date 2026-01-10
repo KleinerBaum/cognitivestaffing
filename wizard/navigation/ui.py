@@ -5,6 +5,7 @@ from typing import Callable, Literal, Sequence
 
 import streamlit as st
 
+from components.stepper import render_stepper
 from utils.i18n import tr
 from wizard.layout import (
     NavigationButtonState,
@@ -234,6 +235,25 @@ def render_navigation(state: NavigationState, *, location: Literal["top", "botto
         state: The current navigation state.
         location: Whether to place the controls at the top or bottom of the step.
     """
+
+    if location == "bottom":
+        summary = st.session_state.get("_wizard_step_summary")
+        if summary:
+            try:
+                current, labels = summary
+            except (TypeError, ValueError):
+                current, labels = None, None
+            if (
+                isinstance(current, int | str)
+                and isinstance(labels, Sequence)
+                and not isinstance(labels, str)
+                and labels
+            ):
+                try:
+                    current_index = int(current)
+                except (TypeError, ValueError):
+                    current_index = 0
+                render_stepper(current_index, [str(label) for label in labels])
 
     render_navigation_controls(state, location=location)
 
