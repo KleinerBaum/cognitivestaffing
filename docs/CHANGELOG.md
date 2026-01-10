@@ -39,6 +39,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Streamlit AppTest regression coverage for the ESCO occupation selector to guard against widget state mutation errors.
 - Rule field path validation tests to ensure rule-based extraction stays aligned with the NeedAnalysis schema.
 - Wizard recovery UI now shows step-specific retry/reset controls plus a technical-details drawer with sanitized error context.
+- Optional wizard step-panel fade flag (`WIZARD_STEP_FORM_FADE` or `wizard.step_form_fade` session key) plus origin badges for extracted/suggested fields.
 
 ### Removed
 - Binary wizard UI screenshot asset removed from the repository to keep diffs lightweight.

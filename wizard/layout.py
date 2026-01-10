@@ -232,6 +232,7 @@ from ._logic import (
     _record_autofill_rejection,
     _update_profile,
     normalize_text_area_list,
+    render_origin_label_html,
     with_ai_badge,
 )
 from ._widget_state import _ensure_widget_state
@@ -1107,6 +1108,10 @@ def render_list_text_area(
         widget_args["label"] = decorated_label
         if updated_help is not None:
             widget_args["help"] = updated_help
+        origin_label = render_origin_label_html(decorated_label, field_path)
+        if origin_label:
+            st.markdown(origin_label, unsafe_allow_html=True)
+            widget_args.setdefault("label_visibility", "collapsed")
 
     raw_value = st.text_area(**widget_args)
     cleaned_items = normalize_text_area_list(raw_value, strip_bullets=strip_bullets)

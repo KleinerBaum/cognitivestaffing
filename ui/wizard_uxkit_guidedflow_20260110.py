@@ -19,8 +19,16 @@ _WIZARD_STATE_KEY = "_wizard_uxkit_state_v20260110"
 _CSS_FLAG_KEY = "_wiz_uxkit_css_v20260110_injected"
 
 _KEYCAP = {
-    1: "1️⃣", 2: "2️⃣", 3: "3️⃣", 4: "4️⃣", 5: "5️⃣",
-    6: "6️⃣", 7: "7️⃣", 8: "8️⃣", 9: "9️⃣", 10: "🔟",
+    1: "1️⃣",
+    2: "2️⃣",
+    3: "3️⃣",
+    4: "4️⃣",
+    5: "5️⃣",
+    6: "6️⃣",
+    7: "7️⃣",
+    8: "8️⃣",
+    9: "9️⃣",
+    10: "🔟",
 }
 
 
@@ -151,6 +159,7 @@ class WizardStep:
         - a step id (string) to jump to
         - None to fall back to linear order
     """
+
     id: str
     label: str
     title: str
@@ -193,9 +202,9 @@ class Wizard:
         first_id = self._all_steps[0].id
         ws.setdefault("current_step_id", first_id)
         ws.setdefault("nonce", uuid.uuid4().hex)
-        ws.setdefault("saved_at", {})      # widget_key -> ts
-        ws.setdefault("errors", {})        # step_id -> msg
-        ws.setdefault("history", [])       # stack of step_ids (for Back in branching)
+        ws.setdefault("saved_at", {})  # widget_key -> ts
+        ws.setdefault("errors", {})  # step_id -> msg
+        ws.setdefault("history", [])  # stack of step_ids (for Back in branching)
         ws.setdefault("visited", [first_id])  # ordered list of visited step_ids
 
     @property
@@ -370,10 +379,12 @@ def validate_required(widget_key: str, msg: str) -> Callable[[Wizard], Tuple[boo
     """
     Common validation: require non-empty string / value in st.session_state[widget_key].
     """
+
     def _v(_wiz: Wizard) -> Tuple[bool, str]:
         val = st.session_state.get(widget_key)
         ok = bool(val and str(val).strip())
         return ok, ("" if ok else msg)
+
     return _v
 
 
@@ -455,7 +466,9 @@ def render_field_label(
     """
     badge = origin_badge_html(origin) if origin else ""
     right = f"<span style='opacity:.7;font-size:.9rem'>{_esc(right_hint)}</span>" if right_hint else ""
-    help_html = f"<div style='opacity:.75;font-size:.9rem;margin-top:.15rem'>{_esc(help_text)}</div>" if help_text else ""
+    help_html = (
+        f"<div style='opacity:.75;font-size:.9rem;margin-top:.15rem'>{_esc(help_text)}</div>" if help_text else ""
+    )
 
     st.markdown(
         f"""

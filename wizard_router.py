@@ -1,13 +1,15 @@
 from __future__ import annotations
 
 import logging
-from typing import TYPE_CHECKING, Callable, Mapping, Sequence, Final
+from contextlib import contextmanager
+from typing import TYPE_CHECKING, Callable, Final, Iterator, Mapping, Sequence
 
 from pydantic import ValidationError
 import streamlit as st
 from streamlit.errors import StreamlitAPIException
 
 from constants.keys import ProfilePaths, StateKeys
+import config as app_config
 from openai_utils.errors import (
     ExternalServiceError,
     LLMResponseFormatError,
@@ -62,6 +64,32 @@ StopException = StreamlitStopException
 logger = logging.getLogger(__name__)
 
 LocalizedText = tuple[str, str]
+
+_FORM_FADE_STYLE = """
+<style>
+div[data-testid="stForm"].wizard-step-form {
+    animation: wizFade 0.25s ease;
+    transform-origin: top;
+}
+
+@keyframes wizFade {
+    from {
+        opacity: 0;
+        transform: translateY(4px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    div[data-testid="stForm"].wizard-step-form {
+        animation: none !important;
+    }
+}
+</style>
+"""
 
 _REQUIRED_FIELD_VALIDATORS: Final[dict[str, Callable[[str | None], tuple[str | None, LocalizedText | None]]]] = {
     str(ProfilePaths.COMPANY_CONTACT_EMAIL): persist_contact_email,
@@ -144,7 +172,11 @@ class WizardRouter:
             st.warning(tr("Schritt nicht verfügbar.", "Step not available."))
             return
 
-        with log_context(wizard_step=page.key):
+        enable_form_fade = self._should_enable_form_fade()
+        if enable_form_fade:
+            st.markdown(_FORM_FADE_STYLE, unsafe_allow_html=True)
+
+        with log_context(wizard_step=page.key), self._step_panel_wrapper(enable_form_fade, page.key):
             set_wizard_step(page.key)
             logger.info("Entering wizard step %s", page.key)
             st.session_state[StateKeys.STEP] = renderer.legacy_index
@@ -211,6 +243,24 @@ class WizardRouter:
         stored = dict(raw) if isinstance(raw, Mapping) else {}
         stored[step_key] = sorted(changed)
         st.session_state[StateKeys.WIZARD_STEP_UI_KEYS] = stored
+
+    def _should_enable_form_fade(self) -> bool:
+        flag = st.session_state.get(StateKeys.WIZARD_STEP_FORM_FADE, app_config.WIZARD_STEP_FORM_FADE)
+        return bool(flag)
+
+    @contextmanager
+    def _step_panel_wrapper(self, enabled: bool, step_key: str) -> Iterator[None]:
+        if not enabled:
+            yield
+            return
+        st.markdown(
+            f"<div data-testid='stForm' class='wizard-step-form' data-step-key='{step_key}'>",
+            unsafe_allow_html=True,
+        )
+        try:
+            yield
+        finally:
+            st.markdown("</div>", unsafe_allow_html=True)
 
     def _missing_required_fields(self, page: WizardPage) -> list[str]:
         missing = self._controller.resolve_missing_required_fields(page, validator=self._validate_required_field_inputs)

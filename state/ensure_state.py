@@ -6,7 +6,7 @@ import logging
 import os
 from collections.abc import Mapping, MutableMapping
 from copy import deepcopy
-from typing import Any, Callable, Sequence
+from typing import Any, Callable, Sequence, TypeGuard
 from urllib.parse import urlparse
 from uuid import uuid4
 
@@ -118,6 +118,7 @@ _DEFAULT_STATE_FACTORIES: Mapping[str, Callable[[], Any]] = MappingProxyType(
         StateKeys.COST_SAVER: lambda: False,
         StateKeys.STEP_FAILURES: dict,
         StateKeys.STEP_AI_SKIPPED: list,
+        StateKeys.WIZARD_STEP_FORM_FADE: lambda: bool(app_config.WIZARD_STEP_FORM_FADE),
         "debug": lambda: False,
         UIKeys.DEBUG_DETAILS: lambda: False,
         UIKeys.DEBUG_API_MODE: lambda: "responses",
@@ -733,7 +734,7 @@ _WIZARD_UI_STATE_KEYS: frozenset[str] = frozenset(
 )
 
 
-def _is_wizard_ui_key(key: object) -> bool:
+def _is_wizard_ui_key(key: object) -> TypeGuard[str]:
     if not isinstance(key, str):
         return False
     if key.startswith(("ui.", "wizard.", "fu_")):
@@ -744,11 +745,7 @@ def _is_wizard_ui_key(key: object) -> bool:
 def snapshot_wizard_ui_state() -> dict[str, Any]:
     """Capture wizard UI state values for diffing or rollback."""
 
-    return {
-        key: deepcopy(value)
-        for key, value in st.session_state.items()
-        if _is_wizard_ui_key(key)
-    }
+    return {key: deepcopy(value) for key, value in st.session_state.items() if _is_wizard_ui_key(key)}
 
 
 def diff_wizard_ui_state(before: Mapping[str, Any], after: Mapping[str, Any]) -> set[str]:

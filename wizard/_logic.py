@@ -8,6 +8,7 @@ components and instead focus on data coercion, defaults, and state updates.
 
 from __future__ import annotations
 
+import html
 import io
 import logging
 import re
@@ -16,7 +17,7 @@ from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Mapping
+from typing import TYPE_CHECKING, Any, Callable, Literal, Mapping
 
 from pydantic import ValidationError
 import streamlit as st
@@ -82,6 +83,8 @@ _MISSING = object()
 
 
 _FIELD_LOCK_BASE_KEY = "ui.locked_field_unlock"
+
+OriginKind = Literal["extracted", "suggested"]
 
 
 logger = logging.getLogger(__name__)
@@ -185,6 +188,55 @@ def _merge_help_text(help_text: str | None, addition: str | None) -> str | None:
     return "\n\n".join([help_text, addition])
 
 
+def field_has_prefill(path: str) -> bool:
+    """Return ``True`` when a field has extraction or confidence metadata."""
+
+    raw_metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
+    confidence_map = raw_metadata.get("field_confidence") or {}
+    rules_meta = raw_metadata.get("rules") or {}
+    if isinstance(confidence_map, Mapping) and path in confidence_map:
+        return True
+    return isinstance(rules_meta, Mapping) and path in rules_meta
+
+
+def resolve_field_origin(path: str) -> OriginKind | None:
+    """Return the origin marker for ``path`` when available."""
+
+    if get_field_contribution(path):
+        return "suggested"
+    if field_has_prefill(path):
+        return "extracted"
+    return None
+
+
+def origin_badge_html(origin: OriginKind, *, lang: str) -> str:
+    """Return HTML for a bilingual origin badge."""
+
+    label = (
+        tr("Extrahiert", "Extracted", lang=lang)
+        if origin == "extracted"
+        else tr("Vorgeschlagen", "Suggested", lang=lang)
+    )
+    return f"<span class='wiz-origin {origin}'>{html.escape(label)}</span>"
+
+
+def render_origin_label_html(
+    label: str,
+    field_path: str,
+    *,
+    lang: str | None = None,
+) -> str | None:
+    """Return HTML markup for a label with an origin badge when needed."""
+
+    origin = resolve_field_origin(field_path)
+    if not origin:
+        return None
+    active_lang = (lang or st.session_state.get("lang") or "de")[:2]
+    badge = origin_badge_html(origin, lang=active_lang)
+    safe_label = html.escape(label)
+    return f"<div class='wiz-field-label'>{safe_label}{badge}</div>"
+
+
 def with_ai_badge(
     label: str,
     field_path: str,
@@ -192,7 +244,7 @@ def with_ai_badge(
     help_text: str | None = None,
     lang: str | None = None,
 ) -> tuple[str, str | None]:
-    """Decorate ``label`` with an AI badge and tooltip when AI contributed."""
+    """Augment help text with AI provenance when available."""
 
     contribution = get_field_contribution(field_path)
     if not contribution:
@@ -200,10 +252,8 @@ def with_ai_badge(
 
     active_lang = (lang or st.session_state.get("lang") or "de")[:2]
     hint = _format_contribution_hint(contribution, lang=active_lang)
-    badge = tr("🤖 KI", "🤖 AI", lang=active_lang)
-    decorated_label = f"{label} {badge}"
     merged_help = _merge_help_text(help_text, hint)
-    return decorated_label, merged_help
+    return label, merged_help
 
 
 def _persist_generated_value(
@@ -427,9 +477,7 @@ def _render_localized_error(message_de: str, message_en: str, error: Exception |
         location = step_label
         if component_label:
             location = f"{step_label} \u2192 {component_label}"
-        st.caption(
-            tr("Fehler in Schritt:", "Failed step:", lang=lang) + f" {location}"
-        )
+        st.caption(tr("Fehler in Schritt:", "Failed step:", lang=lang) + f" {location}")
 
     if step_label:
         retry_label = tr("🔁 Schritt neu laden", "🔁 Retry step", lang=lang)
