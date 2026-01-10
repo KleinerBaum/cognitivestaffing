@@ -54,6 +54,8 @@ The onboarding step starts with a single hero block (logo + eyebrow/headline/sub
 
 Navigation defaults to **linear Back/Next**, but steps can optionally resolve a dynamic next step for branching flows. “Next” is **disabled** until required fields for the current step are filled, with inline validation messaging below the controls.
 The navigation footer also shows an emoji stepper that mirrors the localized step labels, highlighting active/done/upcoming states for quick context.
+Validation errors always render in a reserved area below the navigation controls to avoid layout shifts and to keep bilingual messaging consistent across steps.
+Field labels can include origin markers (🔎 extracted / 🤖 suggested / ✍️ manual) so reviewers can immediately see where a value came from.
 Steps can be conditionally inactive based on the profile or schema (for example, the Team step may be skipped if the team data model is disabled); navigation and deep links must always land on the nearest active step.
 
 The sidebar Flow mode toggle can switch between the guided multi-step flow and a single-page view that renders all steps in order inside expanders, with a top-level missing-fields summary to validate everything at once.
@@ -111,7 +113,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
   - `wizard/step_registry.py` – canonical step definitions (metadata + renderers + ordering)  
   - `docs/dev/wizard-steps.md` – developer guide for adding new steps safely  
   - `sidebar/`, `ui_views/`, `components/` – shared UI components  
-  - `styles/`, `images/` – styling and assets (including onboarding hero CTA/timeline styles, sidebar hero/stepper theme CSS instead of inline `app.py`, and `.onboarding-source-inputs` layout rules)  
+  - `styles/`, `images/` – styling and assets (including onboarding hero CTA/timeline styles, sidebar hero/stepper theme CSS instead of inline `app.py`, `.onboarding-source-inputs` layout rules, and text-based previews for key UX elements such as steppers, origin markers, and validation areas)  
   - `docs/design-system.md` – theme tokens plus onboarding hero CTA/timeline, source input panels, and motion rules for dark/light UI
 
 - Data contract  
