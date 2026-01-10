@@ -20,7 +20,7 @@ import time
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from difflib import SequenceMatcher
-from threading import Lock
+from threading import Lock, current_thread, main_thread
 from typing import Any, Callable, Dict, Final, Iterable, Iterator, Mapping, MutableMapping, Optional, Sequence, cast
 
 from openai import (
@@ -146,6 +146,8 @@ def _llm_disabled() -> bool:
 
     if not OPENAI_API_KEY:
         return True
+    if not _allow_streamlit_access():
+        return False
     try:
         if bool(st.session_state.get("openai_unavailable")):
             return True
@@ -171,6 +173,12 @@ _INVALID_REQUEST_ERROR_MESSAGE: Final[tuple[str, str]] = (
 _VERBOSITY_CONFIG: dict[str, str] = prompt_registry.get("openai_utils.api.verbosity")
 _VERBOSITY_FORMAT_GUARD = _VERBOSITY_CONFIG["format_guard"]
 _VERBOSITY_HINTS = {level: hint for level, hint in _VERBOSITY_CONFIG.items() if level != "format_guard"}
+
+
+def _allow_streamlit_access() -> bool:
+    """Return ``True`` when Streamlit UI/state calls are safe to perform."""
+
+    return current_thread() is main_thread()
 
 
 def _resolve_verbosity(value: Optional[str]) -> str:
@@ -263,6 +271,8 @@ def _iter_error_payloads(error: OpenAIError) -> Iterator[Mapping[str, Any]]:
 def _flag_openai_unavailable(reason: str) -> None:
     """Mark the current session as OpenAI-unavailable and store the reason."""
 
+    if not _allow_streamlit_access():
+        return
     try:
         st.session_state["openai_unavailable"] = True
         st.session_state["openai_unavailable_reason"] = reason
@@ -705,6 +715,8 @@ def _current_usage_total_locked(usage_state: Mapping[str, Any] | None = None) ->
     fallback_total = _coerce_token_count(_FALLBACK_USAGE_COUNTERS.get("input_tokens")) + _coerce_token_count(
         _FALLBACK_USAGE_COUNTERS.get("output_tokens")
     )
+    if not _allow_streamlit_access():
+        return fallback_total
     if usage_state is None:
         try:
             usage_state = st.session_state.get(StateKeys.USAGE)
@@ -722,6 +734,8 @@ def _mark_budget_exceeded_locked() -> None:
 
     global _budget_exceeded_flag
     _budget_exceeded_flag = True
+    if not _allow_streamlit_access():
+        return
     try:
         st.session_state[StateKeys.USAGE_BUDGET_EXCEEDED] = True
     except Exception:  # pragma: no cover - Streamlit session not initialised
@@ -731,6 +745,9 @@ def _mark_budget_exceeded_locked() -> None:
 def _show_budget_guard_warning(limit: int, total: int) -> None:
     """Emit a user-facing warning when the budget guard is hit."""
 
+    if not _allow_streamlit_access():
+        logger.warning("Token budget guard engaged (usage=%s, limit=%s)", total, limit)
+        return
     try:
         if st.session_state.get(_BUDGET_GUARD_ALERT_STATE_KEY):
             return
@@ -807,19 +824,23 @@ def _update_usage_counters(usage: Mapping[str, Any], *, task: ModelTask | str | 
         )
 
         usage_state: MutableMapping[str, Any] | None = None
-        try:
-            usage_candidate = st.session_state.get(StateKeys.USAGE)
-        except Exception:  # pragma: no cover - Streamlit session not initialised
+        if _allow_streamlit_access():
+            try:
+                usage_candidate = st.session_state.get(StateKeys.USAGE)
+            except Exception:  # pragma: no cover - Streamlit session not initialised
+                usage_candidate = None
+        else:
             usage_candidate = None
 
         if isinstance(usage_candidate, MutableMapping):
             usage_state = usage_candidate
         elif isinstance(usage_candidate, Mapping):
             usage_state = dict(usage_candidate)
-            try:
-                st.session_state[StateKeys.USAGE] = usage_state
-            except Exception:  # pragma: no cover - Streamlit session not initialised
-                pass
+            if _allow_streamlit_access():
+                try:
+                    st.session_state[StateKeys.USAGE] = usage_state
+                except Exception:  # pragma: no cover - Streamlit session not initialised
+                    pass
 
         if usage_state is not None:
             usage_state["input_tokens"] = _coerce_token_count(usage_state.get("input_tokens", 0)) + input_tokens
@@ -1534,6 +1555,8 @@ def get_client() -> OpenAI:
 def _show_missing_api_key_alert() -> None:
     """Display a user-facing hint about missing API credentials once per session."""
 
+    if not _allow_streamlit_access():
+        return
     try:
         if st.session_state.get(_MISSING_API_KEY_ALERT_STATE_KEY):
             return
@@ -1688,10 +1711,11 @@ def _handle_openai_error(
     logger.error(
         "%s (%s)", log_msg, wrapped.__class__.__name__, exc_info=error, extra={"schema": schema_name, "step": step}
     )
-    try:  # pragma: no cover - Streamlit may not be initialised in tests
-        st.error(user_msg)
-    except Exception:  # noqa: BLE001
-        pass
+    if _allow_streamlit_access():
+        try:  # pragma: no cover - Streamlit may not be initialised in tests
+            st.error(user_msg)
+        except Exception:  # noqa: BLE001
+            pass
     raise wrapped from error
 
 
@@ -1729,10 +1753,11 @@ def _handle_streaming_error(
         log_msg = user_msg
 
     logger.error(log_msg, exc_info=error)
-    try:  # pragma: no cover - Streamlit may not be initialised in tests
-        st.error(user_msg)
-    except Exception:  # noqa: BLE001
-        pass
+    if _allow_streamlit_access():
+        try:  # pragma: no cover - Streamlit may not be initialised in tests
+            st.error(user_msg)
+        except Exception:  # noqa: BLE001
+            pass
     logger.error(
         "Streaming error encountered (%s)",
         error.__class__.__name__,
@@ -1905,10 +1930,11 @@ def _call_chat_api_single(
                         if current_model not in timed_out_models:
                             timed_out_models.add(current_model)
                             mark_model_unavailable(current_model)
-                        try:  # pragma: no cover - Streamlit may not be initialised
-                            st.warning(resolve_message(_TIMEOUT_ERROR_MESSAGE))
-                        except Exception:  # noqa: BLE001
-                            pass
+                        if _allow_streamlit_access():
+                            try:  # pragma: no cover - Streamlit may not be initialised
+                                st.warning(resolve_message(_TIMEOUT_ERROR_MESSAGE))
+                            except Exception:  # noqa: BLE001
+                                pass
                         next_model = context.register_failure(current_model)
                         if next_model is None:
                             raise _wrap_openai_exception(
