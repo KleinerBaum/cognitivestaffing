@@ -101,7 +101,8 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
 
 - Entry & routing  
   - `app.py` – Streamlit entry + global layout  
-  - `wizard_router.py` – wizard routing + navigation guards
+  - `wizard_router.py` – wizard routing + navigation guards  
+  - `wizard/navigation/` – navigation state machine, UI controls, and session/query param sync
 
 - Wizard UI  
   - `wizard/`, `wizard_pages/`, `wizard_tools/` – step UIs + wizard utilities (legacy `wizard_pages` proxies the step registry)  
@@ -176,6 +177,7 @@ MODEL_ROUTING__interview_guide = "gpt-4o-mini"
 ### “I want to change the wizard flow / UX”
 - Step order, step ownership, required fields:
   - `wizard_router.py`
+  - `wizard/navigation/`
   - `wizard_pages/` (step definitions / metadata)
   - `docs/refactor/wizard-unification-audit.md` (maintainability audit + refactor plan)
 - Sidebar stepper/progress:
