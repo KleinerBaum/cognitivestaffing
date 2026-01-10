@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 from typing import Callable, Literal, Sequence
 
 import streamlit as st
@@ -76,6 +77,34 @@ _NAVIGATION_STYLE = """
     margin-top: 0.35rem;
     color: var(--text-soft, rgba(15, 23, 42, 0.7));
     font-size: 0.9rem;
+}
+
+.wizard-nav-warning-area {
+    margin: 0.45rem auto 0;
+    max-width: 520px;
+}
+
+.wizard-nav-warning {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.45rem;
+    min-height: 3rem;
+    padding: 0.6rem 0.85rem;
+    border-radius: 12px;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    background: rgba(251, 191, 36, 0.18);
+    color: var(--text-primary, rgba(15, 23, 42, 0.92));
+    font-size: 0.92rem;
+    line-height: 1.35;
+    box-sizing: border-box;
+    max-height: 6rem;
+    overflow-y: auto;
+}
+
+.wizard-nav-warning--empty {
+    border-color: transparent;
+    background: transparent;
+    padding: 0;
 }
 
 @media (max-width: 768px) {
@@ -210,15 +239,21 @@ def render_navigation(state: NavigationState, *, location: Literal["top", "botto
 
 
 def render_validation_warnings(pending_validation_errors: dict[str, LocalizedText]) -> None:
-    if not pending_validation_errors:
-        return
-    messages = list(dict.fromkeys(pending_validation_errors.values()))
-    if not messages:
-        return
+    messages = list(dict.fromkeys(pending_validation_errors.values())) if pending_validation_errors else []
     lang = st.session_state.get("lang", "de")
     combined = "\n\n".join(tr(de, en, lang=lang) for de, en in messages)
-    if combined.strip():
-        st.warning(combined)
+    sanitized = html.escape(combined).replace("\n", "<br />")
+    warning_class = "wizard-nav-warning--active" if combined.strip() else "wizard-nav-warning--empty"
+    st.markdown(
+        f"""
+        <div class="wizard-nav-warning-area">
+            <div class="wizard-nav-warning {warning_class}">
+                {sanitized}
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
 
 def maybe_scroll_to_top() -> None:

@@ -5,6 +5,7 @@ from typing import Iterable, TYPE_CHECKING, Tuple
 
 if TYPE_CHECKING:
     from wizard.step_registry import StepDefinition
+    from wizard.navigation_types import StepNextResolver
 
 
 @dataclass(frozen=True)
@@ -26,6 +27,7 @@ class WizardPage:
     required_fields: Tuple[str, ...] = ()
     summary_fields: Tuple[str, ...] = ()
     allow_skip: bool = False
+    next_step_id: "StepNextResolver | None" = None
 
     def translate(self, pair: Tuple[str, str], lang: str) -> str:
         """Return the language-specific variant from ``pair``."""
@@ -68,4 +70,5 @@ def page_from_step_definition(step: StepDefinition) -> WizardPage:
         required_fields=step.required_fields,
         summary_fields=step.summary_fields,
         allow_skip=step.allow_skip,
+        next_step_id=step.next_step_id,
     )
