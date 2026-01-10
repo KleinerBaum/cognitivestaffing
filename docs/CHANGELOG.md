@@ -14,6 +14,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Added
 - Developer guide for adding wizard steps safely, including schema and test expectations (`docs/dev/wizard-steps.md`).
+- Step-graph navigation hook (`next_step_id`) so steps can resolve dynamic next keys for branching flows.
 - Registry integrity test that validates step keys, required fields, and legacy indices alignment.
 - Dynamic-flow planning artifacts outlining the conditional NeedAnalysis roadmap (`docs/dynamic_flow_plan.md` and `docs/dynamic_flow_tasks.json`).
 - Canonical wizard services for gap detection and profile validation, shared by the UI flow and wizard tools.
@@ -45,6 +46,8 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Changed
 - Wizard step metadata and renderers now live in a single step registry, with legacy `wizard_pages` modules proxying the registry to avoid drift.
+- Wizard navigation state now stores under a wizard-specific `wiz:<wizard_id>:` namespace with legacy aliasing for the default wizard session.
+- Navigation validation warnings now render in a reserved inline area below the controls to avoid layout shifts.
 - Wizard navigation logic now lives under `wizard/navigation/` (router, UI, state sync) with compatibility shims for legacy imports.
 - Follow-up generation now routes through a single canonical service (`wizard/services/followups.py`) with structured outputs, and both the UI pipeline and wizard tools delegate to it for consistent schemas.
 - OpenAI model list lookups, ESCO API responses (TTL), and job-ad extraction/follow-up results are now cached per session to cut repeated work during Streamlit reruns.

@@ -91,6 +91,7 @@ class WizardRouter:
         renderers: Mapping[str, StepRenderer],
         context: WizardContext,
         value_resolver: Callable[[Mapping[str, object], str, object | None], object | None],
+        wizard_id: str = "default",
     ) -> None:
         self._pages: list[WizardPage] = list(pages)
         self._page_map: dict[str, WizardPage] = {page.key: page for page in pages}
@@ -103,6 +104,7 @@ class WizardRouter:
             value_resolver=value_resolver,
             required_field_validators=_REQUIRED_FIELD_VALIDATORS,
             validated_fields=_PROFILE_VALIDATED_FIELDS,
+            wizard_id=wizard_id,
         )
         active_pages = self._controller.pages
         self._summary_labels: tuple[LocalizedText, ...] = tuple(page.label for page in active_pages)

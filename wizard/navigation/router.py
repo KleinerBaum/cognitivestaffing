@@ -12,6 +12,7 @@ from state.autosave import persist_session_snapshot
 from utils.i18n import tr
 import wizard.metadata as wizard_metadata
 from wizard import step_registry
+from wizard.navigation.keys import WizardSessionKeys
 from wizard.navigation_types import StepRenderer, WizardContext
 from wizard.types import LocalizedText
 from wizard.validation import (
@@ -91,6 +92,7 @@ class NavigationController:
         value_resolver: Callable[[Mapping[str, object], str, object | None], object | None],
         required_field_validators: Mapping[str, Callable[[str | None], tuple[str | None, LocalizedText | None]]],
         validated_fields: Collection[str],
+        wizard_id: str = "default",
         query_params: MutableMapping[str, object] | None = None,
         session_state: MutableMapping[str, object] | None = None,
     ) -> None:
@@ -104,6 +106,9 @@ class NavigationController:
         self._validated_fields = set(validated_fields)
         self._query_params = cast(MutableMapping[str, object], query_params or st.query_params)
         self._session_state = cast(MutableMapping[str, object], session_state or st.session_state)
+        self._wizard_id = wizard_id
+        self._session_keys = WizardSessionKeys(wizard_id=wizard_id)
+        self._use_legacy_state = wizard_id == "default"
         self._local_state: dict[str, object] | None = None
         self._pending_validation_errors: dict[str, LocalizedText] = {}
         self._refresh_active_pages()
@@ -125,8 +130,17 @@ class NavigationController:
     @property
     def state(self) -> dict[str, object]:
         try:
-            raw_state = self._session_state["wizard"]
+            raw_state = self._session_state[self._session_keys.navigation_state]
         except KeyError:
+            if self._use_legacy_state:
+                raw_state = self._session_state.get("wizard")
+                if isinstance(raw_state, dict):
+                    self._store_wizard_state(raw_state)
+                    return raw_state
+                if isinstance(raw_state, Mapping):
+                    legacy_coerced = dict(raw_state)
+                    self._store_wizard_state(legacy_coerced)
+                    return legacy_coerced
             if self._local_state is None:
                 self._local_state = {}
             return self._local_state
@@ -146,13 +160,17 @@ class NavigationController:
         """Persist ``state`` inside ``st.session_state`` when possible."""
 
         try:
-            self._session_state["wizard"] = state
+            self._session_state[self._session_keys.navigation_state] = state
+            if self._use_legacy_state:
+                self._session_state["wizard"] = state
             self._local_state = state
             return True
         except Exception:
             storage = getattr(self._session_state, "_new_session_state", None)
             if isinstance(storage, dict):
-                storage["wizard"] = state
+                storage[self._session_keys.navigation_state] = state
+                if self._use_legacy_state:
+                    storage["wizard"] = state
                 self._local_state = state
                 return True
         return False
@@ -229,6 +247,15 @@ class NavigationController:
 
     def next_key(self, page: WizardPage) -> str | None:
         self._refresh_active_pages()
+        if page.next_step_id is not None:
+            resolved = page.next_step_id(self._context, self._session_state)
+            if isinstance(resolved, str) and resolved:
+                if resolved == page.key:
+                    logger.warning("Next-step resolver returned current key '%s'", resolved)
+                elif resolved in self._page_map:
+                    return resolved
+                else:
+                    logger.warning("Next-step resolver returned unknown key '%s'", resolved)
         index = self._pages.index(page)
         for candidate in self._pages[index + 1 :]:
             return candidate.key

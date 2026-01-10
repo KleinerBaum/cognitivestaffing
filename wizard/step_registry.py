@@ -6,7 +6,7 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
 
-from wizard.navigation_types import WizardContext
+from wizard.navigation_types import StepNextResolver, WizardContext
 
 StepPredicate = Callable[[Mapping[str, object], Mapping[str, object]], bool]
 StepRenderer = Callable[[WizardContext], None]
@@ -25,6 +25,7 @@ class StepDefinition:
     summary_fields: tuple[str, ...]
     allow_skip: bool
     renderer: StepRenderer
+    next_step_id: StepNextResolver | None = None
     is_active: StepPredicate | None = None
 
 

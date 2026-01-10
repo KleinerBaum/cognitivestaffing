@@ -12,6 +12,9 @@ class WizardContext:
     critical_fields: Sequence[str]
 
 
+StepNextResolver = Callable[[WizardContext, Mapping[str, object]], str | None]
+
+
 @dataclass(frozen=True)
 class StepRenderer:
     """Callable wrapper with legacy index mapping for Streamlit state sync."""
