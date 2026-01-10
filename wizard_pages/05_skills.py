@@ -1,41 +1,13 @@
 from __future__ import annotations
 
-from .base import WizardPage
+# Deprecated: keep module for backwards-compatible imports.
+# TODO: Remove this module once downstream imports use ``wizard.step_registry`` directly.
+from wizard.step_registry import get_step
+from wizard_pages.base import page_from_step_definition
 
 
-_REQUIRED_FIELDS: tuple[str, ...] = ()
-_SUMMARY_FIELDS: tuple[str, ...] = (
-    "requirements.hard_skills_required",
-    "requirements.soft_skills_required",
-    "requirements.hard_skills_optional",
-    "requirements.soft_skills_optional",
-    "requirements.tools_and_technologies",
-    "requirements.languages_required",
-    "requirements.languages_optional",
-    "requirements.certifications",
-)
+_STEP = get_step("skills")
+if _STEP is None:
+    raise ImportError("Wizard step registry missing 'skills' definition.")
 
-
-PAGE = WizardPage(
-    key="skills",
-    label=("Fähigkeiten & Anforderungen", "Skills & Requirements"),
-    panel_header=("Skills & Anforderungen", "Skills & Requirements"),
-    panel_subheader=("Pflicht & Nice-to-have", "Must-have & nice-to-have"),
-    panel_intro_variants=(
-        (
-            "Lege fest, welche Kompetenzen zwingend und welche optional sind.",
-            "Specify which competencies are mandatory and which are optional.",
-        ),
-        (
-            "Sauber strukturierte Skill-Daten verbessern Scoring, Marktvergleiche und Exportqualität.",
-            "Well-structured skill data improves scoring, market benchmarks, and export quality.",
-        ),
-        (
-            "Markiere locker, was die Person wirklich können muss – den Rest packen wir unter Nice-to-have.",
-            "Flag what this person absolutely needs to know and we’ll park the rest as nice-to-have.",
-        ),
-    ),
-    required_fields=_REQUIRED_FIELDS,
-    summary_fields=_SUMMARY_FIELDS,
-    allow_skip=False,
-)
+PAGE = page_from_step_definition(_STEP)

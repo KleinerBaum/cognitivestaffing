@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, Tuple
+from typing import Iterable, TYPE_CHECKING, Tuple
+
+if TYPE_CHECKING:
+    from wizard.step_registry import StepDefinition
 
 
 @dataclass(frozen=True)
@@ -51,3 +54,18 @@ class WizardPage:
 
         for pair in self.panel_intro_variants:
             yield self.translate(pair, lang)
+
+
+def page_from_step_definition(step: StepDefinition) -> WizardPage:
+    """Build a ``WizardPage`` from a canonical step definition."""
+
+    return WizardPage(
+        key=step.key,
+        label=step.label,
+        panel_header=step.panel_header,
+        panel_subheader=step.panel_subheader,
+        panel_intro_variants=step.panel_intro_variants,
+        required_fields=step.required_fields,
+        summary_fields=step.summary_fields,
+        allow_skip=step.allow_skip,
+    )

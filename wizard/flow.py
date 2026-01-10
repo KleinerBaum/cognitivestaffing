@@ -13,7 +13,6 @@ from contextlib import contextmanager
 from copy import deepcopy
 from datetime import date, datetime
 from pathlib import Path
-from enum import StrEnum
 from typing import (
     TYPE_CHECKING,
     Any,
@@ -150,9 +149,8 @@ from wizard.date_utils import (
 )
 from wizard.sections.compensation_assistant import render_compensation_assistant
 from wizard.sections import followups as followup_sections
-from wizard.steps import company_step, jobad_step, team_step
 from wizard.ai_skip import render_skip_cta, render_skipped_banner
-from wizard.step_registry import resolve_active_step_keys, step_keys as _step_registry_keys
+from wizard.step_registry import WIZARD_STEPS, resolve_active_step_keys, step_keys as _step_registry_keys
 
 REQUIRED_PREFIX = followup_sections.REQUIRED_PREFIX
 _render_followup_question = followup_sections._render_followup_question
@@ -424,27 +422,6 @@ def _email_format_invalid(candidate: str | None) -> bool:
 
     value = (candidate or "").strip()
     return bool(value) and CONTACT_EMAIL_INLINE_PATTERN.match(value) is None
-
-
-class WizardStepKey(StrEnum):
-    """Canonical string keys for the wizard navigation order."""
-
-    JOBAD = "jobad"
-    COMPANY = "company"
-    TEAM = "team"
-    ROLE_TASKS = "role_tasks"
-    SKILLS = "skills"
-    BENEFITS = "benefits"
-    INTERVIEW = "interview"
-    SUMMARY = "summary"
-
-
-@dataclass(frozen=True)
-class WizardStepDescriptor:
-    """Pairs a step key with its renderer."""
-
-    key: WizardStepKey
-    renderer: StepRenderer
 
 
 EXTRACTION_REVIEW_STYLE_KEY: Final[str] = "_extraction_review_styles_v1"
@@ -12579,69 +12556,9 @@ def _render_skills_review_step() -> None:
         )
 
 
-def step_company(context: WizardContext) -> None:
-    """Render the company step."""
-
-    company_step.step_company(context)
-
-
-def step_team(context: WizardContext) -> None:
-    """Render the team/context step."""
-
-    team_step.step_team(context)
-
-
-def step_role_tasks(context: WizardContext) -> None:
-    """Render the role tasks step."""
-
-    _step_requirements()
-
-
-def step_skills(context: WizardContext) -> None:
-    """Render the skills review step."""
-
-    _render_skills_review_step()
-
-
-def step_benefits(context: WizardContext) -> None:
-    """Render the benefits and compensation step."""
-
-    _step_compensation()
-
-
-def step_interview(context: WizardContext) -> None:
-    """Render the interview/process step."""
-
-    _step_process()
-
-
-def step_summary(context: WizardContext) -> None:
-    """Render the summary step using ``context`` for schema and critical fields."""
-
-    _step_summary(dict(context.schema), list(context.critical_fields))
-
-
-STEP_SEQUENCE: tuple[WizardStepDescriptor, ...] = (
-    WizardStepDescriptor(WizardStepKey.JOBAD, StepRenderer(jobad_step.step_jobad, legacy_index=0)),
-    WizardStepDescriptor(WizardStepKey.COMPANY, StepRenderer(step_company, legacy_index=1)),
-    WizardStepDescriptor(WizardStepKey.TEAM, StepRenderer(step_team, legacy_index=2)),
-    WizardStepDescriptor(
-        WizardStepKey.ROLE_TASKS,
-        StepRenderer(step_role_tasks, legacy_index=3),
-    ),
-    WizardStepDescriptor(WizardStepKey.SKILLS, StepRenderer(step_skills, legacy_index=4)),
-    WizardStepDescriptor(
-        WizardStepKey.BENEFITS,
-        StepRenderer(step_benefits, legacy_index=5),
-    ),
-    WizardStepDescriptor(
-        WizardStepKey.INTERVIEW,
-        StepRenderer(step_interview, legacy_index=6),
-    ),
-    WizardStepDescriptor(WizardStepKey.SUMMARY, StepRenderer(step_summary, legacy_index=7)),
-)
-
-STEP_RENDERERS: dict[str, StepRenderer] = {descriptor.key.value: descriptor.renderer for descriptor in STEP_SEQUENCE}
+STEP_RENDERERS: dict[str, StepRenderer] = {
+    step.key: StepRenderer(step.renderer, legacy_index=index) for index, step in enumerate(WIZARD_STEPS)
+}
 
 
 def _resolve_single_page_steps(

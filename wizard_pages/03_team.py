@@ -1,46 +1,13 @@
 from __future__ import annotations
 
-from .base import WizardPage
+# Deprecated: keep module for backwards-compatible imports.
+# TODO: Remove this module once downstream imports use ``wizard.step_registry`` directly.
+from wizard.step_registry import get_step
+from wizard_pages.base import page_from_step_definition
 
 
-_REQUIRED_FIELDS: tuple[str, ...] = (
-    "team.reporting_line",
-    "position.reporting_manager_name",
-    "position.job_title",
-)
-_SUMMARY_FIELDS: tuple[str, ...] = (
-    "team.name",
-    "team.mission",
-    "team.reporting_line",
-    "team.headcount_current",
-    "team.headcount_target",
-    "team.collaboration_tools",
-    "team.locations",
-    "position.customer_contact_required",
-    "position.customer_contact_details",
-)
+_STEP = get_step("team")
+if _STEP is None:
+    raise ImportError("Wizard step registry missing 'team' definition.")
 
-
-PAGE = WizardPage(
-    key="team",
-    label=("Team & Struktur", "Team & Structure"),
-    panel_header=("Team & Struktur", "Team & Structure"),
-    panel_subheader=("Berichtslinien & Teamaufbau", "Reporting & team setup"),
-    panel_intro_variants=(
-        (
-            "Skizziere Struktur, Berichtslinien und Startzeitpunkt der Rolle.",
-            "Outline the team structure, reporting line, and start timing for the role.",
-        ),
-        (
-            "Präzise Angaben zu Seniorität, Reporting und Standort steuern Folgefragen und Automatisierung.",
-            "Precise details on seniority, reporting, and location inform follow-up prompts and automation.",
-        ),
-        (
-            "Erzähl kurz, wer die neue Person an die Hand nimmt und ab wann es losgeht.",
-            "Let us know who the new hire reports to and when they’ll get started.",
-        ),
-    ),
-    required_fields=_REQUIRED_FIELDS,
-    summary_fields=_SUMMARY_FIELDS,
-    allow_skip=False,
-)
+PAGE = page_from_step_definition(_STEP)

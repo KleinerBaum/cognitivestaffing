@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from wizard.step_registry import STEPS, get_step, resolve_active_step_keys, step_keys
+from wizard.step_registry import WIZARD_STEPS, get_step, resolve_active_step_keys, step_keys
 
 
 def test_step_registry_order() -> None:
@@ -17,7 +17,7 @@ def test_step_registry_order() -> None:
 
 
 def test_step_registry_keys_are_unique() -> None:
-    keys = [step.key for step in STEPS]
+    keys = [step.key for step in WIZARD_STEPS]
     assert len(keys) == len(set(keys))
 
 
