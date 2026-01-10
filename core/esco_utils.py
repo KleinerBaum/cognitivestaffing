@@ -19,11 +19,16 @@ import logging
 import os
 import re
 from functools import lru_cache
-from typing import Any, Dict, Iterable, List, Optional, Sequence
+from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
 
 import requests
 
 from config_loader import load_json
+
+try:  # pragma: no cover - optional Streamlit caching
+    import streamlit as st
+except Exception:  # pragma: no cover - Streamlit not available in some envs
+    st = None
 
 log = logging.getLogger("cognitive_needs.esco")
 
@@ -39,6 +44,18 @@ class EscoServiceError(RuntimeError):
 
 _SESSION = requests.Session()
 _SESSION.headers.update({"Accept": "application/json"})
+
+
+def _cache_esco_data(*, maxsize: int) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
+        if st is not None:
+            cached_func = st.cache_data(show_spinner=False, ttl=3600)(func)
+            if not hasattr(cached_func, "cache_clear"):
+                cached_func.cache_clear = cached_func.clear  # type: ignore[attr-defined]
+            return cached_func
+        return lru_cache(maxsize=maxsize)(func)
+
+    return decorator
 
 
 def _normalize(text: str) -> str:
@@ -307,7 +324,7 @@ def _extract_group(ancestors: Sequence[Dict[str, Any]]) -> str:
     return titles[-1] if titles else ""
 
 
-@lru_cache(maxsize=128)
+@_cache_esco_data(maxsize=128)
 def _get_occupation_detail(uri: str, lang: str) -> Dict[str, Any]:
     params = {"uri": uri, "language": _normalize_lang(lang), "view": "full"}
     return _fetch_json(_OCCUPATION_URL, params)
@@ -433,7 +450,7 @@ def get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
     return _offline_essential_skills(uri)
 
 
-@lru_cache(maxsize=256)
+@_cache_esco_data(maxsize=256)
 def _api_lookup_skill(name: str, lang: str) -> Dict[str, str]:
     params = {
         "text": name,

@@ -6,6 +6,7 @@ import logging
 import hashlib
 import json
 import textwrap
+import time
 from dataclasses import dataclass, asdict
 from collections import defaultdict
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -3090,6 +3091,49 @@ def _cached_extract_company_info(sample_hash: str) -> Mapping[str, Any]:
     return extract_company_info(text)
 
 
+def _hash_payload(payload: Mapping[str, Any]) -> str:
+    serialized = json.dumps(payload, sort_keys=True, default=str, ensure_ascii=False)
+    return hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+
+
+def _build_extraction_cache_key(
+    text: str,
+    *,
+    title_hint: str | None,
+    company_hint: str | None,
+    url_hint: str | None,
+    locked_items: tuple[tuple[str, str], ...],
+    reasoning_effort: str,
+) -> str:
+    return _hash_payload(
+        {
+            "text": text,
+            "title_hint": title_hint or "",
+            "company_hint": company_hint or "",
+            "url_hint": url_hint or "",
+            "locked_items": list(locked_items),
+            "reasoning_effort": reasoning_effort,
+        }
+    )
+
+
+def _build_followup_cache_key(
+    extraction_key: str,
+    *,
+    lang: str,
+    mode: str,
+    vector_store_id: str | None,
+) -> str:
+    return _hash_payload(
+        {
+            "extraction_key": extraction_key,
+            "lang": lang,
+            "mode": mode,
+            "vector_store_id": vector_store_id or "",
+        }
+    )
+
+
 @st.cache_data(show_spinner=False, ttl=3600)
 def _cached_extract_profile_impl(
     text: str,
@@ -4107,11 +4151,25 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     recovered = False
     locked_items = tuple(sorted(locked_hints.items()))
     effort_value = str(st.session_state.get(StateKeys.REASONING_EFFORT, REASONING_EFFORT) or REASONING_EFFORT)
+    extraction_cache_key = _build_extraction_cache_key(
+        text,
+        title_hint=title_hint,
+        company_hint=company_hint,
+        url_hint=url_hint,
+        locked_items=locked_items,
+        reasoning_effort=effort_value,
+    )
 
     def _structured_extraction_task(_: WorkflowContext) -> ExtractionResult:
         if not is_llm_available():
             raise SkipTask("llm_unavailable")
-        return _cached_extract_profile(
+        cached_key = st.session_state.get(StateKeys.EXTRACTION_CACHE_KEY)
+        cached_result = st.session_state.get(StateKeys.EXTRACTION_CACHE_RESULT)
+        if cached_key == extraction_cache_key and isinstance(cached_result, ExtractionResult):
+            return cached_result
+        start_time = time.perf_counter()
+        logger.info("structured_extraction start cache_key=%s", extraction_cache_key)
+        result = _cached_extract_profile(
             text,
             title_hint=title_hint,
             company_hint=company_hint,
@@ -4119,6 +4177,9 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
             locked_items=locked_items,
             reasoning_effort=effort_value,
         )
+        duration = time.perf_counter() - start_time
+        logger.info("structured_extraction end cache_key=%s duration=%.2fs", extraction_cache_key, duration)
+        return result
 
     extraction_run = WorkflowRunner(
         [Task(name="structured_extraction", func=_structured_extraction_task, retries=1)],
@@ -4133,6 +4194,8 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         extracted_data = extracted_payload.data
         recovered = extracted_payload.recovered
         extraction_issues = extracted_payload.issues
+        st.session_state[StateKeys.EXTRACTION_CACHE_KEY] = extraction_cache_key
+        st.session_state[StateKeys.EXTRACTION_CACHE_RESULT] = extracted_payload
     else:
         if extraction_result and extraction_result.error:
             llm_error = extraction_result.error
@@ -4333,24 +4396,39 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     followup_candidates: list[Mapping[str, object]] = []
     followup_source = "llm"
     followup_reason = ""
+    reasoning_mode = str(st.session_state.get(StateKeys.REASONING_MODE, "precise") or "precise").lower()
+    followup_mode = "fast" if reasoning_mode in {"quick", "fast", "schnell"} else "precise"
+    followup_cache_key = _build_followup_cache_key(
+        extraction_cache_key,
+        lang=str(lang),
+        mode=followup_mode,
+        vector_store_id=vector_store_id or None,
+    )
 
     def _followup_generation_task(context: WorkflowContext) -> Mapping[str, Any]:
         if not is_llm_available():
             raise SkipTask("llm_unavailable")
+        cached_key = st.session_state.get(StateKeys.FOLLOWUPS_CACHE_KEY)
+        cached_result = st.session_state.get(StateKeys.FOLLOWUPS_CACHE_RESULT)
+        if cached_key == followup_cache_key and isinstance(cached_result, Mapping):
+            return dict(cached_result)
         payload = context.get("profile_payload")
         if not isinstance(payload, Mapping):
             raise SkipTask("profile_payload_missing")
         lang_value = str(context.get("lang") or lang)
         store_value = context.get("vector_store_id")
         vector_store_value = str(store_value) if store_value else None
-        reasoning_mode = str(st.session_state.get(StateKeys.REASONING_MODE, "precise") or "precise").lower()
-        followup_mode = "fast" if reasoning_mode in {"quick", "fast", "schnell"} else "precise"
-        return generate_followups(
+        start_time = time.perf_counter()
+        logger.info("followup_generation start cache_key=%s", followup_cache_key)
+        result = generate_followups(
             dict(payload),
             mode=followup_mode,
             locale=lang_value,
             vector_store_id=vector_store_value,
         )
+        duration = time.perf_counter() - start_time
+        logger.info("followup_generation end cache_key=%s duration=%.2fs", followup_cache_key, duration)
+        return result
 
     followup_run = WorkflowRunner(
         [Task(name="followup_generation", func=_followup_generation_task, retries=1)],
@@ -4369,6 +4447,8 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
     followup_result = followup_run.get("followup_generation")
     if followup_result and followup_result.status is TaskStatus.SUCCESS:
         if isinstance(followup_result.result, Mapping):
+            st.session_state[StateKeys.FOLLOWUPS_CACHE_KEY] = followup_cache_key
+            st.session_state[StateKeys.FOLLOWUPS_CACHE_RESULT] = dict(followup_result.result)
             raw_questions = followup_result.result.get("questions", [])
             if isinstance(raw_questions, list):
                 followup_candidates = [q for q in raw_questions if isinstance(q, Mapping)]
