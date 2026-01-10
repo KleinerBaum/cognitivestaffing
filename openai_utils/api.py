@@ -2054,11 +2054,20 @@ def _call_chat_api_single(
                         )
                 low_confidence = repair_attempt.status is JsonRepairStatus.REPAIRED
             elif schema_bundle is not None and not normalised_content:
+                raw_content: str | None = None
+                if content is not None:
+                    try:
+                        raw_content = (
+                            json.dumps(content, ensure_ascii=False) if isinstance(content, Mapping) else str(content)
+                        )
+                    except (TypeError, ValueError):
+                        raw_content = str(content)
                 raise LLMResponseFormatError(
                     "Model output could not be parsed into the expected schema.",
                     step=step_label,
                     model=current_model,
                     details={"schema": schema_name, "api_mode": active_mode.value},
+                    raw_content=raw_content,
                 )
 
             normalised_secondary_content: str | None = None
