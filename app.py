@@ -8,7 +8,7 @@ import json
 import mimetypes
 from pathlib import Path
 import sys
-from typing import Mapping, Sequence, cast
+from typing import Callable, Mapping, Sequence, cast
 
 from PIL import Image, ImageEnhance, UnidentifiedImageError
 import streamlit as st
@@ -71,7 +71,6 @@ from ui.wizard_uxkit_guidedflow_20260110 import (  # noqa: E402
     render_progress_and_microcopy,
     render_saved_badge_if_recent,
     render_stepper,
-    validate_required,
 )
 from wizard.step_registry import (  # noqa: E402
     WIZARD_STEPS,
@@ -83,6 +82,7 @@ import sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
 
 APP_VERSION = "1.2.0"
+WIZARD_ID = "guidedflow"
 USE_FORM_PANEL_FADE = False
 setup_tracing()
 
@@ -97,11 +97,11 @@ st.set_page_config(
 # --- Helpers zum Laden lokaler JSON-Configs ---
 ROOT = APP_ROOT
 ensure_state()
-st.session_state.setdefault("app_version", APP_VERSION)
+st.session_state.setdefault(StateKeys.APP_VERSION, APP_VERSION)
 st.session_state[StateKeys.WIZARD_STEP_FORM_MODE] = USE_FORM_PANEL_FADE
 st.session_state[StateKeys.WIZARD_STEP_FORM_FADE] = USE_FORM_PANEL_FADE
 
-MODEL_ID = cast(str | None, st.session_state.get("router.resolved_model"))
+MODEL_ID = cast(str | None, st.session_state.get(StateKeys.ROUTER_RESOLVED_MODEL))
 if LLM_ENABLED:
     if MODEL_ID is None:
         try:
@@ -112,19 +112,19 @@ if LLM_ENABLED:
                 project=OPENAI_PROJECT or None,
             )
             MODEL_ID = pick_model(router_client)
-            st.session_state["router.resolved_model"] = MODEL_ID
-            st.session_state["router.model_logged"] = True
+            st.session_state[StateKeys.ROUTER_RESOLVED_MODEL] = MODEL_ID
+            st.session_state[StateKeys.ROUTER_MODEL_LOGGED] = True
             print(f"[MODEL_ROUTER_V3] using model={MODEL_ID}")
         except Exception as exc:  # pragma: no cover - defensive startup logging
             print(f"[MODEL_ROUTER_V3] unable to resolve model: {exc}")
-    elif not st.session_state.get("router.model_logged"):
+    elif not st.session_state.get(StateKeys.ROUTER_MODEL_LOGGED):
         print(f"[MODEL_ROUTER_V3] using model={MODEL_ID}")
-        st.session_state["router.model_logged"] = True
+        st.session_state[StateKeys.ROUTER_MODEL_LOGGED] = True
 else:
     print("[MODEL_ROUTER_V3] OpenAI API key not configured; model routing skipped.")
 
-if MODEL_ID and "router.resolved_model" not in st.session_state:
-    st.session_state["router.resolved_model"] = MODEL_ID
+if MODEL_ID and StateKeys.ROUTER_RESOLVED_MODEL not in st.session_state:
+    st.session_state[StateKeys.ROUTER_RESOLVED_MODEL] = MODEL_ID
 
 if st.session_state.get("openai_api_key_missing"):
     st.warning(
@@ -214,8 +214,14 @@ def _has_value(profile: Mapping[str, object], path: str) -> bool:
     return value is not None
 
 
-def _required_step_key(step_key: str) -> str:
-    return f"wiz:guidedflow:required:{step_key}"
+def _required_validator(step_key: str, msg: str) -> Callable[[Wizard], tuple[bool, str]]:
+    def _validate(wiz: Wizard) -> tuple[bool, str]:
+        key = wiz.k("required", step_key)
+        val = st.session_state.get(key)
+        ok = bool(val and str(val).strip())
+        return ok, ("" if ok else msg)
+
+    return _validate
 
 
 def _build_display_wizard(
@@ -225,6 +231,7 @@ def _build_display_wizard(
 ) -> Wizard:
     steps: list[WizardStep] = []
     step_map = {step.key: step for step in WIZARD_STEPS}
+    required_map: dict[str, Sequence[str]] = {}
     for key in active_keys:
         step = step_map.get(key)
         if step is None:
@@ -232,11 +239,9 @@ def _build_display_wizard(
         required_fields = step.required_fields
         validate = None
         if required_fields:
-            required_key = _required_step_key(step.key)
-            missing_required = [path for path in required_fields if not _has_value(profile, path)]
-            st.session_state[required_key] = "" if missing_required else "ok"
-            validate = validate_required(
-                required_key,
+            required_map[step.key] = required_fields
+            validate = _required_validator(
+                step.key,
                 tr(
                     "Bitte fülle die Pflichtfelder aus, bevor du fortfährst.",
                     "Please complete the required fields before continuing.",
@@ -259,10 +264,25 @@ def _build_display_wizard(
                 label=tr(*step.label, lang=lang),
                 title=tr(*step.panel_header, lang=lang),
                 render=lambda _wiz: None,
+                validate=_required_validator(
+                    step.key,
+                    tr(
+                        "Bitte fülle die Pflichtfelder aus, bevor du fortfährst.",
+                        "Please complete the required fields before continuing.",
+                        lang=lang,
+                    ),
+                )
+                if step.required_fields
+                else None,
             )
             for step in WIZARD_STEPS
         ]
-    return Wizard("guidedflow", steps)
+        required_map = {step.key: step.required_fields for step in WIZARD_STEPS if step.required_fields}
+    wiz = Wizard(WIZARD_ID, steps)
+    for step_key, required_fields in required_map.items():
+        missing_required = [path for path in required_fields if not _has_value(profile, path)]
+        st.session_state[wiz.k("required", step_key)] = "" if missing_required else "ok"
+    return wiz
 
 
 def _sync_display_wizard(wiz: Wizard, active_keys: Sequence[str]) -> None:
@@ -307,7 +327,7 @@ active_keys = resolve_active_step_keys(profile_data, st.session_state)
 origin_wiz = _build_display_wizard(active_keys, lang, profile_data)
 _sync_display_wizard(origin_wiz, active_keys)
 origins_key = origin_wiz.k("_origins")
-st.session_state.setdefault("wizard.ui.origins_key", origins_key)
+st.session_state.setdefault(StateKeys.WIZARD_ORIGINS_KEY, origins_key)
 st.session_state.setdefault(origins_key, {})
 
 stepper_slot = st.container()

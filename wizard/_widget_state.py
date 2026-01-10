@@ -6,6 +6,7 @@ from typing import Any, Callable
 
 import streamlit as st
 
+from constants.keys import StateKeys
 from ._logic import _update_profile
 
 
@@ -36,7 +37,7 @@ def _build_on_change(path: str, key: str) -> Callable[[], None]:
 
         value = _normalize_session_value(st.session_state.get(key))
         _update_profile(path, value)
-        origins_key = st.session_state.get("wizard.ui.origins_key")
+        origins_key = st.session_state.get(StateKeys.WIZARD_ORIGINS_KEY)
         if isinstance(origins_key, str):
             origins = st.session_state.setdefault(origins_key, {})
             if isinstance(origins, dict):

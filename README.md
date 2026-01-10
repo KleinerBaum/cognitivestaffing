@@ -89,6 +89,7 @@ Every step MUST render in the same top-down pattern:
 Missing prompts should not duplicate inputs that are already editable in the Known tab; inline fields (for example, the Team reporting line) are edited once to avoid conflicting updates.
 
 The baseline UX uses the guided-flow UI kit in `app.py` (emoji stepper, context bar, progress microcopy, and inline saved feedback) to keep navigation stable without layout shifts.
+Wizard widget keys should always be generated via `wiz.k(...)` so session state remains namespaced for multi-wizard and multi-repo safety.
 
 The Company step now uses the shared `render_step_layout` helper to align with the Known/Missing/Tools structure (`wizard/step_layout.py`).
 The Team & Structure step now uses the shared `render_step_layout` helper to align with the Known/Missing/Tools structure (`wizard/step_layout.py`).

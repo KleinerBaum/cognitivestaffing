@@ -17,8 +17,8 @@ Origin = Literal["extracted", "suggested", "manual"]
 
 
 # ---------- Constants ----------
-_WIZARD_STATE_KEY = "_wizard_uxkit_state_v20260110"
-_CSS_FLAG_KEY = "_wiz_uxkit_css_v20260110_injected"
+_WIZARD_STATE_KEY = "cognitive_staffing.wizard_uxkit_state.v20260110"
+_CSS_FLAG_KEY = "cognitive_staffing.wizard_uxkit_css_injected.v20260110"
 
 _KEYCAP = {
     1: "1️⃣",
@@ -176,7 +176,7 @@ class Wizard:
     """
     Streamlit wizard controller with:
 
-    - Multi-wizard safe state (namespaced under _wizard_uxkit_state_v20260110 + wizard_id)
+    - Multi-wizard safe state (namespaced under _WIZARD_STATE_KEY + wizard_id)
     - Stable widget key builder: wiz.k(...)
     - Branching (step graph) via step.next_step_id + a history stack for Back
     - visible_if skipping

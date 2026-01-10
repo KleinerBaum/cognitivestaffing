@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any, Callable, Sequence, TypeVar
+from typing import Any, Callable, Sequence, TypeVar, cast
 
 import streamlit as st
 
-from ui.wizard_uxkit_guidedflow_20260110 import render_field_label
+from constants.keys import StateKeys
+from ui.wizard_uxkit_guidedflow_20260110 import Origin, render_field_label
 from wizard._logic import (
     get_value,
     resolve_display_value,
@@ -18,18 +19,24 @@ from wizard._widget_state import _build_on_change, _ensure_widget_state
 T = TypeVar("T")
 
 
-def _resolve_origin(field_key: str, field_path: str) -> str | None:
-    origins_key = st.session_state.get("wizard.ui.origins_key")
+def _normalize_origin(origin: str | None) -> Origin | None:
+    if origin in {"extracted", "suggested", "manual"}:
+        return cast(Origin, origin)
+    return None
+
+
+def _resolve_origin(field_key: str, field_path: str) -> Origin | None:
+    origins_key = st.session_state.get(StateKeys.WIZARD_ORIGINS_KEY)
     if isinstance(origins_key, str):
         origins = st.session_state.setdefault(origins_key, {})
         if isinstance(origins, dict):
             if field_key in origins:
-                return origins.get(field_key)
+                return _normalize_origin(origins.get(field_key))
             derived = resolve_field_origin(field_path)
             if derived:
                 origins[field_key] = derived
-            return derived
-    return resolve_field_origin(field_path)
+            return _normalize_origin(derived)
+    return _normalize_origin(resolve_field_origin(field_path))
 
 
 def _normalize_width_kwarg(kwargs: dict[str, Any]) -> None:

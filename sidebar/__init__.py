@@ -477,7 +477,7 @@ def _render_app_branding(
 
 
 def _render_app_version() -> None:
-    app_version = st.session_state.get("app_version")
+    app_version = st.session_state.get(StateKeys.APP_VERSION)
     if app_version:
         st.caption(tr(f"Version {app_version}", f"Version {app_version}"))
 
