@@ -41,7 +41,11 @@ def test_detect_gaps_and_followups_cover_missing_fields() -> None:
     assert {"position.job_title", "requirements.hard_skills_required"}.issubset(fields)
 
     followups = json.loads(vacancy.generate_followups(profile, role_context="remote team"))
-    assert any("role context" in question for question in followups["questions"])
+    assert any(
+        "remote team" in entry.get("question", "")
+        for entry in followups.get("questions", [])
+        if isinstance(entry, dict)
+    )
 
 
 def test_ingest_answers_merges_payload() -> None:

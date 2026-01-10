@@ -404,11 +404,6 @@ pipelines:
   extraction:
     system: 'Du ordnest den Kontext präzise den Schemafeldern zu und antwortest nur
       mit validem JSON gemäß Schema ohne Erklärungen oder Markdown.'
-  followups:
-    system: 'Du stellst Nachfragen nur zu fehlenden oder widersprüchlichen Profildaten.
-      Jede Frage benennt das Schemafeld und Jobtitel/Seniorität, bleibt rechtssicher
-      und inklusiv, bietet 1–2 realistische Antwortoptionen, wiederholt keine bestätigten
-      Angaben und liefert nur das JSON-Schema.'
 
 assistant:
   team_advisor:

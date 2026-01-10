@@ -336,8 +336,8 @@ def _build_model_config(overrides: Mapping[str, str] | None) -> Dict[str, TaskMo
         ModelTask.COMPANY_INFO.value: TaskModelConfig(model=LIGHTWEIGHT_MODEL),
         ModelTask.FOLLOW_UP_QUESTIONS.value: TaskModelConfig(
             model=REASONING_MODEL,
-            allow_json_schema=False,
-            allow_response_format=False,
+            allow_json_schema=True,
+            allow_response_format=True,
         ),
         ModelTask.RAG_SUGGESTIONS.value: TaskModelConfig(model=REASONING_MODEL),
         ModelTask.SKILL_SUGGESTION.value: TaskModelConfig(model=REASONING_MODEL),

@@ -284,7 +284,7 @@ def test_followup_normalizes_missing_suggestions(monkeypatch) -> None:
                 "field": "position.job_title",
                 "question": "What is the job title?",
                 "priority": "critical",
-                "suggestions": [],
+                "suggestions": ["What is the job title?"],
             }
         ]
     }

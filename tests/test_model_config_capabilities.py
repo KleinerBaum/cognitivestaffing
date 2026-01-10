@@ -21,7 +21,7 @@ def test_all_model_tasks_have_config_entry() -> None:
 
 @pytest.mark.parametrize(
     "task",
-    [ModelTask.FOLLOW_UP_QUESTIONS, ModelTask.TEAM_ADVICE],
+    [ModelTask.TEAM_ADVICE],
 )
 def test_text_only_tasks_disable_json(task: ModelTask) -> None:
     """Certain conversational tasks must avoid JSON and response-formatting."""
@@ -33,7 +33,7 @@ def test_text_only_tasks_disable_json(task: ModelTask) -> None:
 
 @pytest.mark.parametrize(
     "task",
-    [ModelTask.EXTRACTION, ModelTask.JSON_REPAIR],
+    [ModelTask.EXTRACTION, ModelTask.JSON_REPAIR, ModelTask.FOLLOW_UP_QUESTIONS],
 )
 def test_json_tasks_allow_schema(task: ModelTask) -> None:
     """Structured tasks should keep JSON schema and response formatting enabled."""

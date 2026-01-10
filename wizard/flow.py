@@ -563,7 +563,7 @@ from core.suggestions import (
     get_static_benefit_shortlist,
 )
 from question_logic import ask_followups  # nutzt deine neue Definition
-from pipelines.followups import generate_followups
+from wizard.services.followups import generate_followups
 from components import widget_factory
 from components.stepper import render_stepper as _render_stepper
 from wizard.wizard import profile_text_input
@@ -4341,9 +4341,12 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         lang_value = str(context.get("lang") or lang)
         store_value = context.get("vector_store_id")
         vector_store_value = str(store_value) if store_value else None
+        reasoning_mode = str(st.session_state.get(StateKeys.REASONING_MODE, "precise") or "precise").lower()
+        followup_mode = "fast" if reasoning_mode in {"quick", "fast", "schnell"} else "precise"
         return generate_followups(
-            vacancy_json=dict(payload),
-            lang=lang_value,
+            dict(payload),
+            mode=followup_mode,
+            locale=lang_value,
             vector_store_id=vector_store_value,
         )
 
