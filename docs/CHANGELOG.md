@@ -15,6 +15,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 ### Added
 - Developer guide for adding wizard steps safely, including schema and test expectations (`docs/dev/wizard-steps.md`).
 - Step-graph navigation hook (`next_step_id`) so steps can resolve dynamic next keys for branching flows.
+- Shared Streamlit wizard UX kit module with a compatibility shim in `ui/`.
 - Registry integrity test that validates step keys, required fields, and legacy indices alignment.
 - Dynamic-flow planning artifacts outlining the conditional NeedAnalysis roadmap (`docs/dynamic_flow_plan.md` and `docs/dynamic_flow_tasks.json`).
 - Canonical wizard services for gap detection and profile validation, shared by the UI flow and wizard tools.
