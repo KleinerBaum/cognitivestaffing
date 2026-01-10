@@ -20,7 +20,7 @@ from PIL.Image import Image as PILImage
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from constants.flow_mode import FlowMode
 from core.preview import build_prefilled_sections, preview_value_to_text
-from state import reset_state
+from state import reset_state, reset_wizard_ui_state
 from state.autosave import apply_snapshot_to_session, persist_session_snapshot, serialize_snapshot
 from utils.i18n import tr
 from utils.admin_debug import ADMIN_DEBUG_DETAILS_HINT, is_admin_debug_session_active
@@ -993,7 +993,17 @@ def _render_settings() -> None:
     st.divider()
 
     if st.button(
-        tr("🔄 Zurücksetzen", "🔄 Reset wizard"),
+        tr("🧹 UI-Zustand zurücksetzen", "🧹 Reset wizard UI state"),
+        help=tr(
+            "Setzt den UI-Zustand des Wizards zurück, ohne das Profil zu löschen.",
+            "Resets the wizard UI state without clearing the profile.",
+        ),
+    ):
+        reset_wizard_ui_state()
+        st.experimental_rerun()
+
+    if st.button(
+        tr("🗑️ Profil zurücksetzen", "🗑️ Reset profile"),
         help=tr(
             "Setzt das aktuelle Profil zurück und lädt die Standardwerte neu.",
             "Clears the current profile and reloads the default values.",

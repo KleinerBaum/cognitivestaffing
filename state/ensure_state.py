@@ -91,6 +91,10 @@ _DEFAULT_STATE_FACTORIES: Mapping[str, Callable[[], Any]] = MappingProxyType(
         StateKeys.PENDING_INCOMPLETE_JUMP: lambda: False,
         StateKeys.WIZARD_STEP_COUNT: lambda: 0,
         StateKeys.WIZARD_AUTOFILL_DECISIONS: dict,
+        StateKeys.WIZARD_STEP_UI_KEYS: dict,
+        StateKeys.WIZARD_LAST_STEP: lambda: "",
+        StateKeys.WIZARD_LAST_COMPONENT: lambda: None,
+        StateKeys.WIZARD_LAST_ERROR: lambda: None,
         StateKeys.COMPANY_PAGE_SUMMARIES: dict,
         StateKeys.COMPANY_PAGE_BASE: lambda: "",
         StateKeys.COMPANY_PAGE_TEXT_CACHE: dict,
@@ -702,6 +706,92 @@ def reset_state() -> None:
     st.session_state.update(preserved)
 
     st.cache_data.clear()
+    ensure_state()
+    _rehydrate_control_preferences()
+
+
+_WIZARD_UI_STATE_KEYS: frozenset[str] = frozenset(
+    {
+        StateKeys.EXTRACTION_SUMMARY,
+        StateKeys.EXTRACTION_MISSING,
+        StateKeys.EXTRACTION_RAW_PROFILE,
+        StateKeys.EXTRACTION_CACHE_KEY,
+        StateKeys.EXTRACTION_CACHE_RESULT,
+        StateKeys.WORKFLOW_STATUS,
+        StateKeys.FOLLOWUPS,
+        StateKeys.FOLLOWUPS_CACHE_KEY,
+        StateKeys.FOLLOWUPS_CACHE_RESULT,
+        StateKeys.FOLLOWUPS_RESPONSE_ID,
+        StateKeys.FOLLOWUPS_SOURCE,
+        StateKeys.FOLLOWUPS_REASON,
+        StateKeys.STEPPER_WARNING,
+        StateKeys.WIZARD_STEP_UI_KEYS,
+        StateKeys.WIZARD_LAST_STEP,
+        StateKeys.WIZARD_LAST_COMPONENT,
+        StateKeys.WIZARD_LAST_ERROR,
+    }
+)
+
+
+def _is_wizard_ui_key(key: object) -> bool:
+    if not isinstance(key, str):
+        return False
+    if key.startswith(("ui.", "wizard.", "fu_")):
+        return True
+    return key in _WIZARD_UI_STATE_KEYS
+
+
+def snapshot_wizard_ui_state() -> dict[str, Any]:
+    """Capture wizard UI state values for diffing or rollback."""
+
+    return {
+        key: deepcopy(value)
+        for key, value in st.session_state.items()
+        if _is_wizard_ui_key(key)
+    }
+
+
+def diff_wizard_ui_state(before: Mapping[str, Any], after: Mapping[str, Any]) -> set[str]:
+    """Return UI keys that changed between two snapshots."""
+
+    changed: set[str] = set()
+    for key, value in after.items():
+        if key not in before or before[key] != value:
+            changed.add(key)
+    return changed
+
+
+def reset_step_ui_state(step_key: str) -> None:
+    """Reset UI-related session keys associated with ``step_key``."""
+
+    if not step_key:
+        return
+    raw_keys = st.session_state.get(StateKeys.WIZARD_STEP_UI_KEYS, {})
+    keys_by_step = dict(raw_keys) if isinstance(raw_keys, Mapping) else {}
+    targets = keys_by_step.get(step_key, [])
+    if not isinstance(targets, list):
+        targets = list(targets) if isinstance(targets, (set, tuple)) else []
+    for key in targets:
+        if _is_wizard_ui_key(key):
+            st.session_state.pop(key, None)
+    st.session_state.pop(StateKeys.WIZARD_LAST_COMPONENT, None)
+    st.session_state.pop(StateKeys.WIZARD_LAST_ERROR, None)
+
+
+def reset_wizard_ui_state() -> None:
+    """Reset wizard UI state while preserving the captured profile."""
+
+    profile = st.session_state.get(StateKeys.PROFILE)
+    profile_metadata = st.session_state.get(StateKeys.PROFILE_METADATA)
+    preserved = {key: st.session_state[key] for key in _PRESERVED_RESET_KEYS if key in st.session_state}
+
+    st.session_state.clear()
+    if profile is not None:
+        st.session_state[StateKeys.PROFILE] = profile
+    if profile_metadata is not None:
+        st.session_state[StateKeys.PROFILE_METADATA] = profile_metadata
+    st.session_state.update(preserved)
+
     ensure_state()
     _rehydrate_control_preferences()
 

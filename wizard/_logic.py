@@ -11,9 +11,11 @@ from __future__ import annotations
 import io
 import logging
 import re
+import traceback
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, Callable, Mapping
 
 from pydantic import ValidationError
@@ -25,7 +27,7 @@ from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.analysis_tools import get_salary_benchmark, resolve_salary_role
 from core.normalization import sanitize_optional_url_value
 from models.need_analysis import NeedAnalysisProfile
-from state import ensure_state
+from state import ensure_state, reset_step_ui_state, reset_wizard_ui_state
 from state.ai_contributions import (
     AIContributionState,
     ContributionRecord,
@@ -44,6 +46,7 @@ from utils.normalization import (
     normalize_phone_number,
     normalize_website_url,
 )
+from wizard import step_registry
 
 
 if TYPE_CHECKING:  # pragma: no cover - typing-only import path
@@ -404,22 +407,72 @@ def _render_localized_error(message_de: str, message_en: str, error: Exception |
 
     lang = st.session_state.get("lang", "de")
     st.error(tr(message_de, message_en, lang=lang))
+    step_key = st.session_state.get(StateKeys.WIZARD_LAST_STEP)
+    step_label: str | None = None
+    if isinstance(step_key, str) and step_key:
+        step = step_registry.get_step(step_key)
+        if step is not None:
+            step_label = tr(*step.label, lang=lang)
+        else:
+            step_label = step_key
+
+    component_label: str | None = None
+    component_value = st.session_state.get(StateKeys.WIZARD_LAST_COMPONENT)
+    if isinstance(component_value, tuple) and len(component_value) == 2:
+        component_label = tr(component_value[0], component_value[1], lang=lang)
+    elif isinstance(component_value, str) and component_value:
+        component_label = component_value
+
+    if step_label:
+        location = step_label
+        if component_label:
+            location = f"{step_label} \u2192 {component_label}"
+        st.caption(
+            tr("Fehler in Schritt:", "Failed step:", lang=lang) + f" {location}"
+        )
+
+    if step_label:
+        retry_label = tr("🔁 Schritt neu laden", "🔁 Retry step", lang=lang)
+        if st.button(retry_label, key=f"wizard.error.retry.{step_key}"):
+            reset_step_ui_state(str(step_key))
+            st.rerun()
+
+    reset_label = tr("♻️ Wizard-UI zurücksetzen", "♻️ Reset wizard UI state", lang=lang)
+    reset_help = tr(
+        "Setzt nur die UI-Ansicht zurück (Profil bleibt erhalten).",
+        "Resets the UI state only (profile stays intact).",
+        lang=lang,
+    )
+    if st.button(reset_label, key="wizard.error.reset_ui", help=reset_help):
+        reset_wizard_ui_state()
+        st.rerun()
+
     if error is None:
         return
-    label = tr("Fehlerdetails anzeigen", "Show error details", lang=lang)
+    label = tr("Technische Details", "Technical details", lang=lang)
+    error_type = error.__class__.__name__
+    frames = traceback.extract_tb(error.__traceback__) if error.__traceback__ else []
+    last_frame = frames[-1] if frames else None
+    if last_frame:
+        filename = Path(last_frame.filename).name
+        frame_text = f"{filename}:{last_frame.lineno} in {last_frame.name}"
+    else:
+        frame_text = tr("Kein Stackframe verfügbar.", "No stack frame available.", lang=lang)
+    st.session_state[StateKeys.WIZARD_LAST_ERROR] = {
+        "type": error_type,
+        "frame": frame_text,
+    }
     try:
         expander = st.expander(label)
     except Exception:  # pragma: no cover - Streamlit shim fallback
         expander = None
     if expander is None:
         if hasattr(st, "write"):
-            st.write(repr(error))
+            st.write(f"{error_type}: {frame_text}")
         return
     with expander:
-        if hasattr(st, "exception"):
-            st.exception(error)
-        else:  # pragma: no cover - fallback for lightweight Streamlit shims
-            st.write(repr(error))
+        st.markdown(f"**{tr('Exception-Typ', 'Exception type', lang=lang)}:** `{error_type}`")
+        st.markdown(f"**{tr('Letzter Stackframe', 'Last stack frame', lang=lang)}:** `{frame_text}`")
 
 
 def _handle_profile_update_error(path: str, error: Exception) -> None:

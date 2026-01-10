@@ -375,7 +375,7 @@ def test_on_url_changed_sets_summary_on_fetch_error(monkeypatch: pytest.MonkeyPa
 
     on_url_changed()
 
-    assert st.session_state[StateKeys.EXTRACTION_SUMMARY] == {}
+    assert st.session_state[StateKeys.EXTRACTION_SUMMARY] == {"previous": "summary"}
     assert st.session_state.get("source_error") in (None, False)
     assert "source_error_message" not in st.session_state
     assert st.session_state["__prefill_profile_doc__"].text == "url text"

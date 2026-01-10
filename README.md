@@ -279,5 +279,9 @@ tests.
   variants; missing optional dependencies are expected and only logged at debug level.
 - If you encounter “missing ScriptRunContext” warnings, ensure background tasks only compute data
   and keep Streamlit UI/session-state updates on the main thread.
+- Recoverable wizard failures now surface a retry button and a UI-only reset option; prefer UI
+  resets before clearing the full profile to avoid losing captured data.
 - ESCO occupation selector state is split between widget and profile keys to avoid Streamlit
   session-state mutation errors; keep widget changes on `ui.position.esco_occupation_widget`.
+- Avoid committing binary screenshots in PRs; add any required images manually after review to
+  keep diffs lightweight.
