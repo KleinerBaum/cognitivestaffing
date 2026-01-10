@@ -14,6 +14,7 @@ import streamlit as st
 import config
 from components.chatkit_widget import render_chatkit_widget
 from components import widget_factory
+from constants.flow_mode import FlowMode
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from wizard.company_validators import persist_contact_email, persist_primary_city
 from wizard.layout import (
@@ -777,6 +778,7 @@ def _step_company() -> None:
         None
     """
 
+    flow = _get_flow_module()
     st.markdown(COMPACT_STEP_STYLE, unsafe_allow_html=True)
 
     profile = _get_profile_state()
@@ -1192,17 +1194,18 @@ def _step_company() -> None:
         )
         _update_profile(ProfilePaths.TEAM_MISSION, team.get("mission", ""))
 
-        reporting_cols = st.columns((1, 1), gap="small")
-        team_reporting_value = reporting_cols[0].text_input(
-            tr("Berichtslinie", "Reporting line"),
-            value=team.get("reporting_line", position.get("reporting_line", "")),
-            key=ProfilePaths.TEAM_REPORTING_LINE,
-            placeholder=tr("Berichtslinie erläutern", "Describe the reporting line"),
-        )
-        team["reporting_line"] = team_reporting_value
-        _update_profile(ProfilePaths.TEAM_REPORTING_LINE, team_reporting_value)
-        position["reporting_line"] = team_reporting_value
-        _update_profile(ProfilePaths.POSITION_REPORTING_LINE, team_reporting_value)
+        if flow.get_flow_mode() != FlowMode.SINGLE_PAGE:
+            reporting_cols = st.columns((1, 1), gap="small")
+            team_reporting_value = reporting_cols[0].text_input(
+                tr("Berichtslinie", "Reporting line"),
+                value=team.get("reporting_line", position.get("reporting_line", "")),
+                key=ProfilePaths.TEAM_REPORTING_LINE,
+                placeholder=tr("Berichtslinie erläutern", "Describe the reporting line"),
+            )
+            team["reporting_line"] = team_reporting_value
+            _update_profile(ProfilePaths.TEAM_REPORTING_LINE, team_reporting_value)
+            position["reporting_line"] = team_reporting_value
+            _update_profile(ProfilePaths.POSITION_REPORTING_LINE, team_reporting_value)
 
         team_headcount_cols = st.columns(2, gap="small")
         team["headcount_current"] = team_headcount_cols[0].number_input(

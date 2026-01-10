@@ -152,6 +152,7 @@ from wizard.sections.compensation_assistant import render_compensation_assistant
 from wizard.sections import followups as followup_sections
 from wizard.steps import company_step, jobad_step, team_step
 from wizard.ai_skip import render_skip_cta, render_skipped_banner
+from wizard.step_registry import step_keys as _step_registry_keys
 
 REQUIRED_PREFIX = followup_sections.REQUIRED_PREFIX
 _render_followup_question = followup_sections._render_followup_question
@@ -12643,20 +12644,105 @@ STEP_SEQUENCE: tuple[WizardStepDescriptor, ...] = (
 STEP_RENDERERS: dict[str, StepRenderer] = {descriptor.key.value: descriptor.renderer for descriptor in STEP_SEQUENCE}
 
 
+def _resolve_single_page_steps(pages: Sequence[WizardPage]) -> list[WizardPage]:
+    """Return wizard pages ordered by the shared step registry."""
+
+    page_map = {page.key: page for page in pages}
+    ordered: list[WizardPage] = [page_map[key] for key in _step_registry_keys() if key in page_map]
+    ordered_keys = {page.key for page in ordered}
+    ordered.extend(page for page in pages if page.key not in ordered_keys)
+    return ordered
+
+
+def _single_page_step_header(page: WizardPage, *, is_complete: bool) -> str:
+    """Build an expander header including completion status for ``page``."""
+
+    lang = st.session_state.get("lang", "de")
+    status_label = (
+        tr("vollständig", "complete", lang=lang)
+        if is_complete
+        else tr("Pflichtfelder fehlen", "missing required fields", lang=lang)
+    )
+    status_icon = "✅" if is_complete else "⚠️"
+    page_label = tr(*page.label, lang=lang)
+    return f"{status_icon} {page_label} · {status_label}"
+
+
+def _render_single_page_summary(missing_fields: Sequence[str]) -> None:
+    """Render the single-page validation summary panel."""
+
+    with st.expander(tr("Alle Schritte prüfen", "Validate all steps"), expanded=True):
+        st.caption(tr("Fehlende Pflichtfelder anzeigen", "Show missing critical fields"))
+        if missing_fields:
+            render_missing_field_summary(missing_fields, scope="global")
+        else:
+            st.success(
+                tr(
+                    "Alle Pflichtfelder sind ausgefüllt.",
+                    "All critical fields are filled.",
+                )
+            )
+
+
+def _render_single_page_wizard(
+    *,
+    pages: Sequence[WizardPage],
+    renderers: Mapping[str, StepRenderer],
+    context: WizardContext,
+    missing_fields: Sequence[str],
+) -> None:
+    """Render all wizard steps sequentially on a single page."""
+
+    ordered_pages = _resolve_single_page_steps(pages)
+    summary_labels = tuple(page.label for page in ordered_pages)
+    lang = st.session_state.get("lang", "de")
+    if ordered_pages:
+        first_renderer = renderers.get(ordered_pages[0].key)
+        st.session_state["_wizard_step_summary"] = (
+            first_renderer.legacy_index if first_renderer else 0,
+            [tr(de, en, lang=lang) for de, en in summary_labels],
+        )
+    _render_single_page_summary(missing_fields)
+
+    for page in ordered_pages:
+        renderer = renderers.get(page.key)
+        if renderer is None:
+            st.warning(tr("Schritt nicht verfügbar.", "Step not available."))
+            continue
+        profile = _get_profile_state()
+        missing = compute_step_missing(profile, page)
+        is_complete = not missing.required and not missing.critical
+        with st.expander(
+            _single_page_step_header(page, is_complete=is_complete),
+            expanded=not is_complete or page == ordered_pages[0],
+        ):
+            st.session_state[StateKeys.STEP] = renderer.legacy_index
+            renderer.callback(context)
+
+
 def _run_wizard_v2(schema: Mapping[str, object], critical: Sequence[str]) -> None:
     """Initialize and execute the primary wizard flow."""
 
     st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(WIZARD_PAGES)
-    _update_section_progress()
+    missing_fields = get_missing_critical_fields()
+    _update_section_progress(missing_fields)
 
     context = WizardContext(schema=schema, critical_fields=critical)
-    router = WizardRouter(
-        pages=WIZARD_PAGES,
-        renderers=STEP_RENDERERS,
-        context=context,
-        value_resolver=get_in,
-    )
-    router.run()
+    if get_flow_mode() == FlowMode.SINGLE_PAGE:
+        _render_single_page_wizard(
+            pages=WIZARD_PAGES,
+            renderers=STEP_RENDERERS,
+            context=context,
+            missing_fields=missing_fields,
+        )
+    else:
+        router = WizardRouter(
+            pages=WIZARD_PAGES,
+            renderers=STEP_RENDERERS,
+            context=context,
+            value_resolver=get_in,
+        )
+        router.run()
     _apply_pending_scroll_reset()
 
 

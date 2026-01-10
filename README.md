@@ -54,6 +54,8 @@ The onboarding step starts with a single hero block (logo + eyebrow/headline/sub
 
 Navigation is **linear Back/Next**. “Next” is **disabled** until required fields for the current step are filled.
 
+The sidebar Flow mode toggle can switch between the guided multi-step flow and a single-page view that renders all steps in order inside expanders, with a top-level missing-fields summary to validate everything at once.
+
 The Company step owns company profile, contact, and department details (`department.*`) so department follow-ups and missing-field badges appear where the inputs live.
 Location follow-ups (`location.*`) are also routed to the Company step to ensure missing prompts surface alongside the location inputs.
 Position team follow-ups (`position.team_*`) are routed to the Company step to match where the team structure inputs are rendered.
