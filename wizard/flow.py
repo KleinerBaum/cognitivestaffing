@@ -130,7 +130,7 @@ from config_loader import load_json
 from models.need_analysis import NeedAnalysisProfile
 from pipelines.need_analysis import ExtractionResult, extract_need_analysis_profile
 from pipelines.workflow import SkipTask, Task, TaskStatus, WorkflowContext, WorkflowRunner
-from core.schema import coerce_and_fill
+from core.schema import coerce_and_fill, merge_profile_with_defaults
 from core.schema_registry import load_need_analysis_schema
 from core.confidence import ConfidenceTier, DEFAULT_AI_TIER
 from core.extraction import mark_low_confidence
@@ -4018,7 +4018,9 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
 
     raw_blocks = st.session_state.get(StateKeys.RAW_BLOCKS, []) or []
     doc: StructuredDocument | None = st.session_state.get("__prefill_profile_doc__")
-    rule_matches = apply_rules(raw_blocks)
+    base_profile = st.session_state.get(StateKeys.PROFILE)
+    rule_profile = merge_profile_with_defaults(base_profile if isinstance(base_profile, Mapping) else None)
+    rule_matches = apply_rules(raw_blocks, existing_profile=rule_profile)
     raw_metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
     metadata = dict(raw_metadata) if isinstance(raw_metadata, Mapping) else {}
     confidence_map = _ensure_mapping(metadata.get("field_confidence"))

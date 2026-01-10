@@ -263,6 +263,9 @@ poetry run pytest
 Streamlit AppTest regression checks (including the ESCO selector state guard) run in the same
 `pytest` suite and do not require network access.
 
+The test suite also validates that rule-based extraction fields stay aligned with the canonical
+NeedAnalysis schema, so rule path drift fails fast in CI.
+
 Job ad fixtures live under `tests/fixtures/job_ads/`. Use the helper in
 `tests/fixtures/job_ads/__init__.py` to load UTF-8 fixture text for regression
 tests.

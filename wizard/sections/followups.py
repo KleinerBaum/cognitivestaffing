@@ -917,14 +917,15 @@ def _render_followup_question(q: dict, data: dict) -> None:
     inline_field = field in INLINE_FOLLOWUP_FIELDS
     with container:
         if field in YES_NO_FOLLOWUP_FIELDS:
-            touched_key = f"{key}_touched"
-            if touched_key not in st.session_state:
-                st.session_state[touched_key] = existing_value is not None
+            checkbox_touched_key = f"{key}_touched"
+            touched_key = checkbox_touched_key
+            if checkbox_touched_key not in st.session_state:
+                st.session_state[checkbox_touched_key] = existing_value is not None
 
             def _mark_followup_touched() -> None:
                 """Mark checkbox-driven follow-ups as interacted with."""
 
-                st.session_state[touched_key] = True
+                st.session_state[checkbox_touched_key] = True
 
             checkbox_value = st.checkbox(
                 label_text,
@@ -932,7 +933,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
                 label_visibility="collapsed",
                 on_change=_mark_followup_touched,
             )
-            processed_value = bool(checkbox_value) if st.session_state.get(touched_key) else None
+            processed_value = bool(checkbox_value) if st.session_state.get(checkbox_touched_key) else None
         elif field in NUMBER_FOLLOWUP_FIELDS:
             numeric_default = _coerce_followup_number(existing_value)
             raw_state_value = st.session_state.get(key, numeric_default)
@@ -957,14 +958,15 @@ def _render_followup_question(q: dict, data: dict) -> None:
             processed_value = date_value.isoformat() if isinstance(date_value, date) else ""
         elif field in LIST_FOLLOWUP_FIELDS:
             if inline_field:
-                touched_key = f"{key}_touched"
-                if touched_key not in st.session_state:
-                    st.session_state[touched_key] = False
+                list_touched_key = f"{key}_touched"
+                touched_key = list_touched_key
+                if list_touched_key not in st.session_state:
+                    st.session_state[list_touched_key] = False
 
                 def _mark_followup_touched() -> None:
                     """Mark text-area follow-ups as interacted with."""
 
-                    st.session_state[touched_key] = True
+                    st.session_state[list_touched_key] = True
 
             text_value = st.text_area(
                 label_text,
@@ -980,14 +982,15 @@ def _render_followup_question(q: dict, data: dict) -> None:
             processed_value = [line.strip() for line in text_value.splitlines() if line.strip()]
         else:
             if inline_field:
-                touched_key = f"{key}_touched"
-                if touched_key not in st.session_state:
-                    st.session_state[touched_key] = False
+                input_touched_key = f"{key}_touched"
+                touched_key = input_touched_key
+                if input_touched_key not in st.session_state:
+                    st.session_state[input_touched_key] = False
 
                 def _mark_followup_touched() -> None:
                     """Mark text-input follow-ups as interacted with."""
 
-                    st.session_state[touched_key] = True
+                    st.session_state[input_touched_key] = True
 
             processed_value = st.text_input(
                 label_text,

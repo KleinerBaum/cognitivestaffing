@@ -28,6 +28,20 @@ CITY_FIELD = "location.primary_city"
 COUNTRY_FIELD = "location.country"
 INDUSTRY_FIELD = "company.industry"
 
+RULE_FIELDS = frozenset(
+    {
+        EMAIL_FIELD,
+        PHONE_FIELD,
+        SALARY_MIN_FIELD,
+        SALARY_MAX_FIELD,
+        SALARY_PROVIDED_FIELD,
+        CURRENCY_FIELD,
+        CITY_FIELD,
+        COUNTRY_FIELD,
+        INDUSTRY_FIELD,
+    }
+)
+
 
 @dataclass(slots=True)
 class RuleMatch:
@@ -298,7 +312,23 @@ _RULE_PRIORITIES = {
 }
 
 
-def apply_rules(blocks: Sequence[ContentBlock]) -> dict[str, RuleMatch]:
+def _path_exists(profile: Mapping[str, Any], path: str) -> bool:
+    """Return ``True`` when ``profile`` contains ``path`` even if empty."""
+
+    cursor: Any = profile
+    for part in path.split("."):
+        if isinstance(cursor, Mapping) and part in cursor:
+            cursor = cursor[part]
+        else:
+            return False
+    return True
+
+
+def apply_rules(
+    blocks: Sequence[ContentBlock],
+    *,
+    existing_profile: Mapping[str, Any] | None = None,
+) -> dict[str, RuleMatch]:
     """Run regex and layout heuristics over ``blocks`` and return matches."""
 
     matches: dict[str, RuleMatch] = {}
@@ -311,10 +341,14 @@ def apply_rules(blocks: Sequence[ContentBlock]) -> dict[str, RuleMatch]:
             if _is_better_match(match, current):
                 matches[match.field] = match
     missing_required = sorted(field for field in _REQUIRED_RULE_FIELDS if field not in matches)
+    if existing_profile is not None:
+        missing_required = [field for field in missing_required if not _path_exists(existing_profile, field)]
     for field in missing_required:
         LOGGER.warning("apply_rules: required field not found: %s", field, extra={"field": field})
 
     missing_optional = sorted(field for field in _OPTIONAL_RULE_FIELDS if field not in matches)
+    if existing_profile is not None:
+        missing_optional = [field for field in missing_optional if not _path_exists(existing_profile, field)]
     for field in missing_optional:
         LOGGER.info(
             "apply_rules: optional field not found: %s",
@@ -322,6 +356,18 @@ def apply_rules(blocks: Sequence[ContentBlock]) -> dict[str, RuleMatch]:
             extra={"field": field, "required": False},
         )
     return matches
+
+
+def validate_rule_field_paths(paths: Iterable[str] | None = None) -> None:
+    """Ensure rule field paths exist in the NeedAnalysis schema."""
+
+    from core.schema_registry import iter_need_analysis_field_paths
+
+    fields = set(paths) if paths is not None else set(RULE_FIELDS)
+    schema_fields = set(iter_need_analysis_field_paths())
+    missing = sorted(field for field in fields if field not in schema_fields)
+    if missing:
+        raise ValueError(f"Rule fields missing from schema: {', '.join(missing)}")
 
 
 def matches_to_patch(matches: RuleMatchMap) -> dict[str, Any]:
@@ -943,7 +989,9 @@ def _is_better_match(candidate: RuleMatch, current: RuleMatch) -> bool:
 
 __all__ = [
     "RuleMatch",
+    "RULE_FIELDS",
     "apply_rules",
     "matches_to_patch",
     "build_rule_metadata",
+    "validate_rule_field_paths",
 ]
