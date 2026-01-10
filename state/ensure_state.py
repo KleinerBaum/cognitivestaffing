@@ -16,6 +16,7 @@ from pydantic import ValidationError
 from types import MappingProxyType
 
 from constants.keys import ProfilePaths, StateKeys, UIKeys
+from constants.flow_mode import FlowMode
 from config import (
     GPT4O,
     OPENAI_BASE_URL,
@@ -69,6 +70,7 @@ _DEFAULT_STATE_FACTORIES: Mapping[str, Callable[[], Any]] = MappingProxyType(
         StateKeys.RAW_TEXT: lambda: "",
         StateKeys.RAW_BLOCKS: list,
         StateKeys.STEP: lambda: 0,
+        StateKeys.FLOW_MODE: lambda: FlowMode.MULTI_STEP,
         StateKeys.EXTRACTION_SUMMARY: dict,
         StateKeys.EXTRACTION_MISSING: list,
         StateKeys.EXTRACTION_RAW_PROFILE: dict,
@@ -127,6 +129,7 @@ _PRESERVED_RESET_KEYS: frozenset[str] = frozenset(
     {
         "lang",
         UIKeys.LANG_SELECT,
+        StateKeys.FLOW_MODE,
         StateKeys.REASONING_MODE,
         UIKeys.REASONING_MODE,
         "dark_mode",

@@ -44,6 +44,24 @@ from streamlit.runtime.uploaded_file_manager import UploadedFile
 
 _SortableItem = TypeVar("_SortableItem")
 
+
+def get_flow_mode() -> FlowMode:
+    """Return the active flow mode preference from session state."""
+
+    stored = st.session_state.get(StateKeys.FLOW_MODE, FlowMode.MULTI_STEP)
+    if isinstance(stored, FlowMode):
+        return stored
+    if isinstance(stored, str):
+        try:
+            normalized = FlowMode(stored)
+        except ValueError:
+            normalized = FlowMode.MULTI_STEP
+    else:
+        normalized = FlowMode.MULTI_STEP
+    st.session_state[StateKeys.FLOW_MODE] = normalized
+    return normalized
+
+
 try:  # pragma: no cover - runtime guard for local/test environments
     from streamlit_sortables import sort_items as _sort_items
 except Exception:  # pragma: no cover - gracefully degrade when component runtime missing
@@ -77,6 +95,7 @@ from utils.logging_context import wrap_with_current_context
 import config as app_config
 from config import set_responses_allow_tools
 from i18n import t as translate_key
+from constants.flow_mode import FlowMode
 from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.errors import ExtractionError
 from state.progress_inbox import apply_inbox_update, get_tasks
