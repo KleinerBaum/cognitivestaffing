@@ -23,7 +23,7 @@ if "agents" not in sys.modules:
     sys.modules["agents"] = agents_stub
 
 import config.models as model_config
-from wizard_tools import execution
+from wizard_tools.experimental import execution
 
 
 @pytest.fixture(autouse=True)
