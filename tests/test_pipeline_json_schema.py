@@ -17,7 +17,7 @@ from generators import interview_guide as interview_mod
 from generators import job_ad as job_ad_mod
 from openai_utils.api import ChatCallResult
 from pipelines import extraction as extraction_mod
-from pipelines import followups as followups_mod
+from wizard.services import followups as followups_mod
 from pipelines import matching as matching_mod
 from pipelines import profile_summary as profile_summary_mod
 from schemas import (
@@ -160,12 +160,11 @@ def test_followups_use_text_mode_and_tools(monkeypatch: pytest.MonkeyPatch) -> N
         captured.update(kwargs)
         return _FakeResult()
 
-    monkeypatch.setattr(followups_mod, "call_chat_api", fake_call)
-    monkeypatch.setattr(followups_mod, "get_model_for", lambda *_, **__: "model-followups")
-    followups_mod.generate_followups({}, "en", vector_store_id="store-id")
+    monkeypatch.setattr(followups_mod, "get_call_chat_api", lambda: fake_call)
+    monkeypatch.setattr(followups_mod, "_resolve_model", lambda *_: "model-followups")
+    followups_mod.generate_followups({}, locale="en", vector_store_id="store-id")
 
-    assert captured.get("json_schema") is None
-    assert captured.get("use_response_format") is False
+    assert captured.get("json_schema") == followups_mod.FOLLOWUP_JSON_SCHEMA
     assert captured["tools"] == [
         {
             "type": "file_search",
@@ -185,12 +184,11 @@ def test_followups_without_vector_store(monkeypatch: pytest.MonkeyPatch) -> None
         captured.update(kwargs)
         return _FakeResult()
 
-    monkeypatch.setattr(followups_mod, "call_chat_api", fake_call)
-    monkeypatch.setattr(followups_mod, "get_model_for", lambda *_, **__: "model-followups")
-    followups_mod.generate_followups({}, "de")
+    monkeypatch.setattr(followups_mod, "get_call_chat_api", lambda: fake_call)
+    monkeypatch.setattr(followups_mod, "_resolve_model", lambda *_: "model-followups")
+    followups_mod.generate_followups({}, locale="de")
 
-    assert captured.get("json_schema") is None
-    assert captured.get("use_response_format") is False
+    assert captured.get("json_schema") == followups_mod.FOLLOWUP_JSON_SCHEMA
     assert captured.get("tools") is None
     assert captured.get("tool_choice") is None
     assert captured["model"] == "model-followups"
@@ -211,10 +209,10 @@ def test_followups_parses_response(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_call(messages: list[dict[str, Any]], **_: Any) -> _FakeResult:
         return _FakeResult(content=json.dumps(payload))
 
-    monkeypatch.setattr(followups_mod, "call_chat_api", fake_call)
-    monkeypatch.setattr(followups_mod, "get_model_for", lambda *_, **__: "model-followups")
+    monkeypatch.setattr(followups_mod, "get_call_chat_api", lambda: fake_call)
+    monkeypatch.setattr(followups_mod, "_resolve_model", lambda *_: "model-followups")
 
-    result = followups_mod.generate_followups({}, "en")
+    result = followups_mod.generate_followups({}, locale="en")
 
     assert result["questions"]
     assert result.get("source") == "llm"
@@ -229,10 +227,10 @@ def test_followups_handles_errors(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_call(messages: list[dict[str, Any]], **_: Any) -> _FakeResult:
         raise RuntimeError("test failure")
 
-    monkeypatch.setattr(followups_mod, "call_chat_api", fake_call)
-    monkeypatch.setattr(followups_mod, "get_model_for", lambda *_, **__: "model-followups")
+    monkeypatch.setattr(followups_mod, "get_call_chat_api", lambda: fake_call)
+    monkeypatch.setattr(followups_mod, "_resolve_model", lambda *_: "model-followups")
 
-    result = followups_mod.generate_followups({}, "de")
+    result = followups_mod.generate_followups({}, locale="de")
 
     assert result["questions"]
     assert all(entry.get("suggestions") for entry in result["questions"])

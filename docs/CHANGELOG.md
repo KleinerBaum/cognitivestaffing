@@ -35,6 +35,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Changed
 - Wizard step metadata and renderers now live in a single step registry, with legacy `wizard_pages` modules proxying the registry to avoid drift.
+- Follow-up generation now routes through a single canonical service (`wizard/services/followups.py`) with structured outputs, and both the UI pipeline and wizard tools delegate to it for consistent schemas.
 - Documented the onboarding hero structure (CTA anchor `#onboarding-source`, timeline classes), clarified the single-hero approach, and noted sidebar hero/stepper CSS now lives in the shared theme stylesheets.
 - Sidebar hero/stepper styles now live in the shared theme stylesheets instead of inline injection in `app.py`.
 - Sidebar settings now include an intro banner toggle that also hides the onboarding hero, clearer language labels, and an advanced expander for LLM-related options.

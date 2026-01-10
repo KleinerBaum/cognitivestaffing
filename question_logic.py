@@ -65,6 +65,7 @@ from config import (
     is_llm_enabled,
 )
 from prompts import prompt_registry
+from wizard.services.followups import FollowupModelConfig, generate_followups as generate_followups_service
 
 # Optional OpenAI vector store ID for RAG suggestions; set via env/secrets.
 # If unset or blank, RAG lookups are skipped.
@@ -638,22 +639,18 @@ def ask_followups(
     """
 
     with tracer.start_as_current_span("llm.generate_followups") as span:
-        model = get_model_for(ModelTask.FOLLOW_UP_QUESTIONS, override=model)
         vector_store_id = vector_store_id or st.session_state.get("vector_store_id") or RAG_VECTOR_STORE_ID
-        span.set_attribute("llm.model", model)
         span.set_attribute("followups.vector_store", bool(vector_store_id))
-        tools: list[Any] = []
-        tool_choice: Optional[str] = None
-        if vector_store_id:
-            tools = [build_file_search_tool(vector_store_id)]
-            tool_choice = "auto"
         previous_response_id = st.session_state.get(StateKeys.FOLLOWUPS_RESPONSE_ID)
 
         payload_lang = ""
+        payload_profile: dict[str, Any] | None = None
         if isinstance(payload, dict):
             meta = payload.get("meta")
             if isinstance(meta, dict):
                 payload_lang = str(meta.get("lang") or "").strip()
+            if isinstance(payload.get("data"), dict):
+                payload_profile = payload.get("data")
         session_lang = str(st.session_state.get("lang", "en") or "en")
         lang = (payload_lang or session_lang or "en").lower()
         if not lang.startswith("de"):
@@ -662,103 +659,35 @@ def ask_followups(
             lang = "de"
         span.set_attribute("followups.lang", lang)
 
-        system_prompt = prompt_registry.get("question_logic.followups.system", locale=lang)
-        messages = [
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": json.dumps(payload, ensure_ascii=False)},
-        ]
+        reasoning_mode = str(st.session_state.get(StateKeys.REASONING_MODE, "precise") or "precise").lower()
+        mode = "fast" if reasoning_mode in {"quick", "fast", "schnell"} else "precise"
+        model_config = FollowupModelConfig(model_override=model)
 
         try:
-            res = call_chat_api(
-                messages,
-                model=model,
-                temperature=0.2,
-                json_schema={
-                    "name": "followup_questions",
-                    "schema": {
-                        "type": "object",
-                        "properties": {
-                            "questions": {
-                                "type": "array",
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "field": {"type": "string"},
-                                        "question": {"type": "string"},
-                                        "priority": {"type": "string"},
-                                        "suggestions": {
-                                            "type": "array",
-                                            "items": {"type": "string"},
-                                            "default": [],
-                                        },
-                                    },
-                                    "required": [
-                                        "field",
-                                        "question",
-                                        "priority",
-                                        "suggestions",
-                                    ],
-                                    "additionalProperties": False,
-                                },
-                            }
-                        },
-                        "required": ["questions"],
-                        "additionalProperties": False,
-                    },
-                },
-                tools=tools or None,
-                tool_choice=tool_choice,
-                max_completion_tokens=800,
-                task=ModelTask.FOLLOW_UP_QUESTIONS,
+            result = generate_followups_service(
+                payload_profile or payload,
+                mode=mode,
+                locale=lang,
+                model_config=model_config,
+                vector_store_id=vector_store_id,
+                call_llm=call_chat_api,
+                build_file_search_tool=build_file_search_tool,
                 previous_response_id=previous_response_id,
-                verbosity=get_active_verbosity(),
             )
         except Exception as exc:  # pragma: no cover - network/SDK issues
             span.record_exception(exc)
             span.set_status(Status(StatusCode.ERROR, "api_error"))
             raise
 
-        st.session_state[StateKeys.FOLLOWUPS_RESPONSE_ID] = getattr(res, "response_id", None)
-
-        content = _normalize_chat_content(res).strip()
-        if content.startswith("```"):
-            import re
-
-            m = re.search(r"```(?:json)?\s*(.*?)```", content, re.S | re.I)
-            if m:
-                content = m.group(1).strip()
-        try:
-            parsed = json.loads(content or "{}")
-        except json.JSONDecodeError as err:
-            span.record_exception(err)
-            span.set_status(Status(StatusCode.ERROR, "invalid_json"))
-            return {}
-
-        if not isinstance(parsed, dict):
-            span.add_event("invalid_payload_type")
-            return {}
-
-        questions = parsed.get("questions")
+        response_id = result.get("response_id")
+        st.session_state[StateKeys.FOLLOWUPS_RESPONSE_ID] = response_id
+        questions = result.get("questions")
         if not isinstance(questions, list):
-            parsed["questions"] = []
             span.add_event("missing_questions_array")
-            return parsed
+            return {"questions": []}
 
-        normalized_questions: List[Dict[str, Any]] = []
-        for item in questions:
-            if not isinstance(item, dict):
-                continue
-            normalized = dict(item)
-            suggestions = normalized.get("suggestions")
-            if isinstance(suggestions, list):
-                normalized["suggestions"] = [str(s) for s in suggestions if isinstance(s, str)]
-            else:
-                normalized["suggestions"] = []
-            normalized_questions.append(normalized)
-
-        parsed["questions"] = normalized_questions
-        span.set_attribute("followups.question_count", len(normalized_questions))
-        return parsed
+        span.set_attribute("followups.question_count", len(questions))
+        return {"questions": questions}
 
 
 def generate_followup_questions(

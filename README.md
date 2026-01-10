@@ -118,6 +118,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
   - `critical_fields.json` – critical fields per step  
   - `question_logic.py` + `questions/` – follow-up questions & logic  
   - `role_field_map.json` – role-dependent field priorities
+  - `wizard/services/followups.py` – canonical follow-up generation (LLM + fallback)
   - `wizard/missing_fields.py` – pure helpers for missing-field detection
   - `wizard/services/` – canonical gap + validation services shared by UI and agent tools
   - `wizard/step_status.py` – step-level missing required/critical status helpers

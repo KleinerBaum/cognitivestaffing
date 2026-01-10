@@ -8,6 +8,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 
 from agents import function_tool
+from wizard.services.followups import FollowupModelConfig, generate_followups as generate_followups_service
 from wizard.services.gaps import detect_missing_critical_fields
 from wizard.services.validation import validate_profile as validate_profile_service
 
@@ -67,15 +68,16 @@ def detect_gaps(profile_json: Dict[str, Any]) -> str:
 def generate_followups(profile_json: Dict[str, Any], role_context: Optional[str] = None) -> str:
     """Produce prioritised follow-up questions for SMEs."""
 
-    position = (profile_json or {}).get("position", {})
-    title = position.get("job_title") or "this role"
-    questions = [
-        f"What unique benefits should we highlight for {title}?",
-        "Are there travel or on-site expectations?",
-    ]
-    if role_context:
-        questions.append(f"Anything noteworthy about the role context: {role_context}?")
-    return json.dumps({"questions": questions})
+    profile = profile_json or {}
+    locale = str(profile.get("meta", {}).get("lang") or profile.get("language") or "en")
+    result = generate_followups_service(
+        profile,
+        mode="fast",
+        locale=locale,
+        model_config=FollowupModelConfig(),
+        role_context=role_context,
+    )
+    return json.dumps(result)
 
 
 @function_tool

@@ -32,7 +32,7 @@ def test_ask_followups_parses_message(monkeypatch):
 
     monkeypatch.setattr(question_logic, "call_chat_api", lambda *a, **k: _FakeMessage())
     out = ask_followups({})
-    assert out == {"questions": [{"field": "f", "question": "?", "priority": "normal", "suggestions": []}]}
+    assert out == {"questions": [{"field": "f", "question": "?", "priority": "normal", "suggestions": ["?"]}]}
 
 
 def test_ask_followups_enables_vector_store(monkeypatch):
@@ -44,7 +44,18 @@ def test_ask_followups_enables_vector_store(monkeypatch):
     captured: dict[str, Any] = {}
 
     class _FakeMessage:
-        content = json.dumps({"questions": []})
+        content = json.dumps(
+            {
+                "questions": [
+                    {
+                        "field": "position.job_title",
+                        "question": "What is the job title?",
+                        "priority": "normal",
+                        "suggestions": ["Example"],
+                    }
+                ]
+            }
+        )
 
     def fake_call(messages, **kwargs):
         captured["tools"] = kwargs.get("tools")
@@ -55,7 +66,16 @@ def test_ask_followups_enables_vector_store(monkeypatch):
 
     out = ask_followups({})
 
-    assert out == {"questions": []}
+    assert out == {
+        "questions": [
+            {
+                "field": "position.job_title",
+                "question": "What is the job title?",
+                "priority": "normal",
+                "suggestions": ["Example"],
+            }
+        ]
+    }
     assert captured["tools"] == [
         {
             "type": "file_search",
