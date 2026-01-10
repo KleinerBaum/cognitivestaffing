@@ -11,6 +11,7 @@ from constants.keys import StateKeys
 from utils.i18n import tr
 from state.autosave import persist_session_snapshot
 import wizard.metadata as wizard_metadata
+from wizard import step_registry
 from wizard.navigation_types import StepRenderer, WizardContext
 from wizard.types import LocalizedText
 from wizard.validation import (
@@ -93,6 +94,7 @@ class NavigationController:
         query_params: MutableMapping[str, object] | None = None,
         session_state: MutableMapping[str, object] | None = None,
     ) -> None:
+        self._all_pages: list[WizardPage] = list(pages)
         self._pages: list[WizardPage] = list(pages)
         self._page_map: dict[str, WizardPage] = {page.key: page for page in pages}
         self._renderers: dict[str, StepRenderer] = dict(renderers)
@@ -104,10 +106,12 @@ class NavigationController:
         self._session_state = cast(MutableMapping[str, object], session_state or st.session_state)
         self._local_state: dict[str, object] | None = None
         self._pending_validation_errors: dict[str, LocalizedText] = {}
+        self._refresh_active_pages()
         self.ensure_state_defaults()
 
     @property
     def pages(self) -> Sequence[WizardPage]:
+        self._refresh_active_pages()
         return tuple(self._pages)
 
     @property
@@ -154,11 +158,13 @@ class NavigationController:
         return False
 
     def ensure_state_defaults(self) -> None:
+        self._refresh_active_pages()
         state = self.state
         if "current_step" not in state:
             state["current_step"] = self._pages[0].key
 
     def bootstrap_session_state(self) -> None:
+        self._refresh_active_pages()
         state = self.state
         if "current_step" not in state or not isinstance(state.get("current_step"), str):
             state["current_step"] = self._pages[0].key
@@ -174,11 +180,15 @@ class NavigationController:
         self.apply_pending_incomplete_jump()
 
     def sync_with_query_params(self) -> None:
+        self._refresh_active_pages()
+        active_keys = tuple(page.key for page in self._pages)
         query_params = self._query_params
         step_values = list(query_params.get_all("step")) if hasattr(query_params, "get_all") else []
         step_param = step_values[0] if step_values else None
         if step_param and step_param in self._page_map:
             desired = step_param
+        elif step_param:
+            desired = step_registry.resolve_nearest_active_step_key(step_param, active_keys) or self._pages[0].key
         else:
             current = self.state.get("current_step")
             desired = current if isinstance(current, str) and current in self._page_map else self._pages[0].key
@@ -186,15 +196,17 @@ class NavigationController:
         self._query_params["step"] = desired
 
     def ensure_current_is_valid(self) -> None:
+        self._refresh_active_pages()
         current = self.state.get("current_step")
         if not isinstance(current, str) or current not in self._page_map:
-            fallback = self._pages[0].key
+            fallback = self._resolve_nearest_active_key(current)
             self.state["current_step"] = fallback
             self._query_params["step"] = fallback
 
     def navigate(self, target_key: str, *, mark_current_complete: bool = False, skipped: bool = False) -> None:
         """Navigate to ``target_key`` and trigger a rerun."""
 
+        self._refresh_active_pages()
         if target_key not in self._page_map:
             return
         current_key = self.state.get("current_step")
@@ -207,20 +219,23 @@ class NavigationController:
         st.rerun()
 
     def get_current_step_key(self) -> str:
+        self._refresh_active_pages()
         current = self.state.get("current_step")
         if isinstance(current, str) and current in self._page_map:
             return current
-        fallback = self._pages[0].key
+        fallback = self._resolve_nearest_active_key(current)
         self.state["current_step"] = fallback
         return fallback
 
     def next_key(self, page: WizardPage) -> str | None:
+        self._refresh_active_pages()
         index = self._pages.index(page)
         for candidate in self._pages[index + 1 :]:
             return candidate.key
         return None
 
     def previous_key(self, page: WizardPage) -> str | None:
+        self._refresh_active_pages()
         index = self._pages.index(page)
         if index == 0:
             return None
@@ -326,14 +341,14 @@ class NavigationController:
     def build_progress_snapshots(self) -> list[PageProgressSnapshot]:
         """Return per-page completion stats for diagnostics and tests."""
 
+        self._refresh_active_pages()
         raw_completed = self.state.get("completed_steps")
         completed_steps: set[str]
         if isinstance(raw_completed, Collection):
             completed_steps = {step for step in raw_completed if isinstance(step, str)}
         else:
             completed_steps = set()
-        raw_profile = self._session_state.get(StateKeys.PROFILE)
-        profile: Mapping[str, object] = raw_profile if isinstance(raw_profile, Mapping) else {}
+        profile = self._get_profile()
         snapshots: list[PageProgressSnapshot] = []
         for page in self._pages:
             renderer = self._renderers.get(page.key)
@@ -402,6 +417,36 @@ class NavigationController:
             if not is_value_present(value):
                 missing.append(field)
         return missing
+
+    def _get_profile(self) -> Mapping[str, object]:
+        raw_profile = self._session_state.get(StateKeys.PROFILE)
+        return raw_profile if isinstance(raw_profile, Mapping) else {}
+
+    def _resolve_active_pages(self) -> list[WizardPage]:
+        profile = self._get_profile()
+        active_keys = step_registry.resolve_active_step_keys(profile, self._session_state)
+        registry_keys = set(step_registry.step_keys())
+        page_map = {page.key: page for page in self._all_pages}
+        ordered: list[WizardPage] = [page_map[key] for key in active_keys if key in page_map]
+        ordered_keys = {page.key for page in ordered}
+        for page in self._all_pages:
+            if page.key not in registry_keys and page.key not in ordered_keys:
+                ordered.append(page)
+                ordered_keys.add(page.key)
+        if not ordered:
+            ordered = list(self._all_pages)
+        return ordered
+
+    def _refresh_active_pages(self) -> None:
+        ordered = self._resolve_active_pages()
+        if [page.key for page in ordered] != [page.key for page in self._pages]:
+            self._pages = ordered
+            self._page_map = {page.key: page for page in ordered}
+
+    def _resolve_nearest_active_key(self, current: object) -> str:
+        active_keys = tuple(page.key for page in self._pages)
+        key = current if isinstance(current, str) else ""
+        return step_registry.resolve_nearest_active_step_key(key, active_keys) or self._pages[0].key
 
     def handle_step_exception(self, page: WizardPage, error: Exception) -> None:
         logger.warning("Failed to render wizard step '%s'", page.key, exc_info=error)

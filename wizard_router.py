@@ -102,8 +102,9 @@ class WizardRouter:
             required_field_validators=_REQUIRED_FIELD_VALIDATORS,
             validated_fields=_PROFILE_VALIDATED_FIELDS,
         )
-        self._summary_labels: tuple[LocalizedText, ...] = tuple(page.label for page in self._pages)
-        st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(self._pages)
+        active_pages = self._controller.pages
+        self._summary_labels: tuple[LocalizedText, ...] = tuple(page.label for page in active_pages)
+        st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(active_pages)
         already_ready = bool(st.session_state.get(StateKeys.WIZARD_SESSION_READY))
         if not already_ready:
             self._sync_with_query_params()
@@ -127,6 +128,9 @@ class WizardRouter:
         """Render the current step with harmonised navigation controls."""
 
         inject_navigation_style()
+        active_pages = self._controller.pages
+        self._summary_labels = tuple(page.label for page in active_pages)
+        st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(active_pages)
         self._controller.update_section_progress()
         self._controller.ensure_current_is_valid()
         current_key = self._controller.get_current_step_key()

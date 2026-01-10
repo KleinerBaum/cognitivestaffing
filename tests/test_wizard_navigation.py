@@ -252,6 +252,51 @@ def test_invalid_query_param_defaults_to_first_step(
     assert query_params["step"] == [first_step]
 
 
+def test_active_steps_filter_inactive_team(monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]) -> None:
+    """Steps should be filtered out when their schema sections are missing."""
+
+    st.session_state[StateKeys.PROFILE] = {"meta": {}, "position": {}}
+    st.session_state["_schema"] = {"properties": {"company": {}, "position": {}}}
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+
+    active_keys = [page.key for page in router._controller.pages]
+    assert "team" not in active_keys
+
+
+def test_navigation_skips_inactive_steps(monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]) -> None:
+    """Next/previous navigation should skip inactive steps."""
+
+    st.session_state[StateKeys.PROFILE] = {"meta": {}, "position": {}}
+    st.session_state["_schema"] = {"properties": {"company": {}, "position": {}}}
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    router._state["current_step"] = "company"
+    query_params["step"] = ["company"]
+
+    next_key = router._controller.next_key(router._page_map["company"])
+    assert next_key == "role_tasks"
+
+
+def test_query_param_inactive_step_redirects(
+    monkeypatch: pytest.MonkeyPatch,
+    query_params: Dict[str, List[str]],
+) -> None:
+    """Query params targeting inactive steps should resolve safely."""
+
+    st.session_state[StateKeys.PROFILE] = {"meta": {}, "position": {}}
+    st.session_state["_schema"] = {"properties": {"company": {}, "position": {}}}
+    query_params["step"] = ["team"]
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+
+    assert router._state["current_step"] == "role_tasks"
+    assert query_params["step"] == ["role_tasks"]
+
+
 def test_progress_zero_required_fields_waits_for_completion(
     monkeypatch: pytest.MonkeyPatch,
     query_params: Dict[str, List[str]],

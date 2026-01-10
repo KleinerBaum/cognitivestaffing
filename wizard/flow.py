@@ -152,7 +152,7 @@ from wizard.sections.compensation_assistant import render_compensation_assistant
 from wizard.sections import followups as followup_sections
 from wizard.steps import company_step, jobad_step, team_step
 from wizard.ai_skip import render_skip_cta, render_skipped_banner
-from wizard.step_registry import step_keys as _step_registry_keys
+from wizard.step_registry import resolve_active_step_keys, step_keys as _step_registry_keys
 
 REQUIRED_PREFIX = followup_sections.REQUIRED_PREFIX
 _render_followup_question = followup_sections._render_followup_question
@@ -12644,13 +12644,20 @@ STEP_SEQUENCE: tuple[WizardStepDescriptor, ...] = (
 STEP_RENDERERS: dict[str, StepRenderer] = {descriptor.key.value: descriptor.renderer for descriptor in STEP_SEQUENCE}
 
 
-def _resolve_single_page_steps(pages: Sequence[WizardPage]) -> list[WizardPage]:
-    """Return wizard pages ordered by the shared step registry."""
+def _resolve_single_page_steps(
+    pages: Sequence[WizardPage],
+    *,
+    profile: Mapping[str, object],
+    session_state: Mapping[str, object],
+) -> list[WizardPage]:
+    """Return active wizard pages ordered by the shared step registry."""
 
     page_map = {page.key: page for page in pages}
-    ordered: list[WizardPage] = [page_map[key] for key in _step_registry_keys() if key in page_map]
+    active_keys = resolve_active_step_keys(profile, session_state)
+    ordered: list[WizardPage] = [page_map[key] for key in active_keys if key in page_map]
     ordered_keys = {page.key for page in ordered}
-    ordered.extend(page for page in pages if page.key not in ordered_keys)
+    registry_keys = set(_step_registry_keys())
+    ordered.extend(page for page in pages if page.key not in registry_keys and page.key not in ordered_keys)
     return ordered
 
 
@@ -12693,7 +12700,12 @@ def _render_single_page_wizard(
 ) -> None:
     """Render all wizard steps sequentially on a single page."""
 
-    ordered_pages = _resolve_single_page_steps(pages)
+    profile = _get_profile_state()
+    ordered_pages = _resolve_single_page_steps(
+        pages,
+        profile=profile if isinstance(profile, Mapping) else {},
+        session_state=cast(Mapping[str, object], st.session_state),
+    )
     summary_labels = tuple(page.label for page in ordered_pages)
     lang = st.session_state.get("lang", "de")
     if ordered_pages:
@@ -12709,7 +12721,6 @@ def _render_single_page_wizard(
         if renderer is None:
             st.warning(tr("Schritt nicht verfügbar.", "Step not available."))
             continue
-        profile = _get_profile_state()
         missing = compute_step_missing(profile, page)
         is_complete = not missing.required and not missing.critical
         with st.expander(
@@ -12723,7 +12734,14 @@ def _render_single_page_wizard(
 def _run_wizard_v2(schema: Mapping[str, object], critical: Sequence[str]) -> None:
     """Initialize and execute the primary wizard flow."""
 
-    st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(WIZARD_PAGES)
+    st.session_state["_schema"] = dict(schema)
+    profile = _get_profile_state()
+    active_pages = _resolve_single_page_steps(
+        WIZARD_PAGES,
+        profile=profile if isinstance(profile, Mapping) else {},
+        session_state=cast(Mapping[str, object], st.session_state),
+    )
+    st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(active_pages)
     missing_fields = get_missing_critical_fields()
     _update_section_progress(missing_fields)
 
