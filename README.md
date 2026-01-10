@@ -246,3 +246,11 @@ python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
 poetry install
+```
+
+---
+
+## Troubleshooting
+
+- Optional flow helpers (for example, company autofill suggestions) may be unavailable in slim flow
+  variants; missing optional dependencies are expected and only logged at debug level.

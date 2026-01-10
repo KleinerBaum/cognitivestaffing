@@ -90,6 +90,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - OpenAI timeouts now trigger a one-shot fallback to the next model with a friendly "taking longer" notice instead of looping on the stalled tier.
 - Background thread pools now propagate the active session logging context so session identifiers stay visible inside worker logs.
 - OpenAI quota exhaustion now sets a session-level circuit breaker: retries stop immediately, a bilingual availability warning appears, and further AI-triggered actions are disabled to avoid repeated 429 failures.
+- Company step flow dependency binding now treats the autofill suggestion helper as optional and logs missing optional helpers at debug level.
 - Reduced-motion preferences now disable follow-up highlight animations in both themes for accessibility.
 - Wizard navigation now shows a single centered Back/Next row at the bottom of each step instead of duplicated controls.
 - Wizard navigation enforces the canonical eight-step order, ignores unknown query parameters, and keeps Next disabled when required fields are missing so steps no longer skip or repeat.

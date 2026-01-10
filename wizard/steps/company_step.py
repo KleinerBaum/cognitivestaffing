@@ -678,6 +678,9 @@ _FLOW_DEPENDENCIES: tuple[str, ...] = (
     "_update_profile",
 )
 
+# Optional helpers are not exported by all flow variants (e.g. slim sub-flows).
+_OPTIONAL_FLOW_DEPENDENCIES: frozenset[str] = frozenset({"_render_autofill_suggestion"})
+
 COMPACT_STEP_STYLE: Any = cast(Any, None)
 COMPANY_CONTACT_EMAIL_CAPTION: Any = cast(Any, None)
 COMPANY_CONTACT_EMAIL_LABEL: Any = cast(Any, None)
@@ -741,7 +744,18 @@ def _bind_flow_dependencies(flow: ModuleType) -> None:
     if bound:
         logger.debug("Bound company step dependencies: %s", ", ".join(sorted(bound)))
     if missing:
-        logger.warning("Missing flow dependencies for company step: %s", ", ".join(sorted(missing)))
+        missing_optional = [name for name in missing if name in _OPTIONAL_FLOW_DEPENDENCIES]
+        missing_required = [name for name in missing if name not in _OPTIONAL_FLOW_DEPENDENCIES]
+        if missing_required:
+            logger.warning(
+                "Missing required flow dependencies for company step: %s",
+                ", ".join(sorted(missing_required)),
+            )
+        if missing_optional:
+            logger.debug(
+                "Optional flow dependencies unavailable for company step: %s",
+                ", ".join(sorted(missing_optional)),
+            )
 
 
 def _render_autofill_if_available(**kwargs: Any) -> None:
