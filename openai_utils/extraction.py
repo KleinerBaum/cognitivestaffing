@@ -7,6 +7,7 @@ import json
 import re
 import textwrap
 import logging
+import time
 from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, MutableMapping, Sequence
 from types import ModuleType
@@ -84,6 +85,8 @@ def _contains_gender_marker(text: str, extra_markers: Sequence[str] | None = Non
 
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
+
+_NEED_ANALYSIS_SCHEMA_NAME = "need_analysis_profile"
 
 
 def _llm_is_available() -> bool:
@@ -464,6 +467,58 @@ def _parse_json_object(payload: Any) -> dict[str, Any]:
     return data
 
 
+def _payload_length(payload: Mapping[str, Any]) -> int:
+    """Return the serialized length of ``payload`` without logging its contents."""
+
+    try:
+        return len(json.dumps(payload, ensure_ascii=False, default=str))
+    except (TypeError, ValueError):
+        return len(str(payload))
+
+
+def _repair_payload_with_backoff(
+    payload: Mapping[str, Any],
+    *,
+    schema_name: str,
+    max_retries: int = 2,
+    base_delay: float = 0.35,
+    errors: Sequence[Mapping[str, Any]] | None = None,
+) -> tuple[Mapping[str, Any] | None, bool]:
+    """Attempt JSON repair with retries and exponential backoff."""
+
+    from llm.json_repair import repair_profile_payload
+
+    payload_length = _payload_length(payload)
+    attempts = max_retries + 1
+    delay = base_delay
+    for attempt in range(1, attempts + 1):
+        try:
+            repaired = repair_profile_payload(payload, errors=errors)
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning(
+                "JSON repair attempt failed (schema=%s, error=%s, payload_len=%d, attempt=%d)",
+                schema_name,
+                exc.__class__.__name__,
+                payload_length,
+                attempt,
+            )
+            repaired = None
+
+        if repaired is not None:
+            return dict(repaired), True
+        if attempt < attempts:
+            time.sleep(delay)
+            delay *= 2
+
+    logger.info(
+        "JSON repair exhausted retries (schema=%s, payload_len=%d, attempts=%d)",
+        schema_name,
+        payload_length,
+        attempts,
+    )
+    return None, False
+
+
 def _best_effort_json_retry(
     *,
     job_text: str,
@@ -730,6 +785,7 @@ def extract_with_function(
 
     raw: dict[str, Any] | None = None
     parse_error: Exception | None = None
+    fallback_used = False
 
     if arguments and str(arguments).strip():
         try:
@@ -738,6 +794,14 @@ def extract_with_function(
             parse_error = exc
 
     if raw is None:
+        fallback_used = True
+        if parse_error is not None:
+            logger.warning(
+                "Structured extraction payload failed to parse (schema=%s, error=%s, payload_len=%d)",
+                _NEED_ANALYSIS_SCHEMA_NAME,
+                parse_error.__class__.__name__,
+                len(str(arguments or "")),
+            )
         fallback_arguments = _best_effort_json_retry(
             job_text=job_text,
             user_payload=user_payload,
@@ -762,6 +826,7 @@ def extract_with_function(
         from models.need_analysis import NeedAnalysisProfile
 
         empty_profile = NeedAnalysisProfile()
+        empty_profile.meta.extraction_fallback_active = True
         return ExtractionResult(
             data=empty_profile.model_dump(),
             field_contexts=field_contexts or {},
@@ -770,6 +835,16 @@ def extract_with_function(
 
     from models.need_analysis import NeedAnalysisProfile
     from core.schema import process_extracted_profile
+
+    if fallback_used:
+        repaired_payload, repair_used = _repair_payload_with_backoff(
+            raw,
+            schema_name=_NEED_ANALYSIS_SCHEMA_NAME,
+        )
+        if repaired_payload is not None:
+            raw = dict(repaired_payload)
+    else:
+        repair_used = False
 
     try:
         profile: NeedAnalysisProfile = process_extracted_profile(raw)
@@ -784,7 +859,12 @@ def extract_with_function(
         detail = "; ".join(summaries)
         if len(errors) > 5:
             detail = f"{detail} (+{len(errors) - 5} more)"
-        logger.debug("NeedAnalysisProfile validation failed: %s", detail, exc_info=exc)
+        logger.debug(
+            "NeedAnalysisProfile validation failed (schema=%s, error=%s, details=%s)",
+            _NEED_ANALYSIS_SCHEMA_NAME,
+            exc.__class__.__name__,
+            detail,
+        )
         _flag_partial_extraction(field_contexts)
         _set_missing_fields(_error_paths(errors), append=True)
         merged_payload = _merge_with_profile_defaults(raw)
@@ -797,8 +877,9 @@ def extract_with_function(
                 profile = process_extracted_profile(pruned_payload)
             except ValidationError:
                 logger.warning(
-                    "Validation failed for structured payload; using defaults",
-                    exc_info=merged_exc,
+                    "Validation failed for structured payload; using defaults (schema=%s, error=%s)",
+                    _NEED_ANALYSIS_SCHEMA_NAME,
+                    merged_exc.__class__.__name__,
                 )
                 profile = NeedAnalysisProfile()
 
@@ -819,6 +900,9 @@ def extract_with_function(
                 len(backfilled),
                 extra={"heuristic_backfill_fields": sorted(backfilled)},
             )
+        if fallback_used or repair_used:
+            profile.meta.extraction_fallback_active = True
+            profile_dump = profile.model_dump()
 
     return ExtractionResult(
         data=profile_dump,

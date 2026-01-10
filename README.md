@@ -220,6 +220,8 @@ MODEL_ROUTING__interview_guide = "gpt-4o-mini"
   - `prompts/`
 - Client behavior (Responses/Chat, retries, fallbacks):
   - `openai_utils/`
+- JSON repair and schema-guided fallback retries:
+  - `llm/json_repair.py`
 
 ### “I want to add a new export / generator”
 - Implement generator:
