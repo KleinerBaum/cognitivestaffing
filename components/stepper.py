@@ -8,13 +8,23 @@ from typing import Callable, Sequence
 import streamlit as st
 
 
-_STYLE_STATE_KEY = "_workflow_stepper_styles_v1"
+_STYLE_STATE_KEY = "_workflow_stepper_styles_v2"
+
+_STEP_KEYCAPS = {
+    1: "1️⃣",
+    2: "2️⃣",
+    3: "3️⃣",
+    4: "4️⃣",
+    5: "5️⃣",
+    6: "6️⃣",
+    7: "7️⃣",
+    8: "8️⃣",
+    9: "9️⃣",
+    10: "🔟",
+}
 
 
-# The wizard stepper is intentionally disabled to keep the wizard canvas clean.
-# Keeping the rendering function as a no-op maintains backward compatibility for
-# callers that still import it (e.g., tests that monkeypatch the helper).
-STEP_NAVIGATION_ENABLED = False
+STEP_NAVIGATION_ENABLED = True
 
 
 def _inject_workflow_styles() -> None:
@@ -27,138 +37,80 @@ def _inject_workflow_styles() -> None:
     st.markdown(
         """
         <style>
-        .workflow-stepper-marker + div[data-testid="stHorizontalBlock"] {
+        .wizard-stepper-shell {
+            margin: 0.35rem 0 0.9rem;
+        }
+
+        .wizard-emoji-stepper {
             display: flex;
-            gap: 0.75rem;
-            align-items: stretch;
-            margin-bottom: 0.75rem;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            align-items: center;
+            min-height: 2.5rem;
         }
 
-        .workflow-stepper-marker
-            + div[data-testid="stHorizontalBlock"]
-            > div[data-testid="column"] {
-            flex: 1 1 0;
-            position: relative;
-        }
-
-        .workflow-stepper-marker
-            + div[data-testid="stHorizontalBlock"]
-            > div[data-testid="column"]::after {
-            content: "";
-            position: absolute;
-            top: calc(50% - 1px);
-            right: -0.375rem;
-            width: 0.75rem;
-            height: 2px;
-            background: linear-gradient(
-                90deg,
-                var(--border-subtle),
-                rgba(0, 0, 0, 0)
-            );
-            border-radius: 999px;
-        }
-
-        .workflow-stepper-marker
-            + div[data-testid="stHorizontalBlock"]
-            > div[data-testid="column"]:last-child::after {
-            display: none;
-        }
-
-        .workflow-stepper__step {
-            height: 100%;
-            border-radius: 1rem;
-            overflow: hidden;
-        }
-
-        .workflow-stepper__step button[kind="secondary"] {
+        .wizard-emoji-stepper__step {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.35rem 0.75rem;
             border-radius: 999px;
             border: 1px solid var(--border-subtle);
             background: var(--interactive-surface);
-            color: var(--text-strong);
+            color: var(--text-soft);
             font-weight: 600;
-            justify-content: flex-start;
-            gap: 0.5rem;
-            padding: 0.65rem 0.9rem;
-            transition: all 0.2s ease;
+            font-size: 0.9rem;
+            line-height: 1.2;
+            opacity: 0.62;
+            transition:
+                opacity var(--transition-base, 0.2s ease),
+                transform var(--transition-base, 0.2s ease),
+                box-shadow var(--transition-base, 0.2s ease),
+                background-color var(--transition-base, 0.2s ease),
+                border-color var(--transition-base, 0.2s ease);
+            user-select: none;
+            white-space: nowrap;
         }
 
-        .workflow-stepper__step button[kind="secondary"]:hover:not(:disabled) {
-            border-color: var(--interactive-border-strong);
-            background: var(--interactive-hover);
-        }
-
-        .workflow-stepper__step--done button[kind="secondary"] {
+        .wizard-emoji-stepper__step--done {
+            opacity: 0.88;
+            color: var(--text-strong);
             border-color: var(--interactive-border-strong);
             background: var(--interactive-done);
-            color: var(--text-strong);
-            box-shadow: inset 0 0 0 1px rgba(59, 130, 246, 0.2);
         }
 
-        .workflow-stepper__step--current button[kind="secondary"] {
+        .wizard-emoji-stepper__step--active {
+            opacity: 1;
+            transform: translateY(-1px);
             border-color: var(--interactive-border-strong);
             background: var(--interactive-current);
             color: var(--text-strong);
-            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.35);
+            box-shadow: 0 6px 14px rgba(3, 8, 20, 0.35);
         }
 
-        .workflow-stepper__step--upcoming button[kind="secondary"] {
-            border-color: var(--border-subtle);
-            background: var(--interactive-surface);
-            color: var(--text-soft);
+        .wizard-emoji-stepper__step--upcoming {
+            opacity: 0.52;
         }
 
-        .workflow-stepper__step--upcoming
-            button[kind="secondary"]:hover:not(:disabled) {
-            border-color: var(--interactive-border-strong);
-            background: var(--interactive-hover);
-        }
-
-        .workflow-stepper__step button[kind="secondary"][disabled] {
-            opacity: 0.95;
-        }
-
-        .workflow-stepper-marker
-            + div[data-testid="stHorizontalBlock"]
-            button span {
-            white-space: normal;
-        }
-
-        .workflow-stepper__summary {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.35rem;
-            font-size: 0.85rem;
-            color: var(--text-muted);
-            margin: 0.25rem 0 0.75rem;
-        }
-
-        .workflow-stepper__summary span[data-state="current"] {
-            color: var(--text-strong);
-            font-weight: 600;
-        }
-
-        .workflow-stepper__summary span[data-state="done"] {
-            color: var(--text-strong);
-        }
-
-        .workflow-stepper__summary span[aria-hidden="true"] {
-            color: var(--border-strong);
+        .wizard-emoji-stepper__icon {
+            font-size: 1.05rem;
         }
 
         @media (max-width: 900px) {
-            .workflow-stepper-marker + div[data-testid="stHorizontalBlock"] {
-                flex-direction: column;
-                gap: 0.65rem;
+            .wizard-emoji-stepper {
+                gap: 0.45rem;
             }
 
-            .workflow-stepper-marker
-                + div[data-testid="stHorizontalBlock"]
-                > div[data-testid="column"]::after {
-                display: none;
-            }
-
-            .workflow-stepper__step button[kind="secondary"] {
+            .wizard-emoji-stepper__step {
                 width: 100%;
+                justify-content: flex-start;
+                white-space: normal;
+            }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .wizard-emoji-stepper__step {
+                transition: none;
             }
         }
         </style>
@@ -167,45 +119,40 @@ def _inject_workflow_styles() -> None:
     )
 
 
-def _build_summary_segments(current: int, labels: Sequence[str]) -> list[str]:
-    """Return HTML segments representing the wizard step summary."""
+def _step_keycap(index: int) -> str:
+    return _STEP_KEYCAPS.get(index, f"{index}.")
 
-    status_icons = {
-        "done": "✔︎",
-        "current": "➤",
-        "upcoming": "•",
-    }
+
+def _build_stepper_segments(current: int, labels: Sequence[str]) -> list[str]:
+    """Return HTML segments representing the emoji stepper."""
+
     segments: list[str] = []
     for idx, label in enumerate(labels):
-        button_label = f"{idx + 1}. {label}"
         if idx < current:
-            status = "done"
+            state = "done"
         elif idx == current:
-            status = "current"
+            state = "active"
         else:
-            status = "upcoming"
-        icon = status_icons[status]
-        annotated_label = f"{icon} {button_label}"
-        segments.append(f"<span data-state='{status}'>{html.escape(annotated_label)}</span>")
+            state = "upcoming"
+        keycap = _step_keycap(idx + 1)
+        safe_label = html.escape(label)
+        aria_current = " aria-current='step'" if state == "active" else ""
+        segments.append(
+            (
+                "<span class='wizard-emoji-stepper__step wizard-emoji-stepper__step--"
+                f"{state}' role='listitem'{aria_current}>"
+                f"<span class='wizard-emoji-stepper__icon' aria-hidden='true'>{keycap}</span>"
+                f"<span class='wizard-emoji-stepper__label'>{safe_label}</span>"
+                "</span>"
+            )
+        )
     return segments
 
 
 def render_step_summary(current: int, labels: Sequence[str]) -> None:
-    """Render the condensed wizard step summary above the step heading."""
+    """Render the emoji stepper summary."""
 
-    if not STEP_NAVIGATION_ENABLED or not labels:
-        return
-
-    _inject_workflow_styles()
-    summary_segments = _build_summary_segments(current, labels)
-    if not summary_segments:
-        return
-
-    arrow = "<span aria-hidden='true'>→</span>"
-    st.markdown(
-        "<div class='workflow-stepper__summary'>" + arrow.join(summary_segments) + "</div>",
-        unsafe_allow_html=True,
-    )
+    render_stepper(current, labels)
 
 
 def render_stepper(
@@ -214,9 +161,18 @@ def render_stepper(
     *,
     on_select: Callable[[int], None] | None = None,
 ) -> None:
-    """Deprecated wrapper retained for compatibility; renders the summary only."""
+    """Render the emoji stepper for wizard navigation."""
 
-    if not STEP_NAVIGATION_ENABLED:
+    if not STEP_NAVIGATION_ENABLED or not labels:
         return
 
-    render_step_summary(current, labels)
+    _inject_workflow_styles()
+    segments = _build_stepper_segments(current, labels)
+    if not segments:
+        return
+
+    st.markdown(
+        "<div class='wizard-stepper-shell'>"
+        "<div class='wizard-emoji-stepper' role='list'>" + "".join(segments) + "</div></div>",
+        unsafe_allow_html=True,
+    )
