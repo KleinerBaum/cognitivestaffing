@@ -13,6 +13,8 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 ## [Unreleased]
 
 ### Added
+- Developer guide for adding wizard steps safely, including schema and test expectations (`docs/dev/wizard-steps.md`).
+- Registry integrity test that validates step keys, required fields, and legacy indices alignment.
 - Dynamic-flow planning artifacts outlining the conditional NeedAnalysis roadmap (`docs/dynamic_flow_plan.md` and `docs/dynamic_flow_tasks.json`).
 - Canonical wizard services for gap detection and profile validation, shared by the UI flow and wizard tools.
 - Conditional step activation predicates so inactive wizard steps are skipped in navigation and deep links.
