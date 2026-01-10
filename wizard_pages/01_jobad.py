@@ -1,27 +1,13 @@
 from __future__ import annotations
 
-from .base import WizardPage
+# Deprecated: keep module for backwards-compatible imports.
+# TODO: Remove this module once downstream imports use ``wizard.step_registry`` directly.
+from wizard.step_registry import get_step
+from wizard_pages.base import page_from_step_definition
 
 
-_SUMMARY_FIELDS: tuple[str, ...] = ()
+_STEP = get_step("jobad")
+if _STEP is None:
+    raise ImportError("Wizard step registry missing 'jobad' definition.")
 
-
-PAGE = WizardPage(
-    key="jobad",
-    label=("Onboarding", "Onboarding"),
-    panel_header=("Onboarding", "Onboarding"),
-    panel_subheader=("Quelle & Import", "Source & intake"),
-    panel_intro_variants=(
-        (
-            "Nutze Upload, URL oder Textfeld, um die Stelle zu initialisieren.",
-            "Use upload, URL, or manual text to seed the wizard.",
-        ),
-        (
-            "Alle Inhalte lassen sich anschließend verfeinern.",
-            "You can refine all extracted details afterwards.",
-        ),
-    ),
-    required_fields=(),
-    summary_fields=_SUMMARY_FIELDS,
-    allow_skip=False,
-)
+PAGE = page_from_step_definition(_STEP)

@@ -38,7 +38,7 @@ from ingest.branding import DEFAULT_BRAND_COLOR
 # order assumptions for future contributors.
 from wizard import _update_profile, logic
 from wizard.metadata import FIELD_SECTION_MAP, get_missing_critical_fields
-from wizard.step_registry import STEPS
+from wizard.step_registry import WIZARD_STEPS
 from wizard.step_status import compute_step_missing
 from wizard_pages import WIZARD_PAGES
 
@@ -89,17 +89,6 @@ def _coerce_flow_mode(value: object) -> FlowMode:
             return FlowMode.MULTI_STEP
     return FlowMode.MULTI_STEP
 
-
-STEP_LABELS: list[tuple[str, str]] = [
-    ("jobad", tr("Onboarding", "Onboarding")),
-    ("company", tr("Unternehmen", "Company")),
-    ("team", tr("Team & Struktur", "Team & Structure")),
-    ("role_tasks", tr("Rolle & Aufgaben", "Role & Tasks")),
-    ("skills", tr("Fähigkeiten & Anforderungen", "Skills & Requirements")),
-    ("benefits", tr("Vergütung", "Compensation")),
-    ("interview", tr("Bewerbungsprozess", "Hiring Process")),
-    ("summary", tr("Zusammenfassung", "Summary")),
-]
 
 STEP_KEY_ALIASES: dict[str, str] = {
     "onboarding": "jobad",
@@ -751,12 +740,12 @@ def _render_sidebar_stepper(context: SidebarContext) -> None:
     wizard_state = st.session_state.get("wizard")
     current_key = wizard_state.get("current_step") if isinstance(wizard_state, dict) else None
     if not isinstance(current_key, str):
-        current_key = STEPS[0].key if STEPS else ""
+        current_key = WIZARD_STEPS[0].key if WIZARD_STEPS else ""
 
-    step_keys = [step.key for step in STEPS]
+    step_keys = [step.key for step in WIZARD_STEPS]
     current_index = step_keys.index(current_key) if current_key in step_keys else 0
     items: list[SidebarStepperItem] = []
-    for index, step in enumerate(STEPS, start=1):
+    for index, step in enumerate(WIZARD_STEPS, start=1):
         page = page_lookup.get(step.key)
         label = page.label_for(lang) if page else step.key
         missing_count = 0
@@ -1047,12 +1036,13 @@ def _render_hero(context: SidebarContext) -> None:
     """Render extracted data grouped by wizard step."""
 
     st.markdown(f"### 🧭 {tr('Schrittübersicht', 'Step overview')}")
+    lang = st.session_state.get("lang", "de")
 
     summary_payload = _get_step_summary_payload()
     current_index = summary_payload[0] if summary_payload else 0
 
     step_order, step_entries = _build_initial_extraction_entries(context)
-    label_lookup = {key: label for key, label in STEP_LABELS}
+    label_lookup = {page.key: page.label_for(lang) for page in WIZARD_PAGES}
     if step_order:
         active_index = min(max(current_index, 0), len(step_order) - 1)
     else:
@@ -1121,7 +1111,7 @@ def _build_initial_extraction_entries(
 ) -> tuple[list[str], dict[str, list[tuple[str, str]]]]:
     """Return ordered step keys with their extracted entries."""
 
-    step_order = [key for key, _ in STEP_LABELS]
+    step_order = [page.key for page in WIZARD_PAGES]
     if not step_order:
         return [], {}
 

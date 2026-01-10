@@ -1,45 +1,13 @@
 from __future__ import annotations
 
-from .base import WizardPage
+# Deprecated: keep module for backwards-compatible imports.
+# TODO: Remove this module once downstream imports use ``wizard.step_registry`` directly.
+from wizard.step_registry import get_step
+from wizard_pages.base import page_from_step_definition
 
 
-_REQUIRED_FIELDS: tuple[str, ...] = (
-    "responsibilities.items",
-    "requirements.hard_skills_required",
-)
-_SUMMARY_FIELDS: tuple[str, ...] = (
-    "responsibilities.items",
-    "requirements.hard_skills_required",
-    "requirements.soft_skills_required",
-    "requirements.hard_skills_optional",
-    "requirements.soft_skills_optional",
-    "requirements.tools_and_technologies",
-    "requirements.languages_required",
-    "requirements.languages_optional",
-    "requirements.certifications",
-)
+_STEP = get_step("role_tasks")
+if _STEP is None:
+    raise ImportError("Wizard step registry missing 'role_tasks' definition.")
 
-
-PAGE = WizardPage(
-    key="role_tasks",
-    label=("Rolle & Aufgaben", "Role & Tasks"),
-    panel_header=("Rolle & Aufgaben", "Role & Tasks"),
-    panel_subheader=("Deliverables & Wirkung", "Deliverables & impact"),
-    panel_intro_variants=(
-        (
-            "Fasse zusammen, welche Ergebnisse die Rolle kurzfristig liefern muss.",
-            "Summarise the outcomes this role needs to deliver in the near term.",
-        ),
-        (
-            "Konkret benannte Deliverables helfen bei Automatisierung von Anzeigen, Scorecards und Onboarding.",
-            "Explicit deliverables feed automation for job ads, scorecards, and onboarding.",
-        ),
-        (
-            "Schreibe locker runter, woran die Person in den ersten Monaten wirklich arbeitet.",
-            "Jot down what this person will actually be tackling in the first months.",
-        ),
-    ),
-    required_fields=_REQUIRED_FIELDS,
-    summary_fields=_SUMMARY_FIELDS,
-    allow_skip=False,
-)
+PAGE = page_from_step_definition(_STEP)
