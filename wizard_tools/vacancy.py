@@ -10,6 +10,7 @@ from pydantic import BaseModel
 from agents import function_tool
 from wizard.services.followups import FollowupModelConfig, generate_followups as generate_followups_service
 from wizard.services.gaps import detect_missing_critical_fields
+from wizard.services.job_description import generate_job_description
 from wizard.services.validation import validate_profile as validate_profile_service
 
 
@@ -134,16 +135,8 @@ def market_salary_enrich(profile_json: Dict[str, Any], region: str) -> str:
 def generate_jd(profile_json: Dict[str, Any], tone: str = "professional", lang: str = "en") -> str:
     """Generate Job Description variants."""
 
-    profile = profile_json or {}
-    company = profile.get("company", {}).get("name") or "your organisation"
-    title = profile.get("position", {}).get("job_title") or "Team member"
-    intro = f"Join {company} as a {title}. We are looking for {tone} contributors ready to grow with us."
-    detailed = f"{intro} Responsibilities include collaborating across teams and delivering outcomes in line with our {tone} culture."
-    drafts = [
-        {"kind": "short", "text": intro, "lang": lang},
-        {"kind": "long", "text": detailed, "lang": lang},
-    ]
-    return json.dumps({"drafts": drafts})
+    result = generate_job_description(profile_json or {}, tone=tone, lang=lang)
+    return json.dumps(result)
 
 
 @function_tool
