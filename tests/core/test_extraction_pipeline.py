@@ -4,6 +4,8 @@ import pytest
 
 from core.extraction import InvalidExtractionPayload, mark_low_confidence, parse_structured_payload
 from core.schema import process_extracted_profile
+from models.need_analysis import NeedAnalysisProfile
+from utils.json_repair import JsonRepairResult, JsonRepairStatus
 
 
 def test_parse_structured_payload_with_noise() -> None:
@@ -31,16 +33,40 @@ def test_parse_structured_payload_reports_invalid_fields(monkeypatch: pytest.Mon
 
 
 def test_parse_structured_payload_recovers_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
-    def fake_repair_payload(payload, *, errors=None):  # type: ignore[unused-argument]
-        return {"company": {"name": "Recovered"}, "position": {"job_title": "Engineer"}}
+    def fake_parse_profile_json(raw, *, errors=None):  # type: ignore[unused-argument]
+        return JsonRepairResult(
+            payload={"company": {"name": "Recovered"}, "position": {"job_title": "Engineer"}},
+            status=JsonRepairStatus.REPAIRED,
+            issues=["JSON parsing error at line 1, column 1: Invalid"],
+        )
 
-    monkeypatch.setattr("core.extraction.repair_profile_payload", fake_repair_payload)
+    monkeypatch.setattr("core.extraction.parse_profile_json", fake_parse_profile_json)
 
     data, recovered, issues = parse_structured_payload("not valid json")
 
     assert recovered is True
     assert data["company"]["name"] == "Recovered"
     assert any("JSON parsing error" in issue for issue in issues)
+
+
+def test_parse_structured_payload_repair_stays_schema_valid(monkeypatch: pytest.MonkeyPatch) -> None:
+    base = NeedAnalysisProfile().model_dump()
+    base["company"]["name"] = "Recovered"
+    base["position"]["job_title"] = "Engineer"
+
+    def fake_parse_profile_json(raw, *, errors=None):  # type: ignore[unused-argument]
+        return JsonRepairResult(
+            payload=base,
+            status=JsonRepairStatus.REPAIRED,
+            issues=["JSON parsing error at line 1, column 1: Invalid"],
+        )
+
+    monkeypatch.setattr("core.extraction.parse_profile_json", fake_parse_profile_json)
+
+    data, recovered, _issues = parse_structured_payload("not valid json")
+
+    assert recovered is True
+    NeedAnalysisProfile.model_validate(data)
 
 
 def test_parse_structured_payload_repairs_missing_required_fields(
@@ -87,12 +113,14 @@ def test_mark_low_confidence_updates_metadata() -> None:
     metadata: dict = {}
     data = {"company": {"name": "ACME"}, "position": {"job_title": "Engineer"}, "tags": [{"value": "A"}]}
 
-    mark_low_confidence(metadata, data)
+    mark_low_confidence(metadata, data, issues=["company.name: missing value"], repaired=True)
 
     field_conf = metadata["field_confidence"]
     assert field_conf["company.name"]["confidence"] == pytest.approx(0.2)
     assert field_conf["position.job_title"]["note"] == "invalid_json_recovery"
     assert metadata["llm_recovery"]["invalid_json"] is True
+    assert metadata["llm_recovery"]["repaired"] is True
+    assert metadata["llm_recovery"]["errors"] == ["company.name: missing value"]
     assert "tags[0].value" in field_conf
 
 

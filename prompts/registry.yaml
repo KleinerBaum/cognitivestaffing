@@ -1,6 +1,6 @@
 llm:
   json_extractor:
-    system: 'You extract vacancy data for the Cognitive Staffing wizard and return JSON only.
+    system: 'You extract vacancy data for the Cognitive Staffing wizard and return JSON only (no Markdown, no code fences).
       Fill every schema key; use null for unknown scalars and [] for unknown arrays.
       Keep position.job_title gender-neutral, store the employer''s legal name in company.name,
       capture the main city in location.primary_city, and keep company.description/industry only when stated.

@@ -131,6 +131,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
   - `openai_utils/` – OpenAI client wrapper (Responses vs Chat, retries, fallbacks)  
   - `llm/` – response schemas, prompt assembly  
   - `pipelines/` – ingest → extraction → repair → exports  
+  - Structured extraction enforces JSON-only outputs, performs a schema-guided repair retry, and records low-confidence recovery metadata for the wizard flow.
   - `ingest/`, `nlp/` – parsing + heuristics
 
 - Outputs  

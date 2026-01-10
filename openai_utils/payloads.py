@@ -68,6 +68,7 @@ def _is_codex_model(model: str | None) -> bool:
         return False
     return "codex" in model.lower()
 
+
 SUPPORTED_CHAT_PAYLOAD_FIELDS: Final[set[str]] = {
     "model",
     "messages",

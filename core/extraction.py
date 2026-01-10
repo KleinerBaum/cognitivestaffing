@@ -411,9 +411,7 @@ def _apply_heuristic_fallbacks(
     normalized_text = source_text.strip()
 
     if not (profile.responsibilities.items or []):
-        responsibilities = [
-            item.strip() for item in extract_responsibilities(normalized_text) if item.strip()
-        ]
+        responsibilities = [item.strip() for item in extract_responsibilities(normalized_text) if item.strip()]
         if responsibilities:
             profile.responsibilities.items = responsibilities
             issues.append("responsibilities.items: filled via heuristics")
@@ -516,6 +514,8 @@ def mark_low_confidence(
     data: Mapping[str, Any],
     *,
     confidence: float = 0.2,
+    issues: Sequence[str] | None = None,
+    repaired: bool = True,
 ) -> None:
     """Annotate ``metadata`` to indicate low confidence extraction fields."""
 
@@ -537,10 +537,13 @@ def mark_low_confidence(
         entry["note"] = "invalid_json_recovery"
 
     metadata.setdefault("llm_recovery", {})
-    if isinstance(metadata["llm_recovery"], MutableMapping):
-        metadata["llm_recovery"]["invalid_json"] = True
-    else:
-        metadata["llm_recovery"] = {"invalid_json": True}
+    recovery_payload = metadata["llm_recovery"] if isinstance(metadata["llm_recovery"], MutableMapping) else {}
+    recovery_payload["invalid_json"] = True
+    recovery_payload["confidence"] = confidence
+    recovery_payload["repaired"] = repaired
+    if issues:
+        recovery_payload["errors"] = _deduplicate_issues(list(issues))
+    metadata["llm_recovery"] = recovery_payload
 
     logger.warning("Structured extraction returned invalid JSON; coerced result with low confidence.")
 

@@ -4293,7 +4293,7 @@ def _extract_and_summarize(text: str, schema: dict) -> None:
         )
     metadata["field_confidence"] = confidence_map
     if recovered:
-        mark_low_confidence(metadata, data)
+        mark_low_confidence(metadata, data, issues=extraction_issues, repaired=recovered)
     st.session_state[StateKeys.PROFILE] = data
     _prime_widget_state_from_profile(data)
     st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = data

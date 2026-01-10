@@ -99,13 +99,9 @@ def build_schema_format_bundle(json_schema_payload: Mapping[str, Any]) -> Schema
 
     sanitized_schema = deepcopy(sanitize_json_schema_for_responses(schema_body))
 
-    chat_format = build_json_schema_response_format(
-        name=schema_name, schema=sanitized_schema, strict=strict_value
-    )
+    chat_format = build_json_schema_response_format(name=schema_name, schema=sanitized_schema, strict=strict_value)
 
-    responses_format = build_json_schema_response_format(
-        name=schema_name, schema=sanitized_schema, strict=strict_value
-    )
+    responses_format = build_json_schema_response_format(name=schema_name, schema=sanitized_schema, strict=strict_value)
 
     return SchemaFormatBundle(
         name=schema_name,
@@ -117,9 +113,7 @@ def build_schema_format_bundle(json_schema_payload: Mapping[str, Any]) -> Schema
 
 
 @lru_cache(maxsize=None)
-def need_analysis_schema(
-    sections: tuple[str, ...] | None = None, _schema_version: str | None = None
-) -> dict[str, Any]:
+def need_analysis_schema(sections: tuple[str, ...] | None = None, _schema_version: str | None = None) -> dict[str, Any]:
     from core.schema import build_need_analysis_responses_schema
 
     return build_need_analysis_responses_schema(sections=sections)
