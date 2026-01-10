@@ -18,6 +18,7 @@ from typing_shims.streamlit import DeltaGenerator, UploadedFile
 from PIL.Image import Image as PILImage
 
 from constants.keys import ProfilePaths, StateKeys, UIKeys
+from constants.flow_mode import FlowMode
 from core.preview import build_prefilled_sections, preview_value_to_text
 from state import reset_state
 from state.autosave import apply_snapshot_to_session, persist_session_snapshot, serialize_snapshot
@@ -76,6 +77,17 @@ def _apply_reasoning_mode(mode: str) -> None:
     else:
         st.session_state[StateKeys.REASONING_EFFORT] = "high"
         st.session_state["verbosity"] = "high"
+
+
+def _coerce_flow_mode(value: object) -> FlowMode:
+    if isinstance(value, FlowMode):
+        return value
+    if isinstance(value, str):
+        try:
+            return FlowMode(value)
+        except ValueError:
+            return FlowMode.MULTI_STEP
+    return FlowMode.MULTI_STEP
 
 
 STEP_LABELS: list[tuple[str, str]] = [
@@ -889,6 +901,24 @@ def _render_settings() -> None:
         help=tr(
             "Steuert das Intro-Banner im Wizard und den Onboarding-Header.",
             "Controls the intro banner across the wizard and the onboarding header.",
+        ),
+    )
+
+    flow_options: tuple[FlowMode, ...] = (FlowMode.MULTI_STEP, FlowMode.SINGLE_PAGE)
+    current_flow_mode = _coerce_flow_mode(st.session_state.get(StateKeys.FLOW_MODE, FlowMode.MULTI_STEP))
+    flow_labels: dict[FlowMode, str] = {
+        FlowMode.MULTI_STEP: tr("Mehrstufig (geführt)", "Multi-step (guided)"),
+        FlowMode.SINGLE_PAGE: tr("Eine Seite (alle Bereiche)", "Single page (all sections)"),
+    }
+    st.radio(
+        tr("Flow-Modus", "Flow mode"),
+        options=flow_options,
+        index=flow_options.index(current_flow_mode),
+        key=StateKeys.FLOW_MODE,
+        format_func=lambda value: flow_labels.get(value, str(value)),
+        help=tr(
+            "Steuert, ob der Wizard Schritt für Schritt oder auf einer Seite erscheint.",
+            "Controls whether the wizard renders step-by-step or on a single page.",
         ),
     )
 
