@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 import os
-from functools import lru_cache
+import time
+from dataclasses import dataclass
 from typing import Sequence, Set
 
 from openai import OpenAI
@@ -20,9 +21,39 @@ DEFAULT_CANDIDATES = [
 ]
 
 
-@lru_cache(maxsize=1)
+@dataclass
+class _ModelCacheEntry:
+    fetched_at: float
+    models: Set[str]
+
+
+_MODEL_CACHE_TTL_SECONDS = 60 * 60
+_MODEL_CACHE: dict[str, _ModelCacheEntry] = {}
+
+
+def _model_cache_key(client: OpenAI) -> str:
+    base_url = str(getattr(client, "base_url", "") or "")
+    organization = str(getattr(client, "organization", "") or "")
+    project = str(getattr(client, "project", "") or "")
+    return "|".join([base_url, organization, project])
+
+
 def _available_models(client: OpenAI) -> Set[str]:
-    return {model.id for model in client.models.list()}
+    cache_key = _model_cache_key(client)
+    cached = _MODEL_CACHE.get(cache_key)
+    now = time.time()
+    if cached and now - cached.fetched_at < _MODEL_CACHE_TTL_SECONDS:
+        return cached.models
+    models = {model.id for model in client.models.list()}
+    _MODEL_CACHE[cache_key] = _ModelCacheEntry(fetched_at=now, models=models)
+    return models
+
+
+def _clear_model_cache() -> None:
+    _MODEL_CACHE.clear()
+
+
+_available_models.cache_clear = _clear_model_cache  # type: ignore[attr-defined]
 
 
 def pick_model(client: OpenAI, extra_candidates: Sequence[str] | None = None) -> str:

@@ -42,6 +42,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Wizard step metadata and renderers now live in a single step registry, with legacy `wizard_pages` modules proxying the registry to avoid drift.
 - Wizard navigation logic now lives under `wizard/navigation/` (router, UI, state sync) with compatibility shims for legacy imports.
 - Follow-up generation now routes through a single canonical service (`wizard/services/followups.py`) with structured outputs, and both the UI pipeline and wizard tools delegate to it for consistent schemas.
+- OpenAI model list lookups, ESCO API responses (TTL), and job-ad extraction/follow-up results are now cached per session to cut repeated work during Streamlit reruns.
 - Job description generation in `wizard_tools.generate_jd` now delegates to the shared job description service so the tool uses the same generator as the wizard UI.
 - Stage graph utilities moved under `wizard_tools/experimental` and are only wired into agents when `ENABLE_AGENT_GRAPH` is enabled.
 - Documented the onboarding hero structure (CTA anchor `#onboarding-source`, timeline classes), clarified the single-hero approach, and noted sidebar hero/stepper CSS now lives in the shared theme stylesheets.
