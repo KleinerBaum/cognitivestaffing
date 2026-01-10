@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import sys
 from pathlib import Path
 
@@ -17,8 +18,10 @@ from core.rules import (  # noqa: E402
     apply_rules,
     build_rule_metadata,
     matches_to_patch,
+    validate_rule_field_paths,
 )
 from ingest.types import ContentBlock  # noqa: E402
+from models.need_analysis import NeedAnalysisProfile  # noqa: E402
 
 
 def test_apply_rules_detects_email_and_salary() -> None:
@@ -116,6 +119,30 @@ def test_extract_location_returns_city_and_country() -> None:
     city, country = _extract_location("Location: Munich, Germany")
     assert city == "Munich"
     assert country == "DE"
+
+
+def test_rule_field_paths_align_with_schema() -> None:
+    """Rule field paths should remain in sync with the NeedAnalysis schema."""
+
+    validate_rule_field_paths()
+
+
+def test_rule_path_validation_rejects_unknown_field() -> None:
+    """Validation should fail fast when a rule references an unknown field."""
+
+    with pytest.raises(ValueError, match="missing from schema"):
+        validate_rule_field_paths({"company.contact_email", "company.unknown_field"})
+
+
+def test_apply_rules_skips_required_warning_with_profile_skeleton(caplog: pytest.LogCaptureFixture) -> None:
+    """Profile skeletons should silence missing required-field warnings."""
+
+    profile = NeedAnalysisProfile().model_dump(mode="python")
+    with caplog.at_level(logging.WARNING):
+        matches = apply_rules([], existing_profile=profile)
+
+    assert matches == {}
+    assert not any("apply_rules: required field not found" in record.getMessage() for record in caplog.records)
 
 
 def test_extract_location_infers_country_from_city() -> None:
