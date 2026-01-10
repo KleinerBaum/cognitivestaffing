@@ -914,6 +914,7 @@ def _render_followup_question(q: dict, data: dict) -> None:
     label_text = f"* {question_text}" if priority == "critical" else question_text
     processed_value: Any
     touched_key: str | None = None
+    inline_field = field in INLINE_FOLLOWUP_FIELDS
     with container:
         if field in YES_NO_FOLLOWUP_FIELDS:
             touched_key = f"{key}_touched"
@@ -955,6 +956,16 @@ def _render_followup_question(q: dict, data: dict) -> None:
             )
             processed_value = date_value.isoformat() if isinstance(date_value, date) else ""
         elif field in LIST_FOLLOWUP_FIELDS:
+            if inline_field:
+                touched_key = f"{key}_touched"
+                if touched_key not in st.session_state:
+                    st.session_state[touched_key] = False
+
+                def _mark_followup_touched() -> None:
+                    """Mark text-area follow-ups as interacted with."""
+
+                    st.session_state[touched_key] = True
+
             text_value = st.text_area(
                 label_text,
                 key=key,
@@ -964,13 +975,25 @@ def _render_followup_question(q: dict, data: dict) -> None:
                     "Add each entry on a separate line.",
                 ),
                 height=110,
+                on_change=_mark_followup_touched if inline_field else None,
             )
             processed_value = [line.strip() for line in text_value.splitlines() if line.strip()]
         else:
+            if inline_field:
+                touched_key = f"{key}_touched"
+                if touched_key not in st.session_state:
+                    st.session_state[touched_key] = False
+
+                def _mark_followup_touched() -> None:
+                    """Mark text-input follow-ups as interacted with."""
+
+                    st.session_state[touched_key] = True
+
             processed_value = st.text_input(
                 label_text,
                 key=key,
                 label_visibility="collapsed",
+                on_change=_mark_followup_touched if inline_field else None,
             )
         if should_focus:
             st.session_state[focus_sentinel] = False
@@ -1009,8 +1032,15 @@ def _render_followup_question(q: dict, data: dict) -> None:
             )
             st.session_state[highlight_sentinel] = False
     widget_has_state = field in st.session_state
-    inline_field = field in INLINE_FOLLOWUP_FIELDS
     should_sync_widget_state = not inline_field
+    inline_touched = bool(st.session_state.get(touched_key, False)) if touched_key is not None else False
+    processed_is_blank = (
+        not processed_value
+        if field in LIST_FOLLOWUP_FIELDS
+        else isinstance(processed_value, str) and not processed_value.strip()
+    )
+    if inline_field and processed_is_blank and followup_has_response(existing_value) and not inline_touched:
+        processed_value = existing_value
     # Keep follow-up values flowing through widget return values; mutating
     # canonical session_state keys after mount triggers Streamlit immutable-key
     # errors and desynchronises sidebar badges.
