@@ -184,6 +184,10 @@ class ProfilePaths(StrEnum):
 class StateKeys:
     """Keys for data stored in ``st.session_state``."""
 
+    APP_VERSION = "cognitive_staffing.app.version"
+    ROUTER_RESOLVED_MODEL = "cognitive_staffing.router.resolved_model"
+    ROUTER_MODEL_LOGGED = "cognitive_staffing.router.model_logged"
+    WIZARD_ORIGINS_KEY = "cognitive_staffing.wizard.ui.origins_key"
     SESSION_ID = "session.id"
     FLOW_MODE = "wizard.flow_mode"
     PROFILE = "profile_data"
