@@ -2,11 +2,13 @@
 from __future__ import annotations
 
 from base64 import b64encode
+from hashlib import sha256
 from io import BytesIO
+import json
 import mimetypes
 from pathlib import Path
 import sys
-from typing import cast
+from typing import Mapping, Sequence, cast
 
 from PIL import Image, ImageEnhance, UnidentifiedImageError
 import streamlit as st
@@ -56,9 +58,27 @@ from config import (  # noqa: E402
 from llm.model_router import pick_model  # noqa: E402
 from utils.telemetry import setup_tracing  # noqa: E402
 from utils.i18n import tr  # noqa: E402
+from constants.keys import StateKeys  # noqa: E402
 from state import ensure_state  # noqa: E402
 from state.autosave import maybe_render_autosave_prompt  # noqa: E402
 from components.chatkit_widget import inject_chatkit_script  # noqa: E402
+from components import stepper as legacy_stepper  # noqa: E402
+from ui.wizard_uxkit_guidedflow_20260110 import (  # noqa: E402
+    Wizard,
+    WizardStep,
+    inject_wizard_uxkit_css,
+    render_context_bar,
+    render_progress_and_microcopy,
+    render_saved_badge_if_recent,
+    render_stepper,
+    validate_required,
+)
+from wizard.step_registry import (  # noqa: E402
+    WIZARD_STEPS,
+    resolve_active_step_keys,
+    resolve_nearest_active_step_key,
+)
+from wizard._logic import get_in  # noqa: E402
 import sidebar  # noqa: E402
 from wizard import run_wizard  # noqa: E402
 
@@ -162,8 +182,114 @@ def inject_global_css() -> None:
     )
 
 
+def inject_layout_stability_css() -> None:
+    """Ensure reserved UI space for stable text areas in the wizard."""
+
+    st.markdown(
+        """
+        <style>
+        div[data-testid="stTextArea"] textarea {
+            min-height: 7.5rem;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _profile_checksum(profile: Mapping[str, object] | None) -> str:
+    payload = json.dumps(profile or {}, sort_keys=True, default=str)
+    return sha256(payload.encode("utf-8")).hexdigest()
+
+
+def _has_value(profile: Mapping[str, object], path: str) -> bool:
+    value = get_in(profile, path)
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, (list, tuple, set, dict)):
+        return bool(value)
+    return value is not None
+
+
+def _required_step_key(step_key: str) -> str:
+    return f"wiz:guidedflow:required:{step_key}"
+
+
+def _build_display_wizard(
+    active_keys: Sequence[str],
+    lang: str,
+    profile: Mapping[str, object],
+) -> Wizard:
+    steps: list[WizardStep] = []
+    step_map = {step.key: step for step in WIZARD_STEPS}
+    for key in active_keys:
+        step = step_map.get(key)
+        if step is None:
+            continue
+        required_fields = step.required_fields
+        validate = None
+        if required_fields:
+            required_key = _required_step_key(step.key)
+            missing_required = [path for path in required_fields if not _has_value(profile, path)]
+            st.session_state[required_key] = "" if missing_required else "ok"
+            validate = validate_required(
+                required_key,
+                tr(
+                    "Bitte fülle die Pflichtfelder aus, bevor du fortfährst.",
+                    "Please complete the required fields before continuing.",
+                    lang=lang,
+                ),
+            )
+        steps.append(
+            WizardStep(
+                id=step.key,
+                label=tr(*step.label, lang=lang),
+                title=tr(*step.panel_header, lang=lang),
+                render=lambda _wiz: None,
+                validate=validate,
+            )
+        )
+    if not steps:
+        steps = [
+            WizardStep(
+                id=step.key,
+                label=tr(*step.label, lang=lang),
+                title=tr(*step.panel_header, lang=lang),
+                render=lambda _wiz: None,
+            )
+            for step in WIZARD_STEPS
+        ]
+    return Wizard("guidedflow", steps)
+
+
+def _sync_display_wizard(wiz: Wizard, active_keys: Sequence[str]) -> None:
+    target = st.session_state.get(StateKeys.WIZARD_LAST_STEP)
+    if isinstance(target, str) and active_keys:
+        resolved = resolve_nearest_active_step_key(target, active_keys)
+        target = resolved or active_keys[0]
+    elif active_keys:
+        target = active_keys[0]
+    if isinstance(target, str):
+        wiz.goto(target, push_history=False)
+
+
+def _mark_saved_if_profile_changed(wiz: Wizard) -> str:
+    saved_key = wiz.k("saved")
+    checksum_key = wiz.k("_profile_checksum")
+    profile = st.session_state.get(StateKeys.PROFILE)
+    checksum = _profile_checksum(profile if isinstance(profile, Mapping) else {})
+    previous = st.session_state.get(checksum_key)
+    if isinstance(previous, str) and previous != checksum:
+        wiz.mark_saved(saved_key)
+    st.session_state[checksum_key] = checksum
+    return saved_key
+
+
 inject_global_css()
+inject_layout_stability_css()
+inject_wizard_uxkit_css(enable_form_fade=False)
 inject_chatkit_script()
+legacy_stepper.STEP_NAVIGATION_ENABLED = False
 
 sidebar_plan = sidebar.render_sidebar(
     logo_asset=APP_LOGO_IMAGE or APP_LOGO_BUFFER,
@@ -171,7 +297,39 @@ sidebar_plan = sidebar.render_sidebar(
     defer=True,
 )
 
+lang = st.session_state.get("lang", "de")
+profile = st.session_state.get(StateKeys.PROFILE)
+profile_data = profile if isinstance(profile, Mapping) else {}
+active_keys = resolve_active_step_keys(profile_data, st.session_state)
+origin_wiz = _build_display_wizard(active_keys, lang, profile_data)
+origins_key = origin_wiz.k("_origins")
+st.session_state.setdefault("wizard.ui.origins_key", origins_key)
+st.session_state.setdefault(origins_key, {})
+
+stepper_slot = st.container()
+context_slot = st.container()
+progress_slot = st.container()
+saved_slot = st.container()
+
 run_wizard()
+
+lang = st.session_state.get("lang", "de")
+profile = st.session_state.get(StateKeys.PROFILE)
+profile_data = profile if isinstance(profile, Mapping) else {}
+active_keys = resolve_active_step_keys(profile_data, st.session_state)
+display_wiz = _build_display_wizard(active_keys, lang, profile_data)
+_sync_display_wizard(display_wiz, active_keys)
+saved_key = _mark_saved_if_profile_changed(display_wiz)
+
+legend = tr("🔎 extrahiert · 🤖 vorgeschlagen", "🔎 extracted · 🤖 suggested", lang=lang)
+with stepper_slot:
+    render_stepper(display_wiz)
+with context_slot:
+    render_context_bar(display_wiz, legend_right=legend)
+with progress_slot:
+    render_progress_and_microcopy(display_wiz)
+with saved_slot:
+    render_saved_badge_if_recent(display_wiz, saved_key)
 
 sidebar.render_sidebar(
     logo_asset=APP_LOGO_IMAGE or APP_LOGO_BUFFER,

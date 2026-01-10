@@ -6,15 +6,30 @@ from typing import Any, Callable, Sequence, TypeVar
 
 import streamlit as st
 
+from ui.wizard_uxkit_guidedflow_20260110 import render_field_label
 from wizard._logic import (
     get_value,
-    render_origin_label_html,
     resolve_display_value,
+    resolve_field_origin,
     with_ai_badge,
 )
 from wizard._widget_state import _build_on_change, _ensure_widget_state
 
 T = TypeVar("T")
+
+
+def _resolve_origin(field_key: str, field_path: str) -> str | None:
+    origins_key = st.session_state.get("wizard.ui.origins_key")
+    if isinstance(origins_key, str):
+        origins = st.session_state.setdefault(origins_key, {})
+        if isinstance(origins, dict):
+            if field_key in origins:
+                return origins.get(field_key)
+            derived = resolve_field_origin(field_path)
+            if derived:
+                origins[field_key] = derived
+            return derived
+    return resolve_field_origin(field_path)
 
 
 def _normalize_width_kwarg(kwargs: dict[str, Any]) -> None:
@@ -82,9 +97,9 @@ def text_input(
     if updated_help is not None:
         call_kwargs["help"] = updated_help
 
-    origin_label = render_origin_label_html(decorated_label, path)
-    if origin_label:
-        st.markdown(origin_label, unsafe_allow_html=True)
+    origin = _resolve_origin(widget_key, path)
+    if origin:
+        render_field_label(decorated_label, origin=origin)
         call_kwargs.setdefault("label_visibility", "collapsed")
 
     return factory(
@@ -140,9 +155,9 @@ def select(
     if updated_help is not None:
         call_kwargs["help"] = updated_help
 
-    origin_label = render_origin_label_html(decorated_label, path)
-    if origin_label:
-        st.markdown(origin_label, unsafe_allow_html=True)
+    origin = _resolve_origin(widget_key, path)
+    if origin:
+        render_field_label(decorated_label, origin=origin)
         call_kwargs.setdefault("label_visibility", "collapsed")
 
     factory = widget_factory or st.selectbox
@@ -196,9 +211,9 @@ def multiselect(
     if updated_help is not None:
         call_kwargs["help"] = updated_help
 
-    origin_label = render_origin_label_html(decorated_label, path)
-    if origin_label:
-        st.markdown(origin_label, unsafe_allow_html=True)
+    origin = _resolve_origin(widget_key, path)
+    if origin:
+        render_field_label(decorated_label, origin=origin)
         call_kwargs.setdefault("label_visibility", "collapsed")
 
     factory = widget_factory or st.multiselect

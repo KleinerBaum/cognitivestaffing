@@ -1,6 +1,6 @@
 # Wizard stepper preview / Vorschau des Wizard-Steppers
 
-Binary screenshots are unavailable in this environment, so the stepper layout is documented as text. The layout below mirrors the emoji stepper shown below the navigation controls.
+Binary screenshots are unavailable in this environment, so the stepper layout is documented as text. The layout below mirrors the emoji stepper shown above the step content (paired with the context bar and progress row).
 
 ```
 [✅ 1] Onboarding / Einstieg  →  [✅ 2] Company / Unternehmen  →  [✅ 3] Team & Structure / Team & Struktur

@@ -197,7 +197,6 @@ def build_navigation_state(
                 "Bitte fülle die markierten Pflichtfelder aus, bevor du fortfährst.",
                 "Please complete the marked required fields before continuing.",
             )
-            next_enabled = allow_skip
         next_button = NavigationButtonState(
             direction=NavigationDirection.NEXT,
             label=("Weiter ▶", "Next ▶"),

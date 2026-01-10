@@ -36,6 +36,11 @@ def _build_on_change(path: str, key: str) -> Callable[[], None]:
 
         value = _normalize_session_value(st.session_state.get(key))
         _update_profile(path, value)
+        origins_key = st.session_state.get("wizard.ui.origins_key")
+        if isinstance(origins_key, str):
+            origins = st.session_state.setdefault(origins_key, {})
+            if isinstance(origins, dict):
+                origins[key] = "manual"
 
     return _callback
 
