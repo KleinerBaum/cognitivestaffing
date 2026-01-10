@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from wizard.navigation_controller import NavigationController
+from wizard.navigation import NavigationController
 
 
 class _StubPage:
@@ -30,7 +30,7 @@ def test_handle_step_exception_surfaces_ai_guidance(monkeypatch: Any) -> None:
     class _FakeBadRequestError(Exception):
         pass
 
-    monkeypatch.setattr("wizard.navigation_controller.BadRequestError", _FakeBadRequestError)
+    monkeypatch.setattr("wizard.navigation.router.BadRequestError", _FakeBadRequestError)
     captured = _capture_render(monkeypatch)
     controller = object.__new__(NavigationController)
     page = _StubPage("team", "Team", "Team")

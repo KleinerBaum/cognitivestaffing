@@ -140,7 +140,7 @@ from wizard_pages import WIZARD_PAGES, WizardPage
 from wizard_router import StepRenderer, WizardContext, WizardRouter
 from wizard.interview_step import render_interview_guide_section
 from wizard.types import LangPair
-from wizard.state_sync import prime_widget_state_from_profile
+from wizard.navigation import prime_widget_state_from_profile
 from wizard.date_utils import (
     default_date as _default_date,
     normalize_date_selection as _normalize_date_selection,

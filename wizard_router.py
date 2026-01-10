@@ -23,15 +23,16 @@ from wizard.metadata import (
     get_missing_critical_fields,
     resolve_section_for_field,
 )
-from wizard.navigation_controller import NavigationController, PageProgressSnapshot
-from wizard.navigation_types import StepRenderer, WizardContext
-from wizard.navigation_ui import (
+from wizard.navigation import (
+    NavigationController,
+    PageProgressSnapshot,
     build_navigation_state,
     inject_navigation_style,
     maybe_scroll_to_top,
     render_navigation,
     render_validation_warnings,
 )
+from wizard.navigation_types import StepRenderer, WizardContext
 from wizard_pages import WizardPage
 
 if TYPE_CHECKING:  # pragma: no cover - typing-only import path
