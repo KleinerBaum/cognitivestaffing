@@ -88,9 +88,7 @@ def _render_client_step(context: WizardContext) -> None:
     business_context_step.step_business_context(context)
 
 
-BUSINESS_CONTEXT_REQUIRED_FIELDS: Final[tuple[str, ...]] = (
-    "business_context.domain",
-)
+BUSINESS_CONTEXT_REQUIRED_FIELDS: Final[tuple[str, ...]] = ("business_context.domain",)
 
 BUSINESS_CONTEXT_SUMMARY_FIELDS: Final[tuple[str, ...]] = (
     "business_context.domain",

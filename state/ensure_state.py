@@ -261,9 +261,12 @@ def migrate_business_context_state() -> None:
     else:
         business_context = {}
 
-    company = profile.get("company") if isinstance(profile.get("company"), Mapping) else {}
-    department = profile.get("department") if isinstance(profile.get("department"), Mapping) else {}
-    location = profile.get("location") if isinstance(profile.get("location"), Mapping) else {}
+    company_raw = profile.get("company")
+    department_raw = profile.get("department")
+    location_raw = profile.get("location")
+    company = dict(company_raw) if isinstance(company_raw, Mapping) else {}
+    department = dict(department_raw) if isinstance(department_raw, Mapping) else {}
+    location = dict(location_raw) if isinstance(location_raw, Mapping) else {}
 
     migrated = False
     if not str(business_context.get("domain") or "").strip():
@@ -281,7 +284,9 @@ def migrate_business_context_state() -> None:
         migrated = True
 
     if not str(business_context.get("location") or "").strip():
-        location_value = str(location.get("primary_city") or "").strip() or str(company.get("hq_location") or "").strip()
+        location_value = (
+            str(location.get("primary_city") or "").strip() or str(company.get("hq_location") or "").strip()
+        )
         if location_value:
             business_context["location"] = location_value
             migrated = True

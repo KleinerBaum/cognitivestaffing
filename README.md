@@ -286,6 +286,9 @@ tests.
 
 - Optional flow helpers (for example, company autofill suggestions) may be unavailable in slim flow
   variants; missing optional dependencies are expected and only logged at debug level.
+- To enable the wizard flow diagram for debugging, set `DEBUG_FLOW_DIAGRAM=true` in the environment
+  (or Streamlit secrets) and refresh the app. The Mermaid output appears under the
+  “Debug: Flow diagram” expander in the wizard UI for easy copy/paste.
 - If you encounter “missing ScriptRunContext” warnings, ensure background tasks only compute data
   and keep Streamlit UI/session-state updates on the main thread.
 - Recoverable wizard failures now surface a retry button and a UI-only reset option; prefer UI

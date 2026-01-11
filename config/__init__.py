@@ -373,6 +373,10 @@ ADMIN_DEBUG_PANEL = _normalise_bool(
     os.getenv("ADMIN_DEBUG_PANEL"),
     default=False,
 )
+DEBUG_FLOW_DIAGRAM = _normalise_bool(
+    os.getenv("DEBUG_FLOW_DIAGRAM"),
+    default=False,
+)
 
 
 def resolve_api_mode(preferred: APIMode | str | bool | None = None) -> APIMode:
@@ -442,6 +446,11 @@ try:
                 openai_secrets.get("ADMIN_DEBUG_PANEL"),
                 default=ADMIN_DEBUG_PANEL,
             )
+        if "DEBUG_FLOW_DIAGRAM" in openai_secrets:
+            DEBUG_FLOW_DIAGRAM = _normalise_bool(
+                openai_secrets.get("DEBUG_FLOW_DIAGRAM"),
+                default=DEBUG_FLOW_DIAGRAM,
+            )
         VECTOR_STORE_ID = openai_secrets.get("VECTOR_STORE_ID", VECTOR_STORE_ID)
         VERBOSITY = normalise_verbosity(openai_secrets.get("VERBOSITY", VERBOSITY), default=VERBOSITY)
     else:
@@ -473,6 +482,11 @@ try:
         ADMIN_DEBUG_PANEL = _normalise_bool(
             st.secrets.get("ADMIN_DEBUG_PANEL"),
             default=ADMIN_DEBUG_PANEL,
+        )
+    if "DEBUG_FLOW_DIAGRAM" in st.secrets:
+        DEBUG_FLOW_DIAGRAM = _normalise_bool(
+            st.secrets.get("DEBUG_FLOW_DIAGRAM"),
+            default=DEBUG_FLOW_DIAGRAM,
         )
 except Exception:
     pass
