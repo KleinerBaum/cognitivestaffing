@@ -231,6 +231,7 @@ MODEL_ROUTING__interview_guide = "gpt-4o-mini"
   - `config/models.py`
 - Prompts:
   - `prompts/`
+  - Benefits prompt wording lives in `prompts/registry.yaml` under `llm.extraction.benefits.user`.
 - Client behavior (Responses/Chat, retries, fallbacks):
   - `openai_utils/`
   - `ALLOW_LEGACY_FALLBACKS=0` disables legacy Chat Completions fallbacks, leaving static benefit shortlists as the last-resort suggestion source.
