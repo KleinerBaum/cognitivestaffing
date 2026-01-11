@@ -138,13 +138,13 @@ def test_missing_city_triggers_followup() -> None:
     assert "city" in city_question["question"].lower()
 
 
-def test_missing_contact_email_triggers_followup() -> None:
-    """Missing company contact email should raise a critical follow-up."""
+def test_missing_business_domain_triggers_followup() -> None:
+    """Missing business domain should raise a critical follow-up."""
 
-    assert "company.contact_email" in CRITICAL_FIELDS
+    assert "business_context.domain" in CRITICAL_FIELDS
 
     profile = {
-        "company": {"name": "ACME", "contact_name": "Max"},
+        "business_context": {"org_name": "ACME"},
         "position": {"job_title": "Engineer", "role_summary": "Build products"},
         "location": {"country": "DE", "primary_city": "Berlin"},
         "responsibilities": {"items": ["Build"]},
@@ -155,9 +155,9 @@ def test_missing_contact_email_triggers_followup() -> None:
     }
 
     out = generate_followup_questions(profile, use_rag=False)
-    email_question = next(q for q in out if q["field"] == "company.contact_email")
-    assert email_question["priority"] == "critical"
-    assert "email" in email_question["question"].lower()
+    domain_question = next(q for q in out if q["field"] == "business_context.domain")
+    assert domain_question["priority"] == "critical"
+    assert "domain" in domain_question["question"].lower()
 
 
 def test_rag_suggestions_merge(monkeypatch) -> None:

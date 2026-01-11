@@ -428,6 +428,8 @@ _STRING_RULES: dict[str, tuple[str, Callable[[str], str]]] = {
 }
 
 _STRING_LIST_FIELDS = {
+    "business_context.industry_codes",
+    "business_context.compliance_flags",
     "responsibilities.items",
     "requirements.hard_skills_required",
     "requirements.hard_skills_optional",

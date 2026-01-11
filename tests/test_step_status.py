@@ -12,11 +12,11 @@ from wizard_pages.base import WizardPage
 def _company_step() -> WizardPage:
     return WizardPage(
         key="company",
-        label=("Unternehmen", "Company"),
-        panel_header=("Unternehmen", "Company"),
-        panel_subheader=("Profil & Kontakt", "Profile & contact"),
+        label=("Business-Kontext", "Business context"),
+        panel_header=("Business-Kontext", "Business context"),
+        panel_subheader=("Domain & Organisation", "Domain & organisation"),
         panel_intro_variants=(("Intro DE", "Intro EN"),),
-        required_fields=("company.name", "company.contact_email", "location.primary_city"),
+        required_fields=("business_context.domain",),
         summary_fields=(),
         allow_skip=False,
     )
@@ -25,13 +25,20 @@ def _company_step() -> WizardPage:
 def test_load_critical_fields_returns_expected_paths() -> None:
     critical_fields = load_critical_fields()
 
-    assert "company.name" in critical_fields
+    assert "business_context.domain" in critical_fields
     assert "position.job_title" in critical_fields
 
 
 def test_compute_step_missing_returns_required_and_critical() -> None:
     profile = {
-        "company": {"name": "Acme", "contact_email": "hi@acme.test"},
+        "business_context": {"domain": "FinTech"},
+        "company": {
+            "name": "Acme",
+            "contact_name": "Ada",
+            "contact_email": "hi@acme.test",
+            "contact_phone": "+491234",
+        },
+        "department": {"name": "Data Platform"},
         "location": {"primary_city": "Berlin"},
     }
     step_meta = _company_step()
@@ -39,18 +46,20 @@ def test_compute_step_missing_returns_required_and_critical() -> None:
     missing = compute_step_missing(profile, step_meta)
 
     assert missing.required == []
-    assert "company.contact_phone" in missing.critical
+    assert "location.country" in missing.critical
     assert "location.country" in missing.critical
 
 
 def test_is_step_complete_requires_required_and_critical_fields() -> None:
     profile = {
+        "business_context": {"domain": "FinTech"},
         "company": {
             "name": "Acme",
             "contact_name": "Ada",
             "contact_email": "hi@acme.test",
             "contact_phone": "+491234",
         },
+        "department": {"name": "Data Platform"},
         "location": {"primary_city": "Berlin", "country": "DE"},
     }
     step_meta = _company_step()
@@ -63,4 +72,4 @@ def test_iter_step_missing_fields_deduplicates_order() -> None:
 
     all_missing = list(iter_step_missing_fields(missing))
 
-    assert all_missing[:2] == ["company.name", "company.contact_email"]
+    assert all_missing[:2] == ["business_context.domain", "company.name"]

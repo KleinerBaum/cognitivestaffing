@@ -31,7 +31,41 @@ from utils.normalization import (
 _EMAIL_ADAPTER: TypeAdapter[EmailStr] = TypeAdapter(EmailStr)
 
 
-CURRENT_SCHEMA_VERSION = 1
+CURRENT_SCHEMA_VERSION = 2
+
+
+class BusinessContext(BaseModel):
+    """Domain-first business context for the role."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    domain: str = ""
+    industry_codes: List[str] = Field(default_factory=list)
+    org_name: Optional[str] = None
+    org_unit: Optional[str] = None
+    location: Optional[str] = None
+    compliance_flags: List[str] = Field(default_factory=list)
+    source_confidence: dict[str, str] = Field(default_factory=dict)
+
+    @field_validator("domain", mode="before")
+    @classmethod
+    def _normalize_domain(cls, value: object) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value.strip()
+        return str(value).strip()
+
+    @field_validator("industry_codes", "compliance_flags", mode="before")
+    @classmethod
+    def _normalize_lists(cls, value: object) -> List[str]:
+        if isinstance(value, (list, tuple, set, frozenset)):
+            cleaned = [str(item).strip() for item in value if str(item).strip()]
+            return list(dict.fromkeys(cleaned))
+        if isinstance(value, str):
+            cleaned = value.strip()
+            return [cleaned] if cleaned else []
+        return []
 
 
 class Company(BaseModel):
@@ -504,6 +538,7 @@ class NeedAnalysisProfile(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     schema_version: int = Field(default=CURRENT_SCHEMA_VERSION)
+    business_context: BusinessContext = Field(default_factory=BusinessContext)
     company: Company = Field(default_factory=Company)
     position: Position = Field(default_factory=Position)
     department: Department = Field(default_factory=Department)
@@ -517,7 +552,7 @@ class NeedAnalysisProfile(BaseModel):
     meta: Meta = Field(default_factory=Meta)
     generated: GeneratedContent = Field(default_factory=GeneratedContent)
 
-    @field_validator("company", "position", mode="before")
+    @field_validator("business_context", "company", "position", mode="before")
     @classmethod
     def _ensure_present(cls, value: Any) -> dict | Company | Position:
         """Ensure nested objects are present."""

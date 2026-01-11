@@ -84,7 +84,6 @@ FOLLOWUP_JSON_SCHEMA: dict[str, Any] = {
                         "field",
                         "question",
                         "priority",
-                        "suggestions",
                     ],
                     "additionalProperties": False,
                 },

@@ -10,6 +10,7 @@ from wizard.metadata import filter_followups_by_context, get_missing_critical_fi
 
 def _base_profile() -> dict[str, Any]:
     return {
+        "business_context": {"domain": ""},
         "company": {"contact_email": ""},
         "location": {"primary_city": ""},
         "meta": {},
@@ -32,12 +33,26 @@ def test_get_missing_critical_fields_revalidates_contact_email_widget_state() ->
     assert stored_email in (None, "")
 
 
+def test_get_missing_critical_fields_flags_missing_domain() -> None:
+    """Business domain should be flagged as missing when empty."""
+
+    st.session_state.clear()
+    profile = _base_profile()
+    profile["company"]["contact_email"] = "contact@example.com"
+    profile["location"]["primary_city"] = "Berlin"
+    st.session_state[StateKeys.PROFILE] = profile
+
+    missing = get_missing_critical_fields()
+
+    assert str(ProfilePaths.BUSINESS_CONTEXT_DOMAIN) in missing
+
+
 def test_get_missing_critical_fields_revalidates_primary_city_widget_state() -> None:
     """Primary city should re-run validators when the widget only contains whitespace."""
 
     st.session_state.clear()
     profile = _base_profile()
-    profile["company"]["contact_email"] = "contact@example.com"
+    profile["business_context"]["domain"] = "FinTech"
     st.session_state[StateKeys.PROFILE] = profile
     st.session_state[str(ProfilePaths.LOCATION_PRIMARY_CITY)] = "   "
 
@@ -75,13 +90,13 @@ def test_filter_followups_by_context_skips_irrelevant_questions() -> None:
         {"field": "location.primary_city", "priority": "critical", "question": "City?"},
         {"field": "employment.travel_share", "priority": "critical", "question": "Travel?"},
         {"field": "position.team_size", "priority": "normal", "question": "Team size?"},
-        {"field": "company.name", "priority": "critical", "question": "Company?"},
+        {"field": "business_context.domain", "priority": "critical", "question": "Domain?"},
     ]
 
     filtered = filter_followups_by_context(followups, profile)
     fields = {entry["field"] for entry in filtered}
 
-    assert "company.name" in fields
+    assert "business_context.domain" in fields
     assert "location.primary_city" in fields
     assert "employment.travel_share" not in fields
     assert "position.team_size" not in fields

@@ -75,6 +75,13 @@ class UIKeys:
 class ProfilePaths(StrEnum):
     """Canonical dot-paths for profile-bound wizard widgets."""
 
+    BUSINESS_CONTEXT_DOMAIN = "business_context.domain"
+    BUSINESS_CONTEXT_INDUSTRY_CODES = "business_context.industry_codes"
+    BUSINESS_CONTEXT_ORG_NAME = "business_context.org_name"
+    BUSINESS_CONTEXT_ORG_UNIT = "business_context.org_unit"
+    BUSINESS_CONTEXT_LOCATION = "business_context.location"
+    BUSINESS_CONTEXT_COMPLIANCE_FLAGS = "business_context.compliance_flags"
+    BUSINESS_CONTEXT_SOURCE_CONFIDENCE = "business_context.source_confidence"
     COMPANY_BRAND_COLOR = "company.brand_color"
     COMPANY_BRAND_KEYWORDS = "company.brand_keywords"
     COMPANY_BRAND_NAME = "company.brand_name"

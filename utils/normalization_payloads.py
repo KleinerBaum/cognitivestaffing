@@ -24,6 +24,16 @@ class CompanyPayload(TypedDict, total=False):
     benefits: list[str]
 
 
+class BusinessContextPayload(TypedDict, total=False):
+    domain: str
+    industry_codes: list[str]
+    org_name: str | None
+    org_unit: str | None
+    location: str | None
+    compliance_flags: list[str]
+    source_confidence: dict[str, str]
+
+
 class PositionPayload(TypedDict, total=False):
     job_title: str | None
     seniority_level: str | None
@@ -176,6 +186,7 @@ class MetaPayload(TypedDict, total=False):
 
 
 class NormalizedProfilePayload(TypedDict):
+    business_context: BusinessContextPayload
     company: CompanyPayload
     position: PositionPayload
     department: DepartmentPayload
@@ -191,6 +202,7 @@ class NormalizedProfilePayload(TypedDict):
 
 __all__ = [
     "CompanyPayload",
+    "BusinessContextPayload",
     "PositionPayload",
     "DepartmentPayload",
     "TeamPayload",

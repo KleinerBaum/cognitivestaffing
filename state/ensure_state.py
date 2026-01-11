@@ -152,6 +152,7 @@ _PRESERVED_RESET_KEYS: frozenset[str] = frozenset(
 
 _CRITICAL_PROFILE_DEFAULTS: Mapping[str, str] = MappingProxyType(
     {
+        ProfilePaths.BUSINESS_CONTEXT_DOMAIN.value: "",
         ProfilePaths.COMPANY_CONTACT_EMAIL.value: "",
         ProfilePaths.LOCATION_PRIMARY_CITY.value: "",
     }
@@ -243,6 +244,57 @@ def _migrate_legacy_profile_keys() -> None:
         session[StateKeys.PROFILE] = profile
 
 
+def migrate_business_context_state() -> None:
+    """Backfill ``business_context`` in session state from legacy fields."""
+
+    session = st.session_state
+    existing = session.get(StateKeys.PROFILE)
+    profile: dict[str, Any]
+    if isinstance(existing, Mapping):
+        profile = dict(existing)
+    else:
+        profile = {}
+
+    business_context = profile.get("business_context")
+    if isinstance(business_context, Mapping):
+        business_context = dict(business_context)
+    else:
+        business_context = {}
+
+    company = profile.get("company") if isinstance(profile.get("company"), Mapping) else {}
+    department = profile.get("department") if isinstance(profile.get("department"), Mapping) else {}
+    location = profile.get("location") if isinstance(profile.get("location"), Mapping) else {}
+
+    migrated = False
+    if not str(business_context.get("domain") or "").strip():
+        industry = str(company.get("industry") or "").strip()
+        if industry:
+            business_context["domain"] = industry
+            migrated = True
+
+    if not str(business_context.get("org_name") or "").strip() and str(company.get("name") or "").strip():
+        business_context["org_name"] = company.get("name")
+        migrated = True
+
+    if not str(business_context.get("org_unit") or "").strip() and str(department.get("name") or "").strip():
+        business_context["org_unit"] = department.get("name")
+        migrated = True
+
+    if not str(business_context.get("location") or "").strip():
+        location_value = str(location.get("primary_city") or "").strip() or str(company.get("hq_location") or "").strip()
+        if location_value:
+            business_context["location"] = location_value
+            migrated = True
+
+    business_context.setdefault("industry_codes", [])
+    business_context.setdefault("compliance_flags", [])
+    business_context.setdefault("source_confidence", {})
+
+    if migrated or "business_context" not in profile:
+        profile["business_context"] = business_context
+        session[StateKeys.PROFILE] = profile
+
+
 def ensure_state() -> None:
     """Initialize ``st.session_state`` with required keys.
 
@@ -260,6 +312,7 @@ def ensure_state() -> None:
     set_session_id(session_id)
 
     _migrate_legacy_profile_keys()
+    migrate_business_context_state()
     existing = st.session_state.get(StateKeys.PROFILE)
     auto_populated_paths: list[str] = []
     removed_paths: list[str] = []

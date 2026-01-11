@@ -6,6 +6,60 @@
             "type": "integer",
             "minimum": 1
         },
+        "business_context": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "domain": {
+                    "type": "string"
+                },
+                "industry_codes": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "org_name": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "org_unit": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "location": {
+                    "type": [
+                        "string",
+                        "null"
+                    ]
+                },
+                "compliance_flags": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "source_confidence": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                }
+            },
+            "required": [
+                "domain",
+                "industry_codes",
+                "org_name",
+                "org_unit",
+                "location",
+                "compliance_flags",
+                "source_confidence"
+            ]
+        },
         "company": {
             "type": "object",
             "additionalProperties": false,
@@ -1149,6 +1203,7 @@
     },
     "required": [
         "schema_version",
+        "business_context",
         "company",
         "position",
         "department",

@@ -20,7 +20,7 @@ from wizard.services.gaps import detect_missing_critical_fields, field_is_contex
 
 # Critical fields loaded from ``critical_fields.json`` for reuse across UI/service layers.
 CRITICAL_FIELDS: Final[tuple[str, ...]] = load_critical_fields()
-# Index of the first data-entry step ("Unternehmen" / "Company").
+# Index of the first data-entry step ("Business-Kontext").
 COMPANY_STEP_INDEX: Final[int] = 1
 
 PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
@@ -37,8 +37,8 @@ PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
 
 PAGE_FOLLOWUP_PREFIXES: Final[dict[str, tuple[str, ...]]] = {
     "jobad": ("meta.",),
-    "company": ("company.", "department.", "location.", "position.team_"),
-    "client": ("company.", "department.", "location.", "position.team_"),
+    "company": ("business_context.", "company.", "department.", "location.", "position.team_"),
+    "client": ("business_context.", "company.", "department.", "location.", "position.team_"),
     "team": (
         "team.",
         "position.reporting_line",
@@ -63,6 +63,7 @@ _CRITICAL_SECTION_KEYS: Final[tuple[str, ...]] = (
 
 _PAGE_EXTRA_FIELDS: dict[str, tuple[str, ...]] = {
     "company": (
+        "company.name",
         "company.contact_name",
         "company.contact_email",
         "company.contact_phone",
@@ -70,6 +71,7 @@ _PAGE_EXTRA_FIELDS: dict[str, tuple[str, ...]] = {
         "location.country",
     ),
     "client": (
+        "company.name",
         "company.contact_name",
         "company.contact_email",
         "company.contact_phone",
@@ -77,6 +79,7 @@ _PAGE_EXTRA_FIELDS: dict[str, tuple[str, ...]] = {
         "location.country",
     ),
     "team": (
+        "department.name",
         "position.job_title",
         "position.role_summary",
         "meta.target_start_date",

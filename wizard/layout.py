@@ -23,6 +23,7 @@ from utils.i18n import tr
 LocalizedText = tuple[str, str]
 
 _REQUIRED_FIELD_LABELS: Final[dict[str, tuple[str, str]]] = {
+    str(ProfilePaths.BUSINESS_CONTEXT_DOMAIN): ("Business-Domain", "Business domain"),
     str(ProfilePaths.COMPANY_NAME): ("Unternehmensname", "Company name"),
     str(ProfilePaths.COMPANY_CONTACT_EMAIL): ("Kontakt-E-Mail", "Contact email"),
     str(ProfilePaths.COMPANY_CONTACT_PHONE): ("Kontakt-Telefon", "Contact phone"),
@@ -329,6 +330,14 @@ def render_navigation_controls(state: NavigationState, *, location: Literal["top
 
     marker_class = f"wizard-nav-marker wizard-nav-marker--{location}"
     st.markdown(f"<div class='{marker_class}'></div>", unsafe_allow_html=True)
+
+    if state.skip is not None:
+        cols = st.columns((1, 1, 1), gap="small")
+        _render_navigation_button(cols[0], state.previous, state, location=location)
+        _render_navigation_button(cols[1], state.skip, state, location=location)
+        _render_navigation_button(cols[2], state.next, state, location=location)
+        return
+
     cols = st.columns((1, 1), gap="small")
     _render_navigation_button(cols[0], state.previous, state, location=location)
     _render_navigation_button(cols[1], state.next, state, location=location)
