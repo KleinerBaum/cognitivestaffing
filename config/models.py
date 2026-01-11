@@ -227,7 +227,7 @@ def requires_chat_completions(model: str | None) -> bool:
     normalised = normalise_model_name(model).lower()
     if not normalised:
         return False
-    return normalised.startswith("gpt-4.1") or normalised.startswith("gpt-5")
+    return normalised.startswith("gpt-3.5")
 
 
 def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> str:
