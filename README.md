@@ -151,10 +151,11 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
 
 ## LLM configuration
 
-- **Cost saver toggle (sidebar)**: when enabled, the wizard forces the lightweight model route and clamps `max_completion_tokens` to a tighter ceiling for cheaper, faster responses. Explicit model overrides still take priority if a caller sets one directly.
+- **Cost saver toggle (sidebar)**: when enabled, the wizard downgrades QUALITY (`gpt-5-mini`) to FAST (`gpt-5-nano`) for non-critical tasks and clamps `max_completion_tokens` to a tighter ceiling for cheaper, faster responses. Critical tasks (job ads, document refinement, final explanations) retain the default quality tier, and explicit model overrides still take priority if a caller sets one directly.
 - **Quick vs. Precise mode**: Quick lowers reasoning effort and Precise raises it; both respect the cost saver toggle when it is enabled.
 - **Tier defaults**: FAST (`gpt-5-nano`) handles quick work, QUALITY (`gpt-5-mini`) handles reasoning-heavy prompts, LONG_CONTEXT (`gpt-4.1-nano`) powers extraction and document refinement, and PRECISE (`gpt-5.1`) only activates when Precise is toggled.
 - **Responses fallbacks**: suggestion helpers only log chat fallback usage when the Responses client returns a structured `ResponsesCallResult` to avoid type mismatches during tests or mocking.
+- **Tool-aware routing**: prompts that request web/file search tools prefer GPT-5 tiers, while ultra-long prompts (>300k estimated tokens) route to LONG_CONTEXT (`gpt-4.1-nano`).
 
 ### Cost controls
 

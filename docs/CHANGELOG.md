@@ -92,7 +92,9 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Position team follow-up fields (`position.team_*`) now route to the Company step to match the team structure inputs.
 - GPT-5.2 tuning: job ad and interview-guide prompts now include short outlining steps, medium reasoning routes through `gpt-5.2-mini`, and long-form calls request richer sections to avoid terse bilingual outputs while keeping schemas intact.
 - Default reasoning effort now initializes to `none` when no override is set; legacy `minimal` inputs are mapped to `effort: none` in API payloads, and verbosity hints are forwarded via Responses calls except for GPT-5 Codex models.
-- Added a cost-saver sidebar toggle to force lightweight model routing and clamp `max_completion_tokens` for cheaper responses, while still allowing explicit model overrides when callers set them directly.
+- Cost-saver routing now downgrades QUALITY to FAST for non-critical tasks (job ads, document refinement, and final explanations stay on QUALITY), and still clamps `max_completion_tokens` for cheaper responses while respecting explicit model overrides.
+- Runtime model routing now prefers GPT-5 tiers for web/file search tooling and falls back to `gpt-4.1-nano` for ultra-long prompts (>300k estimated tokens).
+- Responses-vs-Chat gating no longer forces GPT-4.1 or GPT-5 families onto Chat Completions, keeping Responses features available on those models.
 - Stage runtime output token caps default to 1024 (down from 2048) with OpenAI usage logging to track savings without truncating schema outputs.
 - Model routing now uses FAST (`gpt-5-nano`), QUALITY (`gpt-5-mini`), and LONG_CONTEXT (`gpt-4.1-nano`) tiers, while PRECISE (`gpt-5.1`) only activates via the precise toggle or high reasoning effort.
 - Default LLM routing now falls back through GPT-4o and GPT-3.5 tiers before escalating to GPT-5.2, keeping Quick/Precise toggles internal while honoring environment and secret overrides (`OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `HIGH_REASONING_MODEL`).
