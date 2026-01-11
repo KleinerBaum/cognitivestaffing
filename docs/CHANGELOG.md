@@ -14,6 +14,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Added
 - Business-Kontext wizard step with domain-first inputs, industry-code suggestions, and optional organisation/contact fields.
+- Debug-only Mermaid flow diagram for the wizard router, rendered from the live step configuration when `DEBUG_FLOW_DIAGRAM` is enabled.
 - `BusinessContext` schema section with migration/backfill helpers for legacy company/department data.
 - Developer guide for adding wizard steps safely, including schema and test expectations (`docs/dev/wizard-steps.md`).
 - Step-graph navigation hook (`next_step_id`) so steps can resolve dynamic next keys for branching flows.

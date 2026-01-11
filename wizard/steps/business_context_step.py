@@ -70,7 +70,6 @@ def _ensure_badge(source_confidence: dict[str, str], field_key: str, badge: str)
 
 
 def _step_business_context() -> None:
-    flow = _get_flow_module()
     st.markdown(COMPACT_STEP_STYLE, unsafe_allow_html=True)
 
     profile = _get_profile_state()
@@ -130,6 +129,7 @@ def _step_business_context() -> None:
             st.caption(tr("Vorschläge", "Suggestions"))
             chip_cols = st.columns(len(suggestions))
             for idx, suggestion in enumerate(suggestions):
+
                 def _apply_domain_suggestion(value: str = suggestion) -> None:
                     st.session_state[str(ProfilePaths.BUSINESS_CONTEXT_DOMAIN)] = value
                     business_context["domain"] = value

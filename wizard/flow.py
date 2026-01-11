@@ -125,6 +125,7 @@ from utils.admin_debug import (
     is_admin_debug_panel_enabled,
     is_admin_debug_session_active,
 )
+from wizard.debug.flow_diagram import build_mermaid_flowchart, validate_router_graph
 from utils.url_utils import is_supported_url
 from config import REASONING_EFFORT
 from config_loader import load_json
@@ -12946,6 +12947,38 @@ def _render_admin_debug_panel() -> None:
         )
 
 
+def _render_flow_diagram_panel() -> None:
+    """Render the Mermaid flow diagram when the debug flag is enabled."""
+
+    if not app_config.DEBUG_FLOW_DIAGRAM:
+        return
+
+    current_step = st.session_state.get(StateKeys.WIZARD_LAST_STEP)
+    current_step_id = current_step if isinstance(current_step, str) else None
+    mermaid = build_mermaid_flowchart(WIZARD_PAGES, current_step_id=current_step_id)
+    warnings = validate_router_graph(WIZARD_PAGES)
+
+    with st.expander(tr("Debug: Ablaufdiagramm", "Debug: Flow diagram")):
+        st.caption(
+            tr(
+                "Das Diagramm wird automatisch aus der Router-Konfiguration erzeugt.",
+                "The diagram is generated automatically from the router configuration.",
+            )
+        )
+        if warnings:
+            warning_text = "\n".join(f"- {warning}" for warning in warnings)
+            st.warning(
+                tr(
+                    "Hinweise zur Navigationskonfiguration:\n{warnings}",
+                    "Navigation configuration warnings:\n{warnings}",
+                ).format(warnings=warning_text)
+            )
+
+        st.markdown(f"```mermaid\n{mermaid}\n```")
+        st.caption(tr("Mermaid-Text kopieren", "Copy Mermaid text"))
+        st.code(mermaid, language="text")
+
+
 def run_wizard() -> None:
     """Run the multi-step profile creation wizard."""
 
@@ -12953,6 +12986,7 @@ def run_wizard() -> None:
     schema, critical = _load_wizard_configuration()
     if is_admin_debug_panel_enabled():
         _render_admin_debug_panel()
+    _render_flow_diagram_panel()
     try:
         _run_wizard_v2(schema, critical)
     except (RerunException, StopException):  # pragma: no cover - Streamlit control flow

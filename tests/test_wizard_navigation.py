@@ -154,9 +154,7 @@ _STEP_DEFINITIONS: tuple[tuple[str, int, bool, tuple[str, ...]], ...] = (
         "company",
         1,
         False,
-        (
-            "business_context.domain",
-        ),
+        ("business_context.domain",),
     ),
     ("team", 2, False, ()),
     ("role_tasks", 3, False, ()),
