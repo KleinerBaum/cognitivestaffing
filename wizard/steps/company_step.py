@@ -797,7 +797,10 @@ def _step_company() -> None:
 
     profile = _get_profile_state()
     profile_context = _build_profile_context(profile)
-    is_client_view = st.session_state.get(StateKeys.WIZARD_LAST_STEP) == "client"
+    raw_source = st.session_state.get(UIKeys.SOURCE_CONTEXT)
+    is_client_view = (
+        isinstance(raw_source, str) and raw_source.strip().lower() == "agency"
+    ) or st.session_state.get(StateKeys.WIZARD_LAST_STEP) == "client"
     default_header = ("Kunde", "Client") if is_client_view else ("Unternehmen", "Company")
     default_caption = (
         ("Basisinformationen zum Kunden angeben.", "Provide basic information about the client.")

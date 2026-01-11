@@ -61,6 +61,7 @@ Steps can be conditionally inactive based on the profile or schema (for example,
 The sidebar Flow mode toggle can switch between the guided multi-step flow and a single-page view that renders all steps in order inside expanders, with a top-level missing-fields summary to validate everything at once.
 
 The Business-Kontext step captures the domain-first context (business domain, industry codes, and optional organisation details), while company contact and department inputs remain accessible so missing-field badges appear where inputs live.
+When the onboarding source context is set to agency, the Business-Kontext step uses client-facing labels while staying in the same step position.
 Location follow-ups (`location.*`) are routed to the Business-Kontext step to ensure missing prompts surface alongside the location inputs.
 Position team follow-ups (`position.team_*`) are routed to the Business-Kontext step to match where the team structure inputs are rendered.
 

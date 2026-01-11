@@ -29,6 +29,9 @@ _CONFIG_ERROR_TYPES: tuple[type[Exception], ...] = (
     ImportError,
     KeyError,
 )
+_STEP_KEY_ALIASES: dict[str, str] = {
+    "client": "company",
+}
 
 
 def _resolve_step_error_messages(page: WizardPage, error: Exception) -> LocalizedText:
@@ -67,6 +70,10 @@ def _resolve_step_error_messages(page: WizardPage, error: Exception) -> Localize
         ).format(label=label_de),
         ("We couldn't render the “{label}” step. Please edit the fields manually or try again.").format(label=label_en),
     )
+
+
+def _normalize_step_key(step_key: str) -> str:
+    return _STEP_KEY_ALIASES.get(step_key, step_key)
 
 
 @dataclass(frozen=True)
@@ -206,10 +213,17 @@ class NavigationController:
         query_params = self._query_params
         step_values = list(query_params.get_all("step")) if hasattr(query_params, "get_all") else []
         step_param = step_values[0] if step_values else None
-        if step_param and step_param in self._page_map:
-            desired = step_param
+        normalized_param = _normalize_step_key(step_param) if isinstance(step_param, str) else None
+        if normalized_param and normalized_param in self._page_map:
+            desired = normalized_param
         elif step_param:
-            desired = step_registry.resolve_nearest_active_step_key(step_param, active_keys) or self._pages[0].key
+            desired = (
+                step_registry.resolve_nearest_active_step_key(
+                    normalized_param or step_param,
+                    active_keys,
+                )
+                or self._pages[0].key
+            )
         else:
             current = self.state.get("current_step")
             desired = current if isinstance(current, str) and current in self._page_map else self._pages[0].key
@@ -486,7 +500,7 @@ class NavigationController:
 
     def _resolve_nearest_active_key(self, current: object) -> str:
         active_keys = tuple(page.key for page in self._pages)
-        key = current if isinstance(current, str) else ""
+        key = _normalize_step_key(current) if isinstance(current, str) else ""
         return step_registry.resolve_nearest_active_step_key(key, active_keys) or self._pages[0].key
 
     def _history_stack(self) -> list[str]:

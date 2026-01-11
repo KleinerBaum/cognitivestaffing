@@ -26,7 +26,6 @@ COMPANY_STEP_INDEX: Final[int] = 1
 PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
     "jobad": 0,
     "company": COMPANY_STEP_INDEX,
-    "client": COMPANY_STEP_INDEX,
     "team": COMPANY_STEP_INDEX + 1,
     "role_tasks": COMPANY_STEP_INDEX + 2,
     "skills": COMPANY_STEP_INDEX + 2,
@@ -38,7 +37,6 @@ PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
 PAGE_FOLLOWUP_PREFIXES: Final[dict[str, tuple[str, ...]]] = {
     "jobad": ("meta.",),
     "company": ("business_context.", "company.", "department.", "location.", "position.team_"),
-    "client": ("business_context.", "company.", "department.", "location.", "position.team_"),
     "team": (
         "team.",
         "position.reporting_line",
@@ -63,14 +61,6 @@ _CRITICAL_SECTION_KEYS: Final[tuple[str, ...]] = (
 
 _PAGE_EXTRA_FIELDS: dict[str, tuple[str, ...]] = {
     "company": (
-        "company.name",
-        "company.contact_name",
-        "company.contact_email",
-        "company.contact_phone",
-        "location.primary_city",
-        "location.country",
-    ),
-    "client": (
         "company.name",
         "company.contact_name",
         "company.contact_email",
