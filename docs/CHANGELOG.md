@@ -114,6 +114,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 ### Fixed
 - Benefit suggestion fallbacks now try the static shortlist first and only reach the legacy LLM when enabled (`ALLOW_LEGACY_FALLBACKS`).
 - Suggestion helpers now guard chat-fallback logging to only touch `used_chat_fallback` on `ResponsesCallResult` responses, preventing type mismatches in tests or mocks.
+- Wizard test stubs now provide Streamlit container context managers and three-column placeholders to match layout expectations.
 - ESCO occupation selector now uses a dedicated widget session-state key to avoid Streamlit
   widget mutation errors while keeping profile state in sync.
 - Wizard UI session-state keys now use wizard-scoped or app-scoped namespaces (via `wiz.k(...)`)

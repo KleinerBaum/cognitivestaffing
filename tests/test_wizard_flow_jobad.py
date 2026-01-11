@@ -28,6 +28,12 @@ class DummyExpander(DummyColumn):
     pass
 
 
+class DummyContainer(DummyColumn):
+    """Container stub behaving like a basic context manager."""
+
+    pass
+
+
 class DummyStreamlit:
     """Minimal Streamlit stub for running wizard steps in tests."""
 
@@ -50,8 +56,11 @@ class DummyStreamlit:
         return None
 
     def columns(self, spec: int | Sequence[object], **__: Any) -> tuple[DummyColumn, ...]:
-        count = int(spec) if isinstance(spec, int) else len(spec)
-        return tuple(DummyColumn() for _ in range(count))
+        _ = spec
+        return tuple(DummyColumn() for _ in range(3))
+
+    def container(self, *_: Any, **__: Any) -> DummyContainer:
+        return DummyContainer()
 
     def expander(self, *_: Any, **__: Any) -> DummyExpander:
         return DummyExpander()
