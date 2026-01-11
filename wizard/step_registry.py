@@ -77,52 +77,28 @@ def _render_jobad_step(context: WizardContext) -> None:
 
 
 def _render_company_step(context: WizardContext) -> None:
-    from wizard.steps import company_step
+    from wizard.steps import business_context_step
 
-    company_step.step_company(context)
+    business_context_step.step_business_context(context)
 
 
 def _render_client_step(context: WizardContext) -> None:
-    from wizard.steps import company_step
+    from wizard.steps import business_context_step
 
-    company_step.step_company(context)
+    business_context_step.step_business_context(context)
 
 
-COMPANY_REQUIRED_FIELDS: Final[tuple[str, ...]] = (
-    "company.name",
-    "company.contact_email",
-    "department.name",
-    "location.primary_city",
+BUSINESS_CONTEXT_REQUIRED_FIELDS: Final[tuple[str, ...]] = (
+    "business_context.domain",
 )
 
-COMPANY_SUMMARY_FIELDS: Final[tuple[str, ...]] = (
-    "company.name",
-    "company.legal_name",
-    "company.brand_name",
-    "company.tagline",
-    "company.industry",
-    "company.industries",
-    "company.size",
-    "company.website",
-    "company.mission",
-    "company.hq_location",
-    "company.locations",
-    "company.culture",
-    "company.values",
-    "company.brand_keywords",
-    "company.description",
-    "company.contact_name",
-    "company.contact_email",
-    "company.contact_phone",
-    "company.logo_url",
-    "company.brand_color",
-    "company.claim",
-    "company.benefits",
-    "department.name",
-    "department.function",
-    "department.leader_name",
-    "department.leader_title",
-    "department.strategic_goals",
+BUSINESS_CONTEXT_SUMMARY_FIELDS: Final[tuple[str, ...]] = (
+    "business_context.domain",
+    "business_context.industry_codes",
+    "business_context.org_name",
+    "business_context.org_unit",
+    "business_context.location",
+    "business_context.compliance_flags",
 )
 
 
@@ -190,42 +166,42 @@ WIZARD_STEPS: Final[tuple[StepDefinition, ...]] = (  # GREP:STEP_REGISTRY_V2
     ),
     StepDefinition(
         key="company",
-        label=("Unternehmen", "Company"),
-        panel_header=("Unternehmen", "Company"),
-        panel_subheader=("Profil & Kontakt", "Profile & contact"),
+        label=("Business-Kontext", "Business context"),
+        panel_header=("Business-Kontext", "Business context"),
+        panel_subheader=("Domain & Organisation", "Domain & organisation"),
         panel_intro_variants=(
             (
-                "Falls nichts erkannt wurde, ergänze Name, Branche und Kontakt – sonst bitte kurz prüfen und bestätigen.",
-                "If nothing was detected, add name, industry, and contact details – otherwise just review and confirm.",
+                "Bitte überprüfe die Business-Domain und ergänze fehlende Kontextfelder.",
+                "Review the business domain and add any missing context.",
             ),
             (
-                "Wir haben Felder aus der Anzeige übernommen; passe sie an, wenn der Job-Text unvollständig war.",
-                "We pre-filled fields from the job ad; tweak them if the posting was incomplete.",
+                "Domain-First: Organisation und Standort sind optional.",
+                "Domain-first: organisation and location are optional.",
             ),
         ),
-        required_fields=COMPANY_REQUIRED_FIELDS,
-        summary_fields=COMPANY_SUMMARY_FIELDS,
+        required_fields=BUSINESS_CONTEXT_REQUIRED_FIELDS,
+        summary_fields=BUSINESS_CONTEXT_SUMMARY_FIELDS,
         allow_skip=False,
         renderer=_render_company_step,
         is_active=_company_step_active,
     ),
     StepDefinition(
         key="client",
-        label=("Kunde", "Client"),
-        panel_header=("Kunde", "Client"),
-        panel_subheader=("Ansprechpartner & Kontext", "Client contact & context"),
+        label=("Business-Kontext", "Business context"),
+        panel_header=("Business-Kontext", "Business context"),
+        panel_subheader=("Domain & Organisation", "Domain & organisation"),
         panel_intro_variants=(
             (
-                "Erfasse die wichtigsten Kundendetails, damit Rollenanforderungen klar bleiben.",
-                "Capture key client details so role requirements stay clear.",
+                "Bitte überprüfe die Business-Domain und ergänze fehlende Kontextfelder.",
+                "Review the business domain and add any missing context.",
             ),
             (
-                "Diese Angaben helfen, das Profil sauber von der Agentur zu trennen.",
-                "These details keep the client profile distinct from the agency.",
+                "Domain-First: Organisation und Standort sind optional.",
+                "Domain-first: organisation and location are optional.",
             ),
         ),
-        required_fields=COMPANY_REQUIRED_FIELDS,
-        summary_fields=COMPANY_SUMMARY_FIELDS,
+        required_fields=BUSINESS_CONTEXT_REQUIRED_FIELDS,
+        summary_fields=BUSINESS_CONTEXT_SUMMARY_FIELDS,
         allow_skip=False,
         renderer=_render_client_step,
         is_active=_client_step_active,

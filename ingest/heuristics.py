@@ -2616,6 +2616,45 @@ def guess_company_size(text: str) -> str:
     return extract_company_size(text)
 
 
+_BUSINESS_DOMAIN_RULES: list[tuple[tuple[str, ...], str]] = [
+    (("fintech", "payments", "banking"), "FinTech"),
+    (("healthtech", "medtech", "health"), "HealthTech"),
+    (("e-commerce", "ecommerce", "retail"), "E-Commerce"),
+    (("logistics", "supply chain", "transport"), "Logistics & Supply Chain"),
+    (("energy", "renewable", "solar"), "Energy & Renewables"),
+    (("saas", "cloud", "software"), "B2B SaaS"),
+    (("manufacturing", "industrial", "iot"), "Industrial & IoT"),
+]
+
+_BUSINESS_DOMAIN_TO_CODES: dict[str, list[str]] = {
+    "FinTech": ["NACE:K64", "NACE:K66"],
+    "HealthTech": ["NACE:Q86", "NACE:C32"],
+    "E-Commerce": ["NACE:G47"],
+    "Logistics & Supply Chain": ["NACE:H49", "NACE:H52"],
+    "Energy & Renewables": ["NACE:D35"],
+    "B2B SaaS": ["NACE:J62"],
+    "Industrial & IoT": ["NACE:C27", "NACE:C28"],
+}
+
+
+def guess_business_domain(text: str) -> str:
+    """Return a best-effort business domain guess from ``text``."""
+
+    lowered = text.casefold()
+    for keywords, domain in _BUSINESS_DOMAIN_RULES:
+        if any(keyword in lowered for keyword in keywords):
+            return domain
+    return ""
+
+
+def suggest_industry_codes_from_domain(domain: str) -> list[str]:
+    """Return industry code suggestions for ``domain``."""
+
+    if not domain:
+        return []
+    return list(_BUSINESS_DOMAIN_TO_CODES.get(domain, []))
+
+
 def guess_city(text: str) -> str:
     """Guess primary city from ``text``."""
     if not text:
@@ -2920,6 +2959,48 @@ def apply_basic_fallbacks(
                 "job_title_guess",
                 detail=f"with value {title_guess!r}",
             )
+    business_context = profile.business_context
+    source_confidence = business_context.source_confidence
+    if not isinstance(source_confidence, dict):
+        source_confidence = dict(source_confidence or {})
+        business_context.source_confidence = source_confidence
+
+    if not business_context.domain:
+        domain_guess = guess_business_domain(text)
+        if domain_guess:
+            business_context.domain = domain_guess
+            source_confidence.setdefault("domain", "🔎")
+            _mark_field_confidence("business_context.domain", "business_domain_guess", confidence=0.7)
+            _log_heuristic_fill(
+                "business_context.domain",
+                "business_domain_guess",
+                detail=f"with value {domain_guess!r}",
+            )
+
+    if business_context.domain and not business_context.industry_codes:
+        suggested_codes = suggest_industry_codes_from_domain(business_context.domain)
+        if suggested_codes:
+            business_context.industry_codes = suggested_codes
+            source_confidence.setdefault("industry_codes", "🤖")
+            _log_heuristic_fill(
+                "business_context.industry_codes",
+                "domain_code_suggest",
+                detail=f"with {len(suggested_codes)} entries",
+            )
+
+    if not business_context.org_name and profile.company.name:
+        business_context.org_name = profile.company.name
+        source_confidence.setdefault("org_name", "🔎")
+
+    if not business_context.org_unit and profile.department.name:
+        business_context.org_unit = profile.department.name
+        source_confidence.setdefault("org_unit", "🔎")
+
+    if not business_context.location:
+        location_hint = profile.location.primary_city or profile.company.hq_location
+        if location_hint:
+            business_context.location = location_hint
+            source_confidence.setdefault("location", "🔎")
     if not profile.company.name:
         name, brand = guess_company(text)
         if name:

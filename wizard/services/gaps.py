@@ -79,13 +79,16 @@ def detect_missing_critical_fields(
             if section_resolver(field) > max_section:
                 continue
         validator = field_validators.get(field) if field_validators else None
+        validated_value: object | None = None
         if validator is not None:
             raw_value = _resolve_raw_string(working_profile, field, field_values=field_values)
-            validator(raw_value)
+            validated_value, _ = validator(raw_value)
             if profile_refresher is not None:
                 working_profile = profile_refresher()
         value: object | None
-        if field_values is not None and field in field_values:
+        if validator is not None:
+            value = validated_value
+        elif field_values is not None and field in field_values:
             value = field_values.get(field)
         else:
             value = get_path_value(working_profile, field)

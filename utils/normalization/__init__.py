@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from utils.normalization_payloads import (
+    BusinessContextPayload,
     CompanyPayload,
     CompensationPayload,
     DepartmentPayload,
@@ -65,6 +66,7 @@ __all__ = [
     "looks_like_responsibility",
     "BulletCategory",
     "NormalizedProfilePayload",
+    "BusinessContextPayload",
     "CompanyPayload",
     "PositionPayload",
     "DepartmentPayload",

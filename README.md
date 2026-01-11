@@ -42,7 +42,7 @@ The wizard supports German and English job ads and maps common DE/EN section hea
 ### The 8 steps (fixed order)
 
 1. Onboarding / Job Ad
-2. Company
+2. Business-Kontext
 3. Team & Structure
 4. Role & Tasks
 5. Skills & Requirements
@@ -60,9 +60,9 @@ Steps can be conditionally inactive based on the profile or schema (for example,
 
 The sidebar Flow mode toggle can switch between the guided multi-step flow and a single-page view that renders all steps in order inside expanders, with a top-level missing-fields summary to validate everything at once.
 
-The Company step owns company profile, contact, and department details (`department.*`) so department follow-ups and missing-field badges appear where the inputs live.
-Location follow-ups (`location.*`) are also routed to the Company step to ensure missing prompts surface alongside the location inputs.
-Position team follow-ups (`position.team_*`) are routed to the Company step to match where the team structure inputs are rendered.
+The Business-Kontext step captures the domain-first context (business domain, industry codes, and optional organisation details), while company contact and department inputs remain accessible so missing-field badges appear where inputs live.
+Location follow-ups (`location.*`) are routed to the Business-Kontext step to ensure missing prompts surface alongside the location inputs.
+Position team follow-ups (`position.team_*`) are routed to the Business-Kontext step to match where the team structure inputs are rendered.
 
 The Summary step is organized into tabs for **Overview**, **Edit (core company/team/role/skills/compensation/process fields)**, **Exports**, and **Warnings** to keep review, export, and validation in one place. The Exports tab now includes a compact artifact list that centralizes downloads.
 
@@ -91,7 +91,7 @@ Missing prompts should not duplicate inputs that are already editable in the Kno
 The baseline UX uses the guided-flow UI kit in `app.py` (emoji stepper, context bar, progress microcopy, and inline saved feedback) to keep navigation stable without layout shifts.
 Wizard widget keys should always be generated via `wiz.k(...)` so session state remains namespaced for multi-wizard and multi-repo safety.
 
-The Company step now uses the shared `render_step_layout` helper to align with the Known/Missing/Tools structure (`wizard/step_layout.py`).
+The Business-Kontext step now uses the shared `render_step_layout` helper to align with the Known/Missing/Tools structure (`wizard/step_layout.py`).
 The Team & Structure step now uses the shared `render_step_layout` helper to align with the Known/Missing/Tools structure (`wizard/step_layout.py`).
 
 ### Tools & assistants (UX rule)

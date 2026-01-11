@@ -1,5 +1,6 @@
 {
     "critical": [
+        "business_context.domain",
         "company.name",
         "company.contact_name",
         "company.contact_email",

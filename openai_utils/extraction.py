@@ -177,6 +177,7 @@ def _style_display_label(tone_style: str | None, lang: str | None) -> str:
 
 
 _HEURISTIC_FIELD_PREFIXES: tuple[str, ...] = (
+    "business_context.",
     "company.",
     "position.",
     "location.",

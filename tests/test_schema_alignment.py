@@ -35,7 +35,11 @@ def _collect_schema_paths(schema: Mapping[str, Any], prefix: str = "") -> Set[st
     for name, subschema in properties.items():
         path = f"{prefix}{name}"
         if _is_object_schema(subschema):
-            fields.update(_collect_schema_paths(subschema, prefix=f"{path}."))
+            nested = _collect_schema_paths(subschema, prefix=f"{path}.")
+            if not nested and isinstance(subschema, Mapping) and subschema.get("additionalProperties") is not None:
+                fields.add(path)
+            else:
+                fields.update(nested)
         else:
             fields.add(path)
     return fields
@@ -74,7 +78,7 @@ def test_schema_registry_tracks_builder_output() -> None:
 def test_schema_registry_can_trim_sections() -> None:
     """Registry section filtering should mirror the builder's behaviour."""
 
-    sections = ["company", "position"]
+    sections = ["business_context", "position"]
     registry_schema = load_need_analysis_schema(sections=sections)
     generated = build_need_analysis_responses_schema(sections=sections)
 

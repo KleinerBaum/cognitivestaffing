@@ -90,6 +90,7 @@ LIST_FOLLOWUP_FIELDS: Final[set[str]] = {
 }
 
 INLINE_FOLLOWUP_FIELDS: Final[set[str]] = {
+    str(ProfilePaths.BUSINESS_CONTEXT_DOMAIN),
     str(ProfilePaths.COMPANY_NAME),
     str(ProfilePaths.COMPANY_CONTACT_NAME),
     str(ProfilePaths.COMPANY_CONTACT_EMAIL),
@@ -154,6 +155,21 @@ class TargetedPromptConfig(TypedDict, total=False):
 
 
 CRITICAL_FIELD_PROMPTS: dict[str, TargetedPromptConfig] = {
+    "business_context.domain": {
+        "prompt": (
+            "Welche Business-Domain beschreibt die Rolle am besten?",
+            "Which business domain best describes the role?",
+        ),
+        "description": (
+            "Die Domain hilft, passende Branchen-Codes und Vorschläge abzuleiten.",
+            "The domain helps derive industry codes and tailored suggestions.",
+        ),
+        "suggestions": (
+            ["FinTech", "HealthTech", "B2B SaaS"],
+            ["FinTech", "HealthTech", "B2B SaaS"],
+        ),
+        "style": "warning",
+    },
     "company.name": {
         "prompt": (
             "Wie lautet der offizielle Firmenname?",

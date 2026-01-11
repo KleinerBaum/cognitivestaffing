@@ -22,7 +22,47 @@ def _noop_migration(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
-MIGRATIONS: dict[int, MigrationFunc] = {1: _noop_migration}
+def _migrate_v1_to_v2(payload: dict[str, Any]) -> dict[str, Any]:
+    """Introduce the ``business_context`` section from legacy fields."""
+
+    company = payload.get("company")
+    department = payload.get("department")
+    location = payload.get("location")
+
+    if isinstance(payload.get("business_context"), Mapping):
+        business_context = dict(payload["business_context"])
+    else:
+        business_context = {}
+
+    if not str(business_context.get("domain") or "").strip():
+        if isinstance(company, Mapping):
+            business_context["domain"] = str(company.get("industry") or "").strip()
+        else:
+            business_context["domain"] = ""
+
+    if not str(business_context.get("org_name") or "").strip():
+        if isinstance(company, Mapping):
+            business_context["org_name"] = company.get("name")
+
+    if not str(business_context.get("org_unit") or "").strip():
+        if isinstance(department, Mapping):
+            business_context["org_unit"] = department.get("name")
+
+    if not str(business_context.get("location") or "").strip():
+        if isinstance(location, Mapping) and location.get("primary_city"):
+            business_context["location"] = location.get("primary_city")
+        elif isinstance(company, Mapping):
+            business_context["location"] = company.get("hq_location")
+
+    business_context.setdefault("industry_codes", [])
+    business_context.setdefault("compliance_flags", [])
+    business_context.setdefault("source_confidence", {})
+
+    payload["business_context"] = business_context
+    return payload
+
+
+MIGRATIONS: dict[int, MigrationFunc] = {1: _migrate_v1_to_v2}
 
 
 def _extract_version(payload: Mapping[str, Any]) -> int:

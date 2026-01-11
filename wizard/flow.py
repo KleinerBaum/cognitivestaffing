@@ -9489,7 +9489,19 @@ def _summary_company() -> None:
 
     data = _get_profile_state()
     _prime_widget_state_from_profile(data)
+    business_context = data.setdefault("business_context", {})
     c1, c2 = st.columns(2)
+    domain = c1.text_input(
+        tr("Business-Domain", "Business domain"),
+        value=business_context.get("domain", ""),
+        key="ui.summary.business_context.domain",
+    )
+    industry_codes_raw = c2.text_input(
+        tr("Industrie-Codes", "Industry codes"),
+        value=", ".join(business_context.get("industry_codes", []) or []),
+        key="ui.summary.business_context.industry_codes",
+    )
+    industry_codes = [code.strip() for code in industry_codes_raw.split(",") if code.strip()]
     summary_company_label = tr(*COMPANY_NAME_LABEL) + REQUIRED_SUFFIX
     summary_company_lock = _field_lock_config(
         "company.name",
@@ -9596,6 +9608,8 @@ def _summary_company() -> None:
     _update_profile(ProfilePaths.COMPANY_CONTACT_NAME, contact_name)
     _update_profile(ProfilePaths.COMPANY_CONTACT_EMAIL, contact_email)
     _update_profile(ProfilePaths.COMPANY_CONTACT_PHONE, contact_phone)
+    _update_profile(ProfilePaths.BUSINESS_CONTEXT_DOMAIN, domain)
+    _update_profile(ProfilePaths.BUSINESS_CONTEXT_INDUSTRY_CODES, industry_codes)
 
 
 def _summary_position() -> None:

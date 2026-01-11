@@ -16,6 +16,7 @@ def test_migrate_profile_adds_version_and_defaults() -> None:
     migrated = migrate_profile(legacy_profile)
 
     assert migrated["schema_version"] == CURRENT_SCHEMA_VERSION
+    assert migrated["business_context"]["org_name"] == "Acme"
     assert migrated["company"]["name"] == "Acme"
     assert migrated["process"]["hiring_process"] == ["CV screen"]
     assert migrated["meta"]["followups_answered"] == []

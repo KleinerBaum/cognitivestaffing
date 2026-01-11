@@ -155,9 +155,7 @@ _STEP_DEFINITIONS: tuple[tuple[str, int, bool, tuple[str, ...]], ...] = (
         1,
         False,
         (
-            "company.name",
-            "company.contact_email",
-            "location.primary_city",
+            "business_context.domain",
         ),
     ),
     ("team", 2, False, ()),
@@ -212,7 +210,11 @@ def _make_router(
     renderers = _build_renderers(render_log)
     context = WizardContext(schema={}, critical_fields=[])
 
-    def fake_missing() -> List[str]:
+    original_missing = wizard_metadata.get_missing_critical_fields
+
+    def fake_missing(*args: object, **kwargs: object) -> List[str]:
+        if missing_ref["value"] is None:
+            return list(original_missing(*args, **kwargs))
         return list(missing_ref["value"])
 
     monkeypatch.setattr(wizard_metadata, "get_missing_critical_fields", fake_missing)
@@ -305,7 +307,11 @@ def test_progress_zero_required_fields_waits_for_completion(
 
     missing_ref = {"value": []}
 
-    def fake_missing() -> List[str]:
+    original_missing = wizard_metadata.get_missing_critical_fields
+
+    def fake_missing(*args: object, **kwargs: object) -> List[str]:
+        if missing_ref["value"] is None:
+            return list(original_missing(*args, **kwargs))
         return list(missing_ref["value"])
 
     monkeypatch.setattr(wizard_metadata, "get_missing_critical_fields", fake_missing)
@@ -359,7 +365,7 @@ def test_navigate_updates_state_and_query(monkeypatch: pytest.MonkeyPatch, query
         raise RuntimeError("rerun")
 
     monkeypatch.setattr(st, "rerun", fake_rerun)
-    missing_ref = {"value": []}
+    missing_ref = {"value": None}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
 
     with pytest.raises(RuntimeError):
@@ -378,15 +384,21 @@ def test_next_advances_linearly(monkeypatch: pytest.MonkeyPatch, query_params: D
     """Next should move to the immediate next step without requiring backtracking."""
 
     st.session_state[StateKeys.PROFILE] = {
-        "company": {"name": "ACME", "contact_email": "contact@example.com"},
-        "location": {"primary_city": "Berlin"},
+        "business_context": {"domain": "FinTech"},
+        "company": {
+            "name": "ACME",
+            "contact_name": "Alex Applicant",
+            "contact_email": "contact@example.com",
+            "contact_phone": "+49 30 1234567",
+        },
+        "location": {"primary_city": "Berlin", "country": "DE"},
         "meta": {},
     }
     st.session_state[StateKeys.FOLLOWUPS] = []
     st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = "contact@example.com"
     st.session_state[ProfilePaths.LOCATION_PRIMARY_CITY] = "Berlin"
 
-    missing_ref = {"value": []}
+    missing_ref = {"value": None}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
 
     columns = [DummyColumn(), DummyColumn(), DummyColumn()]
@@ -461,7 +473,7 @@ def test_run_scroll_inserts_script_on_step_change(
     monkeypatch.setattr(st, "button", lambda *_, **__: False)
     monkeypatch.setattr(st, "rerun", lambda: (_ for _ in ()).throw(AssertionError("rerun not expected")))
 
-    missing_ref = {"value": []}
+    missing_ref = {"value": None}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
     st.session_state["lang"] = "de"
 
@@ -480,9 +492,9 @@ def test_skip_marks_step_completed_and_sets_query(
 
     def fake_button(*_args: object, **_kwargs: object) -> bool:
         key = _kwargs.get("key")
-        if key == "wizard_next_benefits":
+        if key == "wizard_next_benefits_bottom":
             return False
-        if key == "wizard_skip_benefits":
+        if key == "wizard_skip_benefits_bottom":
             return True
         return False
 
@@ -498,7 +510,7 @@ def test_skip_marks_step_completed_and_sets_query(
 
     monkeypatch.setattr(st, "rerun", lambda: (_ for _ in ()).throw(RerunTriggered()))
 
-    missing_ref = {"value": []}
+    missing_ref = {"value": None}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
     router._state["current_step"] = "benefits"
     query_params["step"] = ["benefits"]
@@ -545,7 +557,7 @@ def test_company_step_disables_next_until_required_answer(
 
     router.run()
 
-    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_company"]
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_company_bottom"]
     assert next_calls, "expected Next button to render"
     assert next_calls[-1]["kwargs"].get("disabled", False) is True
 
@@ -568,7 +580,7 @@ def test_run_handles_renderer_exception_gracefully(
     monkeypatch.setattr(st, "expander", lambda *_, **__: DummyContainer())
     monkeypatch.setattr(st, "exception", lambda *_, **__: None)
 
-    missing_ref = {"value": []}
+    missing_ref = {"value": None}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
 
     def _failing_callback(_context: WizardContext) -> None:
@@ -611,8 +623,14 @@ def test_company_step_enables_next_after_required_answer(
     """Providing the missing value should unlock navigation to the next section."""
 
     st.session_state[StateKeys.PROFILE] = {
-        "company": {"name": "ACME", "contact_email": "contact@example.com"},
-        "location": {"primary_city": "Berlin"},
+        "business_context": {"domain": "FinTech"},
+        "company": {
+            "name": "ACME",
+            "contact_name": "Alex Applicant",
+            "contact_email": "contact@example.com",
+            "contact_phone": "+49 30 1234567",
+        },
+        "location": {"primary_city": "Berlin", "country": "DE"},
         "meta": {},
     }
     st.session_state[StateKeys.FOLLOWUPS] = [{"field": "company.name", "question": "?", "priority": "critical"}]
@@ -639,7 +657,7 @@ def test_company_step_enables_next_after_required_answer(
 
     def fake_button(*args: object, **kwargs: object) -> bool:
         button_calls.append({"args": args, "kwargs": kwargs})
-        if kwargs.get("key") == "wizard_next_company":
+        if kwargs.get("key") == "wizard_next_company_bottom":
             return True
         return False
 
@@ -649,18 +667,18 @@ def test_company_step_enables_next_after_required_answer(
     with pytest.raises(RerunTriggered):
         router.run()
 
-    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_company"]
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_company_bottom"]
     assert next_calls, "expected Next button to render"
     assert next_calls[-1]["kwargs"].get("disabled", False) is False
     wizard_state = router._state
     assert wizard_state["current_step"] == "team"
 
 
-def test_company_step_blocks_when_contact_email_only_in_widget_state(
+def test_company_step_persists_contact_email_from_widget_state(
     monkeypatch: pytest.MonkeyPatch,
     query_params: Dict[str, List[str]],
 ) -> None:
-    """Contact email must be persisted, not just typed into the widget."""
+    """Contact email should persist from widget state into the profile."""
 
     st.session_state[StateKeys.PROFILE] = {
         "company": {"name": "ACME", "contact_email": ""},
@@ -669,18 +687,20 @@ def test_company_step_blocks_when_contact_email_only_in_widget_state(
     }
     st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = "typed@example.com"
 
-    missing_ref = {"value": []}
+    missing_ref = {"value": None}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
     page = router._page_map["company"]
     missing = router._missing_required_fields(page)
-    assert str(ProfilePaths.COMPANY_CONTACT_EMAIL) in missing
+    assert str(ProfilePaths.COMPANY_CONTACT_EMAIL) not in missing
+    profile = st.session_state[StateKeys.PROFILE]
+    assert profile["company"].get("contact_email") == "typed@example.com"
 
 
-def test_company_step_blocks_when_primary_city_only_in_widget_state(
+def test_company_step_persists_primary_city_from_widget_state(
     monkeypatch: pytest.MonkeyPatch,
     query_params: Dict[str, List[str]],
 ) -> None:
-    """Primary city needs to exist inside the profile before navigation unlocks."""
+    """Primary city should persist from widget state into the profile."""
 
     st.session_state[StateKeys.PROFILE] = {
         "company": {"name": "ACME", "contact_email": "contact@example.com"},
@@ -690,11 +710,13 @@ def test_company_step_blocks_when_primary_city_only_in_widget_state(
     st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = "contact@example.com"
     st.session_state[ProfilePaths.LOCATION_PRIMARY_CITY] = "Berlin"
 
-    missing_ref = {"value": []}
+    missing_ref = {"value": None}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
     page = router._page_map["company"]
     missing = router._missing_required_fields(page)
-    assert str(ProfilePaths.LOCATION_PRIMARY_CITY) in missing
+    assert str(ProfilePaths.LOCATION_PRIMARY_CITY) not in missing
+    profile = st.session_state[StateKeys.PROFILE]
+    assert profile["location"].get("primary_city") == "Berlin"
 
 
 def test_company_step_revalidates_contact_email_when_widget_cleared(
@@ -704,6 +726,7 @@ def test_company_step_revalidates_contact_email_when_widget_cleared(
     """Clearing the widget should trigger validators even if the profile still has data."""
 
     st.session_state[StateKeys.PROFILE] = {
+        "business_context": {"domain": "FinTech"},
         "company": {"name": "ACME", "contact_email": "contact@example.com"},
         "location": {"primary_city": "Berlin"},
         "meta": {},
@@ -711,7 +734,7 @@ def test_company_step_revalidates_contact_email_when_widget_cleared(
     st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = ""
     st.session_state[ProfilePaths.LOCATION_PRIMARY_CITY] = "Berlin"
 
-    missing_ref = {"value": []}
+    missing_ref = {"value": None}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
     page = router._page_map["company"]
     missing = router._missing_required_fields(page)
@@ -735,7 +758,7 @@ def test_company_step_revalidates_primary_city_when_widget_cleared(
     st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = "contact@example.com"
     st.session_state[ProfilePaths.LOCATION_PRIMARY_CITY] = ""
 
-    missing_ref = {"value": []}
+    missing_ref = {"value": None}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
     page = router._page_map["company"]
     missing = router._missing_required_fields(page)
@@ -792,7 +815,7 @@ def test_company_step_relocks_after_contact_fields_cleared(
 
     router.run()
 
-    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_company"]
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_company_bottom"]
     assert next_calls, "expected Next button to render"
     assert next_calls[-1]["kwargs"].get("disabled", False) is True
 
@@ -811,7 +834,7 @@ def test_company_step_surfaces_warning_when_contact_fields_missing(
     st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = ""
     st.session_state[ProfilePaths.LOCATION_PRIMARY_CITY] = ""
 
-    missing_ref = {"value": []}
+    missing_ref = {"value": None}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
     router._state["current_step"] = "company"
     query_params["step"] = ["company"]
@@ -828,7 +851,11 @@ def test_company_step_surfaces_warning_when_contact_fields_missing(
         warnings.append(message)
 
     monkeypatch.setattr(st, "warning", fake_warning)
-    monkeypatch.setattr(st, "button", lambda *_, **__: False)
+
+    def fake_button(*_args: object, **kwargs: object) -> bool:
+        return kwargs.get("key") == "wizard_next_company_bottom"
+
+    monkeypatch.setattr(st, "button", fake_button)
     monkeypatch.setattr(st, "rerun", lambda: None)
 
     router.run()
@@ -837,11 +864,11 @@ def test_company_step_surfaces_warning_when_contact_fields_missing(
     assert "Kontakt-E-Mail" in warnings[-1]
 
 
-def test_company_next_click_allows_navigation_when_contact_fields_missing(
+def test_company_next_click_stays_blocked_when_contact_fields_missing(
     monkeypatch: pytest.MonkeyPatch,
     query_params: Dict[str, List[str]],
 ) -> None:
-    """Navigation should continue even when required validators report errors."""
+    """Navigation should stay blocked when required validators report errors."""
 
     st.session_state[StateKeys.PROFILE] = {
         "company": {"name": "ACME", "contact_email": "contact@example.com"},
@@ -851,7 +878,7 @@ def test_company_next_click_allows_navigation_when_contact_fields_missing(
     st.session_state[ProfilePaths.COMPANY_CONTACT_EMAIL] = "contact@example.com"
     st.session_state[ProfilePaths.LOCATION_PRIMARY_CITY] = "Berlin"
 
-    missing_ref = {"value": []}
+    missing_ref = {"value": None}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
     router._state["current_step"] = "company"
     query_params["step"] = ["company"]
@@ -877,7 +904,7 @@ def test_company_next_click_allows_navigation_when_contact_fields_missing(
 
     monkeypatch.setattr(st, "rerun", lambda: (_ for _ in ()).throw(RerunTriggered()))
 
-    responses = {"wizard_next_company": iter([True])}
+    responses = {"wizard_next_company_bottom": iter([True])}
 
     def fake_button(*_args: object, **kwargs: object) -> bool:
         key = kwargs.get("key")
@@ -891,13 +918,11 @@ def test_company_next_click_allows_navigation_when_contact_fields_missing(
 
     monkeypatch.setattr(st, "button", fake_button)
 
-    with pytest.raises(RerunTriggered):
-        router.run()
+    router.run()
 
     assert call_counter["value"] >= 1, "validators should still execute"
-    assert router._state["current_step"] == "team"
-    assert query_params["step"] == ["team"]
-    assert StateKeys.WIZARD_NAVIGATION_WARNING not in st.session_state
+    assert router._state["current_step"] == "company"
+    assert query_params["step"] == ["company"]
 
 
 def test_missing_required_fields_hint_renders_under_next_button(
@@ -967,7 +992,7 @@ def test_critical_followup_blocks_until_answered(
     """Critical follow-ups scoped to the page should gate the Next button."""
 
     st.session_state[StateKeys.PROFILE] = {"position": {}, "meta": {}}
-    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "position.team_size", "priority": "critical"}]
+    st.session_state[StateKeys.FOLLOWUPS] = [{"field": "team.reporting_line", "priority": "critical"}]
 
     missing_ref = {"value": []}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
@@ -985,7 +1010,7 @@ def test_critical_followup_blocks_until_answered(
         pass
 
     button_calls: list[dict[str, Any]] = []
-    responses = {"wizard_next_team": iter([False, True])}
+    responses = {"wizard_next_team_bottom": iter([False, True])}
 
     def fake_button(*args: object, **kwargs: object) -> bool:
         button_calls.append({"args": args, "kwargs": kwargs})
@@ -1003,17 +1028,17 @@ def test_critical_followup_blocks_until_answered(
 
     router.run()
 
-    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_team"]
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_team_bottom"]
     assert next_calls, "expected Next button to render"
     assert next_calls[-1]["kwargs"].get("disabled", False) is True
 
     profile = st.session_state[StateKeys.PROFILE]
-    profile.setdefault("position", {})["team_size"] = 5
+    profile.setdefault("team", {})["reporting_line"] = "Engineering"
 
     with pytest.raises(RerunTriggered):
         router.run()
 
-    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_team"]
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_team_bottom"]
     assert next_calls[-1]["kwargs"].get("disabled", False) is False
     wizard_state = router._state
     assert wizard_state["current_step"] == "role_tasks"
@@ -1045,7 +1070,7 @@ def test_requirements_followup_blocks_role_tasks(
         pass
 
     button_calls: list[dict[str, Any]] = []
-    responses = {"wizard_next_role_tasks": iter([False, True])}
+    responses = {"wizard_next_role_tasks_bottom": iter([False, True])}
 
     def fake_button(*args: object, **kwargs: object) -> bool:
         button_calls.append({"args": args, "kwargs": kwargs})
@@ -1063,7 +1088,7 @@ def test_requirements_followup_blocks_role_tasks(
 
     router.run()
 
-    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_role_tasks"]
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_role_tasks_bottom"]
     assert next_calls[-1]["kwargs"].get("disabled", False) is True
 
     requirements = st.session_state[StateKeys.PROFILE].setdefault("requirements", {})
@@ -1072,7 +1097,7 @@ def test_requirements_followup_blocks_role_tasks(
     with pytest.raises(RerunTriggered):
         router.run()
 
-    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_role_tasks"]
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_role_tasks_bottom"]
     assert next_calls[-1]["kwargs"].get("disabled", False) is False
     wizard_state = router._state
     assert wizard_state["current_step"] == "skills"

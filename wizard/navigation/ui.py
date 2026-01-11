@@ -191,7 +191,7 @@ def build_navigation_state(
 
     if next_key:
         next_hint: LocalizedText | None = None
-        next_enabled = True
+        next_enabled = not missing_tuple
         if missing_tuple:
             next_hint = (
                 "Bitte fülle die markierten Pflichtfelder aus, bevor du fortfährst.",

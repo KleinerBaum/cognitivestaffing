@@ -13,6 +13,8 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 ## [Unreleased]
 
 ### Added
+- Business-Kontext wizard step with domain-first inputs, industry-code suggestions, and optional organisation/contact fields.
+- `BusinessContext` schema section with migration/backfill helpers for legacy company/department data.
 - Developer guide for adding wizard steps safely, including schema and test expectations (`docs/dev/wizard-steps.md`).
 - Step-graph navigation hook (`next_step_id`) so steps can resolve dynamic next keys for branching flows.
 - Shared Streamlit wizard UX kit module with a compatibility shim in `ui/`.
@@ -49,6 +51,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Job-ad extraction now surfaces a progress indicator that tracks structured extraction and follow-up generation.
 
 ### Changed
+- Wizard flow step 2 now centers on Business-Kontext (domain-first) while preserving legacy company/department mappings for exports.
 - `app.py` now renders the guided-flow UI kit stepper/context/progress elements and inline saved feedback to stabilize the baseline wizard UX.
 - Wizard back navigation now prefers a history stack so branching paths return to the actual previous step.
 - Company step headers and captions now adapt when the client branch is active.
