@@ -53,6 +53,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Changed
 - Updated the German benefits prompt wording to use "Vorteile oder Zusatzleistungen."
+- Startup model routing now selects and stores one resolved model per tier (FAST/QUALITY/LONG_CONTEXT) with explicit fallback chains for each tier.
 - Wizard flow step 2 now centers on Business-Kontext (domain-first) while preserving legacy company/department mappings for exports.
 - `app.py` now renders the guided-flow UI kit stepper/context/progress elements and inline saved feedback to stabilize the baseline wizard UX.
 - Wizard back navigation now prefers a history stack so branching paths return to the actual previous step.

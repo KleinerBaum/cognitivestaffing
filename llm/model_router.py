@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import time
 from dataclasses import dataclass
-from typing import Sequence, Set
+from typing import Mapping, Sequence, Set
 
 from openai import OpenAI
 
@@ -19,6 +19,23 @@ DEFAULT_CANDIDATES = [
     model_config.GPT51_MINI,
     model_config.GPT51_NANO,
 ]
+
+TIER_FALLBACKS: Mapping[str, Sequence[str]] = {
+    "FAST": (
+        model_config.GPT51_NANO,
+        model_config.GPT41_NANO,
+        model_config.GPT4O_MINI,
+    ),
+    "QUALITY": (
+        model_config.GPT51_MINI,
+        model_config.GPT41_MINI,
+        model_config.GPT4O,
+    ),
+    "LONG_CONTEXT": (
+        model_config.GPT41_NANO,
+        model_config.GPT41_MINI,
+    ),
+}
 
 
 @dataclass
@@ -56,18 +73,10 @@ def _clear_model_cache() -> None:
 _available_models.cache_clear = _clear_model_cache  # type: ignore[attr-defined]
 
 
-def pick_model(client: OpenAI, extra_candidates: Sequence[str] | None = None) -> str:
-    candidates: list[str] = []
-    preferred = os.getenv(PREF_ENV)
-    if preferred:
-        candidates.append(preferred.strip())
-    fallbacks = os.getenv(FB_ENV)
-    if fallbacks:
-        candidates.extend(candidate.strip() for candidate in fallbacks.split(",") if candidate.strip())
-    if extra_candidates:
-        candidates.extend(list(extra_candidates))
-    candidates.extend(DEFAULT_CANDIDATES)
-
+def _resolve_candidates(
+    client: OpenAI,
+    candidates: Sequence[str],
+) -> str:
     available = _available_models(client)
     resolved_candidates: list[str] = []
     for candidate in candidates:
@@ -85,3 +94,35 @@ def pick_model(client: OpenAI, extra_candidates: Sequence[str] | None = None) ->
 
     sample = sorted(list(available))[:10]
     raise RuntimeError("No usable model found. Tried: %s; Available sample: %s" % (candidates, sample))
+
+
+def _env_candidates(extra_candidates: Sequence[str] | None = None) -> list[str]:
+    candidates: list[str] = []
+    preferred = os.getenv(PREF_ENV)
+    if preferred:
+        candidates.append(preferred.strip())
+    fallbacks = os.getenv(FB_ENV)
+    if fallbacks:
+        candidates.extend(candidate.strip() for candidate in fallbacks.split(",") if candidate.strip())
+    if extra_candidates:
+        candidates.extend(list(extra_candidates))
+    return candidates
+
+
+def pick_model(client: OpenAI, extra_candidates: Sequence[str] | None = None) -> str:
+    candidates = _env_candidates(extra_candidates)
+    candidates.extend(DEFAULT_CANDIDATES)
+    return _resolve_candidates(client, candidates)
+
+
+def pick_model_for_tier(
+    client: OpenAI,
+    tier: str,
+    extra_candidates: Sequence[str] | None = None,
+) -> str:
+    tier_candidates = list(TIER_FALLBACKS.get(tier, ()))
+    candidates = _env_candidates(extra_candidates)
+    candidates.extend(tier_candidates)
+    if not candidates:
+        candidates.extend(DEFAULT_CANDIDATES)
+    return _resolve_candidates(client, candidates)
