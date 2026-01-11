@@ -6,7 +6,6 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from typing import Final
 
-from constants.keys import UIKeys
 from wizard.navigation_types import StepNextResolver, WizardContext
 
 StepPredicate = Callable[[Mapping[str, object], Mapping[str, object]], bool]
@@ -51,23 +50,8 @@ def _team_step_active(profile: Mapping[str, object], session_state: Mapping[str,
     return True
 
 
-def _resolve_source_context(session_state: Mapping[str, object]) -> str:
-    raw = session_state.get(UIKeys.SOURCE_CONTEXT)
-    if isinstance(raw, str) and raw.strip().lower() == "agency":
-        return "agency"
-    return "in_house"
-
-
-def _company_step_active(_profile: Mapping[str, object], session_state: Mapping[str, object]) -> bool:
-    return _resolve_source_context(session_state) != "agency"
-
-
-def _client_step_active(_profile: Mapping[str, object], session_state: Mapping[str, object]) -> bool:
-    return _resolve_source_context(session_state) == "agency"
-
-
-def _jobad_next_step_id(_context: WizardContext, session_state: Mapping[str, object]) -> str | None:
-    return "client" if _resolve_source_context(session_state) == "agency" else "company"
+def _jobad_next_step_id(_context: WizardContext, _session_state: Mapping[str, object]) -> str | None:
+    return "company"
 
 
 def _render_jobad_step(context: WizardContext) -> None:
@@ -77,12 +61,6 @@ def _render_jobad_step(context: WizardContext) -> None:
 
 
 def _render_company_step(context: WizardContext) -> None:
-    from wizard.steps import business_context_step
-
-    business_context_step.step_business_context(context)
-
-
-def _render_client_step(context: WizardContext) -> None:
     from wizard.steps import business_context_step
 
     business_context_step.step_business_context(context)
@@ -181,28 +159,6 @@ WIZARD_STEPS: Final[tuple[StepDefinition, ...]] = (  # GREP:STEP_REGISTRY_V2
         summary_fields=BUSINESS_CONTEXT_SUMMARY_FIELDS,
         allow_skip=False,
         renderer=_render_company_step,
-        is_active=_company_step_active,
-    ),
-    StepDefinition(
-        key="client",
-        label=("Business-Kontext", "Business context"),
-        panel_header=("Business-Kontext", "Business context"),
-        panel_subheader=("Domain & Organisation", "Domain & organisation"),
-        panel_intro_variants=(
-            (
-                "Bitte überprüfe die Business-Domain und ergänze fehlende Kontextfelder.",
-                "Review the business domain and add any missing context.",
-            ),
-            (
-                "Domain-First: Organisation und Standort sind optional.",
-                "Domain-first: organisation and location are optional.",
-            ),
-        ),
-        required_fields=BUSINESS_CONTEXT_REQUIRED_FIELDS,
-        summary_fields=BUSINESS_CONTEXT_SUMMARY_FIELDS,
-        allow_skip=False,
-        renderer=_render_client_step,
-        is_active=_client_step_active,
     ),
     StepDefinition(
         key="team",

@@ -56,6 +56,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - `app.py` now renders the guided-flow UI kit stepper/context/progress elements and inline saved feedback to stabilize the baseline wizard UX.
 - Wizard back navigation now prefers a history stack so branching paths return to the actual previous step.
 - Company step headers and captions now adapt when the client branch is active.
+- Wizard step ordering now aligns to the canonical eight-step flow while the Business-Kontext step switches to client labels for agency contexts.
 - Wizard navigation now validates required fields on Next click without disabling the button, keeping navigation responsive while still blocking incomplete steps.
 - Wizard navigation now renders an emoji stepper with active/done/upcoming styling, and the layout reserves space for validation messaging to prevent shifts.
 - README now documents the reserved validation area and origin markers, and the UX preview text assets now cover the stepper, origin markers, and validation area in `images/`.
