@@ -52,6 +52,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Job-ad extraction now surfaces a progress indicator that tracks structured extraction and follow-up generation.
 
 ### Changed
+- Updated the German benefits prompt wording to use "Vorteile oder Zusatzleistungen."
 - Wizard flow step 2 now centers on Business-Kontext (domain-first) while preserving legacy company/department mappings for exports.
 - `app.py` now renders the guided-flow UI kit stepper/context/progress elements and inline saved feedback to stabilize the baseline wizard UX.
 - Wizard back navigation now prefers a history stack so branching paths return to the actual previous step.
