@@ -9,7 +9,11 @@ from typing import Any, Sequence
 import config as app_config
 from config import REASONING_EFFORT
 from config.models import ModelTask, get_model_for
-from llm.openai_responses import build_json_schema_format, call_responses_safe
+from llm.openai_responses import (
+    ResponsesCallResult,
+    build_json_schema_format,
+    call_responses_safe,
+)
 from llm.response_schemas import (
     BENEFIT_SUGGESTION_SCHEMA_NAME,
     SKILL_SUGGESTION_SCHEMA_NAME,
@@ -265,7 +269,7 @@ def suggest_skills_for_role(
             existing_items=existing_items,
             responsibilities=responsibilities,
         )
-    if response.used_chat_fallback:
+    if isinstance(response, ResponsesCallResult) and response.used_chat_fallback:
         logger.info("Skill suggestions succeeded via classic chat fallback")
 
     try:
@@ -433,7 +437,7 @@ def suggest_benefits(
             "Responses API benefit suggestion failed; attempting legacy fallback before static shortlist",
         )
         return _run_fallback_cascade()
-    if response.used_chat_fallback:
+    if isinstance(response, ResponsesCallResult) and response.used_chat_fallback:
         logger.info("Benefit suggestions succeeded via classic chat fallback")
 
     try:
