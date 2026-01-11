@@ -55,7 +55,7 @@ from config import (  # noqa: E402
     OPENAI_ORGANIZATION,
     OPENAI_PROJECT,
 )
-from llm.model_router import pick_model  # noqa: E402
+from llm.model_router import pick_model_for_tier  # noqa: E402
 from utils.telemetry import setup_tracing  # noqa: E402
 from utils.i18n import tr  # noqa: E402
 from constants.keys import StateKeys  # noqa: E402
@@ -101,9 +101,13 @@ st.session_state.setdefault(StateKeys.APP_VERSION, APP_VERSION)
 st.session_state[StateKeys.WIZARD_STEP_FORM_MODE] = USE_FORM_PANEL_FADE
 st.session_state[StateKeys.WIZARD_STEP_FORM_FADE] = USE_FORM_PANEL_FADE
 
-MODEL_ID = cast(str | None, st.session_state.get(StateKeys.ROUTER_RESOLVED_MODEL))
+MODEL_MAP = cast(dict[str, str] | None, st.session_state.get("model_map"))
+MODEL_TIERS = ("FAST", "QUALITY", "LONG_CONTEXT")
 if LLM_ENABLED:
-    if MODEL_ID is None:
+    if MODEL_MAP is None:
+        MODEL_MAP = {}
+        st.session_state["model_map"] = MODEL_MAP
+    if not MODEL_MAP or any(tier not in MODEL_MAP for tier in MODEL_TIERS):
         try:
             router_client = OpenAI(
                 api_key=OPENAI_API_KEY or None,
@@ -111,20 +115,20 @@ if LLM_ENABLED:
                 organization=OPENAI_ORGANIZATION or None,
                 project=OPENAI_PROJECT or None,
             )
-            MODEL_ID = pick_model(router_client)
-            st.session_state[StateKeys.ROUTER_RESOLVED_MODEL] = MODEL_ID
+            for tier in MODEL_TIERS:
+                if tier in MODEL_MAP:
+                    continue
+                MODEL_MAP[tier] = pick_model_for_tier(router_client, tier)
+            st.session_state["model_map"] = MODEL_MAP
             st.session_state[StateKeys.ROUTER_MODEL_LOGGED] = True
-            print(f"[MODEL_ROUTER_V3] using model={MODEL_ID}")
+            print(f"[MODEL_ROUTER_V3] using model_map={MODEL_MAP}")
         except Exception as exc:  # pragma: no cover - defensive startup logging
-            print(f"[MODEL_ROUTER_V3] unable to resolve model: {exc}")
+            print(f"[MODEL_ROUTER_V3] unable to resolve model map: {exc}")
     elif not st.session_state.get(StateKeys.ROUTER_MODEL_LOGGED):
-        print(f"[MODEL_ROUTER_V3] using model={MODEL_ID}")
+        print(f"[MODEL_ROUTER_V3] using model_map={MODEL_MAP}")
         st.session_state[StateKeys.ROUTER_MODEL_LOGGED] = True
 else:
     print("[MODEL_ROUTER_V3] OpenAI API key not configured; model routing skipped.")
-
-if MODEL_ID and StateKeys.ROUTER_RESOLVED_MODEL not in st.session_state:
-    st.session_state[StateKeys.ROUTER_RESOLVED_MODEL] = MODEL_ID
 
 if st.session_state.get("openai_api_key_missing"):
     st.warning(
