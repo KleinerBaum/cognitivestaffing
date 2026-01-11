@@ -15,7 +15,7 @@ from wizard import _step_onboarding
 class DummyContext:
     """Lightweight context manager used to stub column blocks."""
 
-    def __enter__(self):
+    def __enter__(self) -> None:
         return None
 
     def __exit__(self, exc_type, exc, tb) -> None:  # pragma: no cover - interface only
@@ -48,7 +48,12 @@ def test_onboarding_language_switch(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(st, "markdown", lambda *a, **k: None)
     monkeypatch.setattr(st, "write", lambda *a, **k: None)
     monkeypatch.setattr(st, "checkbox", lambda *a, **k: False)
-    monkeypatch.setattr(st, "columns", lambda *a, **k: (DummyContext(), DummyContext()))
+    monkeypatch.setattr(
+        st,
+        "columns",
+        lambda *a, **k: (DummyContext(), DummyContext(), DummyContext()),
+    )
+    monkeypatch.setattr(st, "container", lambda *a, **k: DummyContext())
     monkeypatch.setattr(st, "info", lambda *a, **k: None)
     monkeypatch.setattr(st, "file_uploader", lambda *a, **k: None)
     monkeypatch.setattr(st, "image", lambda *a, **k: None)

@@ -275,6 +275,9 @@ poetry run pytest
 Streamlit AppTest regression checks (including the ESCO selector state guard) run in the same
 `pytest` suite and do not require network access.
 
+Some wizard tests stub Streamlit containers/columns, so stubs should mimic context-manager
+behavior and three-column layouts.
+
 The test suite also validates that rule-based extraction fields stay aligned with the canonical
 NeedAnalysis schema, so rule path drift fails fast in CI.
 
