@@ -368,6 +368,10 @@ OPENAI_REQUEST_TIMEOUT = _normalise_timeout(os.getenv("OPENAI_REQUEST_TIMEOUT"),
 # but internal callers may still switch modes for testing.
 USE_CLASSIC_API = False
 USE_RESPONSES_API = True
+ALLOW_LEGACY_FALLBACKS = _normalise_bool(
+    os.getenv("ALLOW_LEGACY_FALLBACKS"),
+    default=True,
+)
 
 ADMIN_DEBUG_PANEL = _normalise_bool(
     os.getenv("ADMIN_DEBUG_PANEL"),

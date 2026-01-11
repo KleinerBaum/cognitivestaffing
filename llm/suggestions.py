@@ -400,6 +400,17 @@ def suggest_benefits(
         )
 
     def _run_fallback_cascade() -> list[str]:
+        static = _fallback_benefits_static(
+            lang=lang,
+            industry=industry,
+            existing_benefits=existing_benefits,
+            focus_areas=focus_areas,
+        )
+        if static:
+            return static
+        if not app_config.ALLOW_LEGACY_FALLBACKS:
+            logger.info("Legacy benefit fallback disabled; returning empty shortlist.")
+            return static
         legacy = _fallback_benefits_via_legacy(
             job_title,
             industry=industry,
@@ -411,12 +422,7 @@ def suggest_benefits(
         )
         if legacy:
             return legacy
-        return _fallback_benefits_static(
-            lang=lang,
-            industry=industry,
-            existing_benefits=existing_benefits,
-            focus_areas=focus_areas,
-        )
+        return static
 
     response = call_responses_safe(
         [{"role": "user", "content": prompt}],
@@ -434,7 +440,7 @@ def suggest_benefits(
     )
     if response is None:
         logger.warning(
-            "Responses API benefit suggestion failed; attempting legacy fallback before static shortlist",
+            "Responses API benefit suggestion failed; using static shortlist before legacy fallback.",
         )
         return _run_fallback_cascade()
     if isinstance(response, ResponsesCallResult) and response.used_chat_fallback:
@@ -444,7 +450,7 @@ def suggest_benefits(
         payload = json.loads(response.content or "{}")
     except json.JSONDecodeError as exc:  # pragma: no cover - defensive parsing
         logger.warning(
-            "Responses API benefit suggestion returned invalid JSON; attempting legacy fallback before static shortlist.",
+            "Responses API benefit suggestion returned invalid JSON; using static shortlist before legacy fallback.",
             exc_info=exc,
         )
         return _run_fallback_cascade()
@@ -481,6 +487,6 @@ def suggest_benefits(
         return filtered
 
     logger.warning(
-        "Responses API produced no benefit items after filtering; attempting legacy fallback before static shortlist.",
+        "Responses API produced no benefit items after filtering; using static shortlist before legacy fallback.",
     )
     return _run_fallback_cascade()
