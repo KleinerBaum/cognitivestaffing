@@ -35,6 +35,11 @@ O3 = "o3"
 O3_MINI = "o3-mini"
 GPT35 = "gpt-3.5-turbo"
 
+FAST = "gpt-5-nano"
+QUALITY = "gpt-5-mini"
+LONG_CONTEXT = "gpt-4.1-nano"
+PRECISE = "gpt-5.1"
+
 EMBED_MODEL = "text-embedding-3-large"  # RAG
 
 REASONING_LEVELS = ("none", "minimal", "low", "medium", "high")
@@ -56,8 +61,8 @@ LATEST_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
     ("gpt-5.1-nano-latest", GPT51_NANO),
     ("gpt-5.1-mini", GPT51_MINI),
     ("gpt-5.1-mini-latest", GPT51_MINI),
-    ("gpt-5.1", GPT51),
-    ("gpt-5.1-latest", GPT51),
+    ("gpt-5.1", PRECISE),
+    ("gpt-5.1-latest", PRECISE),
     ("gpt-5", GPT51),
     ("gpt-4.1-mini", GPT41_MINI),
     ("gpt-4.1-mini-latest", GPT41_MINI),
@@ -90,11 +95,11 @@ MODEL_ALIASES: Dict[str, str] = {
     **{alias: target for alias, target in LEGACY_MODEL_ALIASES},
 }
 
-LIGHTWEIGHT_MODEL_DEFAULT = GPT4O_MINI
-MEDIUM_REASONING_MODEL_DEFAULT = GPT4O
-HIGH_REASONING_MODEL_DEFAULT = O3_MINI
-REASONING_MODEL_DEFAULT = GPT4O
-PRIMARY_MODEL_DEFAULT = GPT4O_MINI
+LIGHTWEIGHT_MODEL_DEFAULT = FAST
+MEDIUM_REASONING_MODEL_DEFAULT = QUALITY
+HIGH_REASONING_MODEL_DEFAULT = PRECISE
+REASONING_MODEL_DEFAULT = QUALITY
+PRIMARY_MODEL_DEFAULT = FAST
 PRIMARY_MODEL = PRIMARY_MODEL_DEFAULT
 
 SUPPORTED_MODEL_CHOICES = {
@@ -108,6 +113,7 @@ SUPPORTED_MODEL_CHOICES = {
     GPT51_MINI,
     GPT51_NANO,
     GPT51,
+    PRECISE,
     GPT41_NANO,
     GPT41_MINI,
     O3,
@@ -170,8 +176,6 @@ _UNAVAILABLE_MODELS: set[str] = set()
 _PRECISION_TASKS: frozenset[str] = frozenset({"reasoning"})
 _LIGHTWEIGHT_TASKS: frozenset[str] = frozenset(
     {
-        ModelTask.EXTRACTION.value,
-        ModelTask.COMPANY_INFO.value,
         ModelTask.JSON_REPAIR.value,
         ModelTask.PROGRESS_INBOX.value,
         ModelTask.SALARY_ESTIMATE.value,
@@ -187,6 +191,7 @@ PRIMARY_MODEL_CHOICES: tuple[str, ...] = (
     GPT52_NANO,
     GPT51,
     GPT51_NANO,
+    GPT41_NANO,
     GPT4O_MINI,
     GPT4O,
     O3_MINI,
@@ -267,13 +272,13 @@ def normalise_model_name(value: str | None, *, prefer_latest: bool = True) -> st
         return GPT51_MINI
     if lowered.startswith("gpt-5.1-nano"):
         return GPT51_NANO
+    if lowered.startswith("gpt-5.1"):
+        return PRECISE
     if lowered.startswith("gpt-5-mini"):
         return GPT51_MINI
     if lowered.startswith("gpt-5-nano"):
         return GPT51_NANO
     if lowered.startswith("gpt-5"):
-        return GPT51
-    if lowered.startswith("gpt-5.1"):
         return GPT51
     if lowered.startswith("o4-mini"):
         return O4_MINI
@@ -316,9 +321,9 @@ def _model_for_reasoning_level(level: str) -> str:
     """Return the preferred model for ``level`` of reasoning effort."""
 
     mapping = {
-        "none": PRIMARY_MODEL,
-        "minimal": PRIMARY_MODEL,
-        "low": MEDIUM_REASONING_MODEL,
+        "none": LIGHTWEIGHT_MODEL,
+        "minimal": LIGHTWEIGHT_MODEL,
+        "low": LIGHTWEIGHT_MODEL,
         "medium": MEDIUM_REASONING_MODEL,
         "high": HIGH_REASONING_MODEL,
     }
@@ -332,8 +337,8 @@ def _prefer_lightweight(task: str) -> bool:
 def _build_model_config(overrides: Mapping[str, str] | None) -> Dict[str, TaskModelConfig]:
     config: Dict[str, TaskModelConfig] = {
         ModelTask.DEFAULT.value: TaskModelConfig(model=OPENAI_MODEL),
-        ModelTask.EXTRACTION.value: TaskModelConfig(model=LIGHTWEIGHT_MODEL),
-        ModelTask.COMPANY_INFO.value: TaskModelConfig(model=LIGHTWEIGHT_MODEL),
+        ModelTask.EXTRACTION.value: TaskModelConfig(model=LONG_CONTEXT),
+        ModelTask.COMPANY_INFO.value: TaskModelConfig(model=LONG_CONTEXT),
         ModelTask.FOLLOW_UP_QUESTIONS.value: TaskModelConfig(
             model=REASONING_MODEL,
             allow_json_schema=True,
@@ -348,7 +353,7 @@ def _build_model_config(overrides: Mapping[str, str] | None) -> Dict[str, TaskMo
         ModelTask.INTERVIEW_GUIDE.value: TaskModelConfig(model=REASONING_MODEL),
         ModelTask.PROFILE_SUMMARY.value: TaskModelConfig(model=REASONING_MODEL),
         ModelTask.CANDIDATE_MATCHING.value: TaskModelConfig(model=REASONING_MODEL),
-        ModelTask.DOCUMENT_REFINEMENT.value: TaskModelConfig(model=REASONING_MODEL),
+        ModelTask.DOCUMENT_REFINEMENT.value: TaskModelConfig(model=LONG_CONTEXT),
         ModelTask.EXPLANATION.value: TaskModelConfig(model=REASONING_MODEL),
         ModelTask.SALARY_ESTIMATE.value: TaskModelConfig(model=LIGHTWEIGHT_MODEL),
         ModelTask.TEAM_ADVICE.value: TaskModelConfig(
@@ -394,9 +399,11 @@ MODEL_FALLBACKS: Dict[str, list[str]] = {
     _canonical_model_name(GPT52): [GPT52, GPT52_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35],
     _canonical_model_name(GPT52_MINI): [GPT52_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35, GPT52],
     _canonical_model_name(GPT52_NANO): [GPT52_NANO, GPT4O_MINI, GPT4O, GPT4, GPT35],
-    _canonical_model_name(GPT51): [GPT51, GPT4O, GPT4O_MINI, GPT4, GPT35, GPT52_MINI],
-    _canonical_model_name(GPT51_MINI): [GPT51_MINI, GPT4O_MINI, GPT4O, GPT4, GPT35],
+    _canonical_model_name(PRECISE): [PRECISE, QUALITY, FAST, GPT4O, GPT4O_MINI, GPT4, GPT35],
+    _canonical_model_name(GPT51): [GPT51, QUALITY, FAST, GPT4O, GPT4O_MINI, GPT4, GPT35, GPT52_MINI],
+    _canonical_model_name(GPT51_MINI): [GPT51_MINI, FAST, GPT4O_MINI, GPT4O, GPT4, GPT35],
     _canonical_model_name(GPT51_NANO): [GPT51_NANO, GPT4O_MINI, GPT4O, GPT4, GPT35],
+    _canonical_model_name(GPT41_NANO): [GPT41_NANO, GPT41_MINI, FAST, GPT4O_MINI, GPT4O, GPT4, GPT35],
     _canonical_model_name(O3): [O3, O3_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35],
     _canonical_model_name(O3_MINI): [O3_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35],
     _canonical_model_name(O4_MINI): [O4_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35],

@@ -1,15 +1,15 @@
 """Central configuration for the Cognitive Needs Responses API client.
 
-Model routing defaults to cost-efficient GPT-4o tiers with ``gpt-4o-mini`` as
-the primary assistant model, ``gpt-4o`` for medium reasoning, and ``o3-mini``
-for high/precise workloads. Fallbacks reintroduce GPT-4/GPT-3.5 options before
-escalating to GPT-5.2 so lightweight tasks stay affordable. Structured
-retrieval continues to use ``text-embedding-3-large`` (3,072 dimensions) for
-higher-fidelity RAG vectors.
+Model routing defaults to the tiered GPT-5/GPT-4.1 setup with ``gpt-5-nano`` as
+the primary fast model, ``gpt-5-mini`` for quality reasoning, and ``gpt-5.1`` as
+the optional precise tier. Long-context extraction routes through
+``gpt-4.1-nano``, while fallbacks cascade through GPT-4o and GPT-4/GPT-3.5 before
+escalating to GPT-5.2 when needed. Structured retrieval continues to use
+``text-embedding-3-large`` (3,072 dimensions) for higher-fidelity RAG vectors.
 
 ``REASONING_EFFORT`` (``none`` | ``minimal`` | ``low`` | ``medium`` | ``high``)
-controls how much reasoning the model performs by default. ``none`` maps to the
-lowest reasoning tier while ``minimal`` remains a backwards-compatible alias.
+controls how much reasoning the model performs by default. ``none``/``low`` map
+to the fast tier while ``minimal`` remains a backwards-compatible alias.
 """
 
 import logging
