@@ -38,6 +38,23 @@ def _to_int(value: Any) -> int:
         return 0
 
 
+def _coerce_token_value(value: Any) -> int:
+    if isinstance(value, Mapping):
+        for key in ("total", "text", "cached"):
+            if key in value:
+                return _to_int(value.get(key))
+        return 0
+    return _to_int(value)
+
+
+def _is_empty_token_value(value: Any) -> bool:
+    if value is None:
+        return True
+    if isinstance(value, str) and not value.strip():
+        return True
+    return isinstance(value, Mapping) and not value
+
+
 def _task_label(task_key: str) -> str:
     de_en = _TASK_LABELS.get(task_key)
     if de_en:
@@ -49,21 +66,23 @@ def _task_label(task_key: str) -> str:
 def usage_totals(usage: Mapping[str, Any]) -> tuple[int, int, int]:
     """Return overall input/output totals from ``usage``."""
 
-    input_tokens = _to_int(usage.get("input_tokens"))
-    output_tokens = _to_int(usage.get("output_tokens"))
+    input_tokens = _coerce_token_value(usage.get("input_tokens"))
+    output_tokens = _coerce_token_value(usage.get("output_tokens"))
     return input_tokens, output_tokens, input_tokens + output_tokens
 
 
 def _iter_task_stats(tasks: Mapping[str, Any]) -> Iterable[tuple[str, int, int]]:
     for key, raw_stats in tasks.items():
-        if not isinstance(raw_stats, Mapping):
+        if not isinstance(raw_stats, Mapping) or not raw_stats:
             continue
-        input_tokens = _to_int(raw_stats.get("input"))
-        if not input_tokens and "input" not in raw_stats:
-            input_tokens = _to_int(raw_stats.get("input_tokens"))
-        output_tokens = _to_int(raw_stats.get("output"))
-        if not output_tokens and "output" not in raw_stats:
-            output_tokens = _to_int(raw_stats.get("output_tokens"))
+        raw_input = raw_stats.get("input")
+        raw_output = raw_stats.get("output")
+        input_tokens = _coerce_token_value(raw_input)
+        if not input_tokens and _is_empty_token_value(raw_input):
+            input_tokens = _coerce_token_value(raw_stats.get("input_tokens"))
+        output_tokens = _coerce_token_value(raw_output)
+        if not output_tokens and _is_empty_token_value(raw_output):
+            output_tokens = _coerce_token_value(raw_stats.get("output_tokens"))
         if input_tokens or output_tokens:
             yield key, input_tokens, output_tokens
 

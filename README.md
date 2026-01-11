@@ -163,7 +163,7 @@ Use these environment variables (or Streamlit secrets) to cap spend and steer mo
 - **`REASONING_EFFORT`**: hint for reasoning depth (`none`/`minimal`/`low`/`medium`/`high`). Lower values reduce cost; higher values unlock more deliberative responses.
 - **`MODEL_ROUTING__<task>` overrides**: per-task model routing overrides (task keys match `ModelTask` in `config/models.py`, e.g. `job_ad`, `interview_guide`, `profile_summary`, `salary_estimate`, `follow_up_questions`).
 
-The sidebar includes a token usage summary with a per-request table (see `sidebar/__init__.py`) so you can review spend while running the wizard.
+The sidebar includes a token usage summary with a per-request table (see `sidebar/__init__.py`) so you can review spend while running the wizard. The table reads nested totals from Responses-style usage payloads as well as legacy input/output counters.
 
 **Example `.env` (low-cost defaults):**
 
