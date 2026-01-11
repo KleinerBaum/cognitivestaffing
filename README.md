@@ -153,6 +153,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
 
 - **Cost saver toggle (sidebar)**: when enabled, the wizard forces the lightweight model route and clamps `max_completion_tokens` to a tighter ceiling for cheaper, faster responses. Explicit model overrides still take priority if a caller sets one directly.
 - **Quick vs. Precise mode**: Quick lowers reasoning effort and Precise raises it; both respect the cost saver toggle when it is enabled.
+- **Tier defaults**: FAST (`gpt-5-nano`) handles quick work, QUALITY (`gpt-5-mini`) handles reasoning-heavy prompts, LONG_CONTEXT (`gpt-4.1-nano`) powers extraction and document refinement, and PRECISE (`gpt-5.1`) only activates when Precise is toggled.
 - **Responses fallbacks**: suggestion helpers only log chat fallback usage when the Responses client returns a structured `ResponsesCallResult` to avoid type mismatches during tests or mocking.
 
 ### Cost controls
@@ -160,7 +161,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
 Use these environment variables (or Streamlit secrets) to cap spend and steer model choices:
 
 - **`OPENAI_SESSION_TOKEN_LIMIT` / `OPENAI_TOKEN_BUDGET`**: session-wide token budget guard. Once the limit is exceeded, OpenAI calls stop with a bilingual warning.
-- **`REASONING_EFFORT`**: hint for reasoning depth (`none`/`minimal`/`low`/`medium`/`high`). Lower values reduce cost; higher values unlock more deliberative responses.
+- **`REASONING_EFFORT`**: hint for reasoning depth (`none`/`minimal`/`low`/`medium`/`high`). None/low stick to FAST, medium selects QUALITY, and high activates PRECISE.
 - **`MODEL_ROUTING__<task>` overrides**: per-task model routing overrides (task keys match `ModelTask` in `config/models.py`, e.g. `job_ad`, `interview_guide`, `profile_summary`, `salary_estimate`, `follow_up_questions`).
 
 The sidebar includes a token usage summary with a per-request table (see `sidebar/__init__.py`) so you can review spend while running the wizard.

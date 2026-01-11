@@ -93,8 +93,9 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Default reasoning effort now initializes to `none` when no override is set; legacy `minimal` inputs are mapped to `effort: none` in API payloads, and verbosity hints are forwarded via Responses calls except for GPT-5 Codex models.
 - Added a cost-saver sidebar toggle to force lightweight model routing and clamp `max_completion_tokens` for cheaper responses, while still allowing explicit model overrides when callers set them directly.
 - Stage runtime output token caps default to 1024 (down from 2048) with OpenAI usage logging to track savings without truncating schema outputs.
-- Default LLM routing now prefers `gpt-4o-mini` for lightweight and standard tasks, falls back through `gpt-4o` and `gpt-3.5-turbo`, and only escalates to GPT-5.2 tiers when needed; Quick/Precise toggles stay internal but environment and secret overrides (`OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `HIGH_REASONING_MODEL`) are supported again.
-- Lightweight task routing keeps JSON repair, salary checks, extraction, and progress inbox calls on the cheaper `gpt-4o-mini`/`gpt-4o` path before considering higher-cost models.
+- Model routing now uses FAST (`gpt-5-nano`), QUALITY (`gpt-5-mini`), and LONG_CONTEXT (`gpt-4.1-nano`) tiers, while PRECISE (`gpt-5.1`) only activates via the precise toggle or high reasoning effort.
+- Default LLM routing now falls back through GPT-4o and GPT-3.5 tiers before escalating to GPT-5.2, keeping Quick/Precise toggles internal while honoring environment and secret overrides (`OPENAI_MODEL`, `DEFAULT_MODEL`, `LIGHTWEIGHT_MODEL`, `MEDIUM_REASONING_MODEL`, `HIGH_REASONING_MODEL`).
+- Lightweight task routing keeps JSON repair, salary checks, and progress inbox calls on the FAST (`gpt-5-nano`) tier, while long-context extraction uses `gpt-4.1-nano` before considering higher-cost models.
 - OpenAI SDK upgraded to the latest Responses-enabled release with first-class support for the `gpt-5.2` family (including mini/nano variants) and explicit routing through `responses.create` for structured calls.
 - Model routing and task capabilities now live in a single `MODEL_CONFIG` map (model preference + JSON/text flags) inside `config/models.py`, eliminating scattered per-pipeline overrides and repeated fallback chains.
 - Structured calls default to the Responses API (`responses.create`) with automatic fallbacks to Chat Completions when models reject Responses payloads or require tool/function calls outside the allowed configuration.
@@ -102,7 +103,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Auto-repair warning panels now render as a collapsed drawer pinned to the bottom of each step to keep the main form content visible.
 - Structured extraction and JSON repair now call the Chat Completions API directly with JSON schemas, removing the Responses → Chat fallback hop to reduce noise and latency.
 - Consolidated model constants, aliases, and routing logic into `config/models.py` to keep overrides in one place.
-- Primary model selection defaults to `gpt-4o-mini` but can be overridden for deployments that require different cost/quality trade-offs.
+- Primary model selection defaults to `gpt-5-nano` but can be overridden for deployments that require different cost/quality trade-offs.
 - Removed the model selection dropdown from the extraction settings; the UI now relies solely on the default routing chain without surfacing `model_override` state.
 - The strict JSON extraction toggle was removed from the UI; strict parsing now stays enabled by default and relies on automatic repair/fallback flows when payloads are invalid.
 - Team & Structure now enforces the job title as a required field and keeps the AI team advisor disabled until job title and reporting-line details are available, preventing empty prompts from running.
