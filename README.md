@@ -152,6 +152,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
 
 - **Cost saver toggle (sidebar)**: when enabled, the wizard forces the lightweight model route and clamps `max_completion_tokens` to a tighter ceiling for cheaper, faster responses. Explicit model overrides still take priority if a caller sets one directly.
 - **Quick vs. Precise mode**: Quick lowers reasoning effort and Precise raises it; both respect the cost saver toggle when it is enabled.
+- **Responses fallbacks**: suggestion helpers only log chat fallback usage when the Responses client returns a structured `ResponsesCallResult` to avoid type mismatches during tests or mocking.
 
 ### Cost controls
 
