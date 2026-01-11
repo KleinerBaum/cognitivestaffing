@@ -52,3 +52,24 @@ def test_usage_rows_and_totals_handle_missing_sections() -> None:
     assert rows == []
     totals = usage_totals(usage)
     assert totals == (3, 7, 10)
+
+
+def test_usage_rows_handle_nested_token_totals() -> None:
+    st.session_state.clear()
+    st.session_state["lang"] = "en"
+    usage = {
+        "input_tokens": {"total": 10},
+        "output_tokens": {"total": 20},
+        "by_task": {
+            "extraction": {
+                "input_tokens": {"text": 3, "total": 3},
+                "output_tokens": {"text": 2, "total": 2},
+            },
+            "job_ad": {"input": "1", "output": ""},
+        },
+    }
+
+    rows = build_usage_rows(usage)
+    assert rows
+    assert any(label == "Extraction" and total == 5 for label, _, _, total in rows)
+    assert usage_totals(usage) == (10, 20, 30)
