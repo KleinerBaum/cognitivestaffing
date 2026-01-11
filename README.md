@@ -232,6 +232,7 @@ MODEL_ROUTING__interview_guide = "gpt-4o-mini"
   - `prompts/`
 - Client behavior (Responses/Chat, retries, fallbacks):
   - `openai_utils/`
+  - `ALLOW_LEGACY_FALLBACKS=0` disables legacy Chat Completions fallbacks, leaving static benefit shortlists as the last-resort suggestion source.
 - JSON repair and schema-guided fallback retries:
   - `llm/json_repair.py`
 
