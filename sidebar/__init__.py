@@ -81,13 +81,17 @@ def _apply_reasoning_mode(mode: str) -> None:
 
 def _coerce_flow_mode(value: object) -> FlowMode:
     if isinstance(value, FlowMode):
-        return value
-    if isinstance(value, str):
+        candidate = value
+    elif isinstance(value, str):
         try:
-            return FlowMode(value)
+            candidate = FlowMode(value)
         except ValueError:
-            return FlowMode.MULTI_STEP
-    return FlowMode.MULTI_STEP
+            candidate = FlowMode.SINGLE_PAGE
+    else:
+        candidate = FlowMode.SINGLE_PAGE
+    if candidate == FlowMode.MULTI_STEP:
+        return FlowMode.SINGLE_PAGE
+    return candidate
 
 
 STEP_KEY_ALIASES: dict[str, str] = {
@@ -893,10 +897,10 @@ def _render_settings() -> None:
         ),
     )
 
-    flow_options: tuple[FlowMode, ...] = (FlowMode.MULTI_STEP, FlowMode.SINGLE_PAGE)
-    current_flow_mode = _coerce_flow_mode(st.session_state.get(StateKeys.FLOW_MODE, FlowMode.MULTI_STEP))
+    flow_options: tuple[FlowMode, ...] = (FlowMode.SINGLE_PAGE,)
+    current_flow_mode = _coerce_flow_mode(st.session_state.get(StateKeys.FLOW_MODE, FlowMode.SINGLE_PAGE))
+    st.session_state[StateKeys.FLOW_MODE] = current_flow_mode
     flow_labels: dict[FlowMode, str] = {
-        FlowMode.MULTI_STEP: tr("Mehrstufig (geführt)", "Multi-step (guided)"),
         FlowMode.SINGLE_PAGE: tr("Eine Seite (alle Bereiche)", "Single page (all sections)"),
     }
     st.radio(
@@ -906,8 +910,8 @@ def _render_settings() -> None:
         key=StateKeys.FLOW_MODE,
         format_func=lambda value: flow_labels.get(value, str(value)),
         help=tr(
-            "Steuert, ob der Wizard Schritt für Schritt oder auf einer Seite erscheint.",
-            "Controls whether the wizard renders step-by-step or on a single page.",
+            "Der Wizard läuft im Ein-Seiten-Modus und zeigt alle Schritte nacheinander.",
+            "The wizard runs in single-page mode and shows all steps in order.",
         ),
     )
 

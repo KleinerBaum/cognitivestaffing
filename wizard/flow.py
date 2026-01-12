@@ -48,16 +48,18 @@ _SortableItem = TypeVar("_SortableItem")
 def get_flow_mode() -> FlowMode:
     """Return the active flow mode preference from session state."""
 
-    stored = st.session_state.get(StateKeys.FLOW_MODE, FlowMode.MULTI_STEP)
+    stored = st.session_state.get(StateKeys.FLOW_MODE, FlowMode.SINGLE_PAGE)
     if isinstance(stored, FlowMode):
-        return stored
+        normalized = stored
     if isinstance(stored, str):
         try:
             normalized = FlowMode(stored)
         except ValueError:
-            normalized = FlowMode.MULTI_STEP
-    else:
-        normalized = FlowMode.MULTI_STEP
+            normalized = FlowMode.SINGLE_PAGE
+    elif not isinstance(stored, FlowMode):
+        normalized = FlowMode.SINGLE_PAGE
+    if normalized == FlowMode.MULTI_STEP:
+        normalized = FlowMode.SINGLE_PAGE
     st.session_state[StateKeys.FLOW_MODE] = normalized
     return normalized
 
