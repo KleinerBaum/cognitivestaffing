@@ -303,6 +303,9 @@ tests.
   “Debug: Flow diagram” expander in the wizard UI for easy copy/paste.
 - If you encounter “missing ScriptRunContext” warnings, ensure background tasks only compute data
   and keep Streamlit UI/session-state updates on the main thread.
+- If you see the “OTLP endpoint not configured” telemetry message, either set the
+  `OTEL_EXPORTER_OTLP_ENDPOINT` env var or ignore it during local development. See
+  `docs/Troubleshooting.md` for details.
 - Recoverable wizard failures now surface a retry button and a UI-only reset option; prefer UI
   resets before clearing the full profile to avoid losing captured data.
 - ESCO occupation selector state is split between widget and profile keys to avoid Streamlit

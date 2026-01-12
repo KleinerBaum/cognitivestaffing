@@ -97,7 +97,7 @@ def _build_otlp_config() -> OtlpConfig | None:
     protocol = os.getenv("OTEL_EXPORTER_OTLP_PROTOCOL", "http/protobuf").strip().lower()
     endpoint = os.getenv("OTEL_EXPORTER_OTLP_ENDPOINT", "").strip()
     if not endpoint:
-        LOGGER.info("OTLP endpoint not configured; telemetry exporter will not be created")
+        LOGGER.debug("OTLP endpoint not configured; telemetry exporter will not be created")
         return None
 
     headers = _parse_headers(os.getenv("OTEL_EXPORTER_OTLP_HEADERS")) or None
