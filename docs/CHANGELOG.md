@@ -13,6 +13,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 ## [Unreleased]
 
 ### Added
+- Troubleshooting guidance for the common Streamlit ScriptRunContext warning and OTLP telemetry configuration.
 - Business-Kontext wizard step with domain-first inputs, industry-code suggestions, and optional organisation/contact fields.
 - Debug-only Mermaid flow diagram for the wizard router, rendered from the live step configuration when `DEBUG_FLOW_DIAGRAM` is enabled.
 - `BusinessContext` schema section with migration/backfill helpers for legacy company/department data.
@@ -52,6 +53,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Job-ad extraction now surfaces a progress indicator that tracks structured extraction and follow-up generation.
 
 ### Changed
+- OTLP telemetry bootstrap now logs missing endpoint configuration at debug level to reduce noise in local runs.
 - Skill suggestion prompts now enforce JSON-only output with schema validation and repair before fallback parsing.
 - ESCO occupation selector now initializes the widget key before render and syncs the selection back into the profile to prevent Streamlit session-state mutation errors.
 - NeedAnalysis schema generation now enforces `required` arrays for every object (including map-like nodes) and adds a schema integrity test to prevent OpenAI `response_format` drift.
