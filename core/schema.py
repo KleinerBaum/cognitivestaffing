@@ -1381,15 +1381,15 @@ def _ensure_required_for_nested_objects(node: MutableMapping[str, Any]) -> None:
     """Ensure every object schema carries a ``required`` list placeholder."""
 
     if node.get("type") == "object":
+        required = node.get("required")
+        if required is None:
+            node["required"] = []
+        elif not isinstance(required, list):
+            normalized = [entry for entry in required] if isinstance(required, Iterable) else []
+            node["required"] = normalized
+
         properties = node.get("properties")
         if isinstance(properties, MutableMapping):
-            required = node.get("required")
-            if required is None:
-                node["required"] = []
-            elif not isinstance(required, list):
-                normalized = [entry for entry in required] if isinstance(required, Iterable) else []
-                node["required"] = normalized
-
             for child in properties.values():
                 if isinstance(child, MutableMapping):
                     _ensure_required_for_nested_objects(child)

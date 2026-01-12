@@ -124,6 +124,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
 - Data contract  
   - `schema/need_analysis.schema.json` – canonical schema  
   - `schemas.py`, `models/` – Pydantic/data models
+  - The persisted schema is generated from the Pydantic model and enforces Responses-compatible `required` arrays for every object.
 
 - Missing info & follow-up logic  
   - `critical_fields.json` – critical fields per step  
