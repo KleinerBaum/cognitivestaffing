@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
 import pytest
 import streamlit as st
 
@@ -74,36 +74,15 @@ def test_single_page_renders_all_steps_once(monkeypatch: pytest.MonkeyPatch) -> 
     assert render_log == list(step_keys())
 
 
-def test_multi_step_renders_current_step_only(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Multi-step mode still renders only the active step."""
+def test_multi_step_setting_coerces_to_single_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Multi-step mode is coerced to the single-page flow."""
 
     st.session_state[StateKeys.FLOW_MODE] = FlowMode.MULTI_STEP
     st.session_state[StateKeys.PROFILE] = {}
-    current_step = step_keys()[2]
-    st.session_state["wizard"] = {"current_step": current_step}
     render_log: list[str] = []
     renderers = _build_renderers(render_log)
     monkeypatch.setattr(wizard_flow, "STEP_RENDERERS", renderers)
 
-    class FakeRouter:
-        def __init__(
-            self,
-            *,
-            pages: Sequence[object],
-            renderers: dict[str, StepRenderer],
-            context: WizardContext,
-            value_resolver: Callable[[dict[str, object], str, object | None], object | None],
-        ) -> None:
-            self._renderers = renderers
-            self._context = context
-
-        def run(self) -> None:
-            wizard_state = st.session_state.get("wizard", {}) or {}
-            current = wizard_state.get("current_step", next(iter(self._renderers)))
-            self._renderers[current].callback(self._context)
-
-    monkeypatch.setattr(wizard_flow, "WizardRouter", FakeRouter)
-
     wizard_flow._run_wizard_v2(schema={}, critical=())
 
-    assert render_log == [current_step]
+    assert render_log == list(step_keys())

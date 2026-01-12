@@ -70,7 +70,7 @@ _DEFAULT_STATE_FACTORIES: Mapping[str, Callable[[], Any]] = MappingProxyType(
         StateKeys.RAW_TEXT: lambda: "",
         StateKeys.RAW_BLOCKS: list,
         StateKeys.STEP: lambda: 0,
-        StateKeys.FLOW_MODE: lambda: FlowMode.MULTI_STEP,
+        StateKeys.FLOW_MODE: lambda: FlowMode.SINGLE_PAGE,
         StateKeys.EXTRACTION_SUMMARY: dict,
         StateKeys.EXTRACTION_MISSING: list,
         StateKeys.EXTRACTION_RAW_PROFILE: dict,
