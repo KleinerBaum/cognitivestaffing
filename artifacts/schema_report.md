@@ -1,6 +1,6 @@
 # Schema Propagation Report
 
-* Mode: apply
+* Mode: check
 
 | File | Status |
 | --- | --- |

@@ -3,8 +3,7 @@
     "additionalProperties": false,
     "properties": {
         "schema_version": {
-            "type": "integer",
-            "minimum": 1
+            "type": "integer"
         },
         "business_context": {
             "type": "object",
@@ -47,7 +46,8 @@
                     "type": "object",
                     "additionalProperties": {
                         "type": "string"
-                    }
+                    },
+                    "required": []
                 }
             },
             "required": [

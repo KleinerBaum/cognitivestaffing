@@ -52,6 +52,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Job-ad extraction now surfaces a progress indicator that tracks structured extraction and follow-up generation.
 
 ### Changed
+- NeedAnalysis schema generation now enforces `required` arrays for every object (including map-like nodes) and adds a schema integrity test to prevent OpenAI `response_format` drift.
 - Updated the German benefits prompt wording to use "Vorteile oder Zusatzleistungen."
 - Startup model routing now selects and stores one resolved model per tier (FAST/QUALITY/LONG_CONTEXT) with explicit fallback chains for each tier.
 - Wizard flow step 2 now centers on Business-Kontext (domain-first) while preserving legacy company/department mappings for exports.
