@@ -6818,9 +6818,9 @@ def _render_esco_occupation_selector(
                 widget_value = list(selected_ids)
     else:
         widget_value = [sid for sid in _coerce_occupation_ids(override_raw) if sid in option_ids]
+        st.session_state.pop(widget_key, None)
 
-    st.session_state[widget_key] = widget_value
-    st.session_state[profile_key] = widget_value
+    st.session_state.setdefault(widget_key, widget_value)
 
     def _current_selection() -> list[str]:
         """Return the ESCO occupation URIs currently selected in the widget."""
@@ -6957,6 +6957,7 @@ def _render_esco_occupation_selector(
             available_col.caption(tr("Keine weiteren Vorschläge verfügbar.", "No more suggestions available."))
 
     current_ids = _current_selection()
+    st.session_state[profile_key] = current_ids
     _apply_esco_selection(current_ids, options, lang=lang_code)
 
     if compact:

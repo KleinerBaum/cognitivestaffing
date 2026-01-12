@@ -305,6 +305,7 @@ tests.
 - Recoverable wizard failures now surface a retry button and a UI-only reset option; prefer UI
   resets before clearing the full profile to avoid losing captured data.
 - ESCO occupation selector state is split between widget and profile keys to avoid Streamlit
-  session-state mutation errors; keep widget changes on `ui.position.esco_occupation_widget`.
+  session-state mutation errors; initialize the widget key before render and sync selections back
+  into the profile after the widget updates (`ui.position.esco_occupation_widget`).
 - Avoid committing binary screenshots in PRs; add any required images manually after review to
   keep diffs lightweight.
