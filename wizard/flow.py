@@ -2495,32 +2495,31 @@ COMPLIANCE_TOGGLE_CONFIGS: Final[tuple[ComplianceToggleConfig, ...]] = (
 )
 
 
-def _render_compliance_toggle_group(requirements: dict[str, Any]) -> None:
+def _render_compliance_toggle_group(requirements: dict[str, Any], *, key_prefix: str | None = None) -> None:
     """Render the compliance toggle set inside the active container."""
 
     if not isinstance(requirements, dict):
         return
     for config in COMPLIANCE_TOGGLE_CONFIGS:
-        _render_compliance_toggle(requirements, config)
+        _render_compliance_toggle(requirements, config, key_prefix=key_prefix)
 
 
 def _render_compliance_toggle(
     requirements: dict[str, Any],
     config: ComplianceToggleConfig,
+    *,
+    key_prefix: str | None = None,
 ) -> None:
     """Render a single checkbox and persist the linked profile state."""
 
     requirement_key = config.path.value.split(".")[-1]
-    session_key = str(config.path)
+    session_key = f"{key_prefix}.{config.path}" if key_prefix else str(config.path)
     current_value = bool(requirements.get(requirement_key))
 
     def _sync_toggle() -> None:
         """Persist checkbox changes to the backing profile field."""
 
-        _update_profile(
-            config.path,
-            bool(st.session_state.get(session_key)),
-        )
+        _update_profile(config.path, bool(st.session_state.get(session_key)))
 
     checked = st.checkbox(
         tr(*config.label),
@@ -9671,30 +9670,30 @@ def _summary_position() -> None:
     department_name = dept_cols[0].text_input(
         tr("Abteilung", "Department"),
         value=department_data.get("name", ""),
-        key=ProfilePaths.DEPARTMENT_NAME,
+        key="ui.summary.department.name",
     )
     department_function = dept_cols[1].text_input(
         tr("Funktion", "Function"),
         value=department_data.get("function", ""),
-        key=ProfilePaths.DEPARTMENT_FUNCTION,
+        key="ui.summary.department.function",
     )
 
     leader_cols = st.columns(2)
     department_leader_name = leader_cols[0].text_input(
         tr("Abteilungsleitung", "Department lead"),
         value=department_data.get("leader_name", ""),
-        key=ProfilePaths.DEPARTMENT_LEADER_NAME,
+        key="ui.summary.department.leader_name",
     )
     department_leader_title = leader_cols[1].text_input(
         tr("Titel der Leitung", "Lead title"),
         value=department_data.get("leader_title", ""),
-        key=ProfilePaths.DEPARTMENT_LEADER_TITLE,
+        key="ui.summary.department.leader_title",
     )
 
     strategic_goals = st.text_area(
         tr("Strategische Ziele", "Strategic goals"),
         value=department_data.get("strategic_goals", ""),
-        key=ProfilePaths.DEPARTMENT_STRATEGIC_GOALS,
+        key="ui.summary.department.strategic_goals",
         height=80,
     )
 
@@ -9702,19 +9701,19 @@ def _summary_position() -> None:
     team_name = team_cols[0].text_input(
         tr("Teamname", "Team name"),
         value=team_data.get("name", ""),
-        key=ProfilePaths.TEAM_NAME,
+        key="ui.summary.team.name",
     )
     team_mission = team_cols[1].text_input(
         tr("Teamauftrag", "Team mission"),
         value=team_data.get("mission", ""),
-        key=ProfilePaths.TEAM_MISSION,
+        key="ui.summary.team.mission",
     )
 
     reporting_cols = st.columns(2)
     team_reporting = reporting_cols[0].text_input(
         tr("Berichtslinie", "Reporting line"),
         value=team_data.get("reporting_line", data["position"].get("reporting_line", "")),
-        key=ProfilePaths.TEAM_REPORTING_LINE,
+        key="ui.summary.team.reporting_line",
     )
     reporting_manager_summary_key = UIKeys.SUMMARY_POSITION_REPORTING_MANAGER_NAME
     reporting_manager_contact_key = UIKeys.CONTACT_POSITION_REPORTING_MANAGER_NAME
@@ -9749,26 +9748,26 @@ def _summary_position() -> None:
         min_value=0,
         step=1,
         value=int(team_data.get("headcount_current") or 0),
-        key=ProfilePaths.TEAM_HEADCOUNT_CURRENT,
+        key="ui.summary.team.headcount_current",
     )
     team_headcount_target = headcount_cols[1].number_input(
         tr("Headcount Ziel", "Target headcount"),
         min_value=0,
         step=1,
         value=int(team_data.get("headcount_target") or 0),
-        key=ProfilePaths.TEAM_HEADCOUNT_TARGET,
+        key="ui.summary.team.headcount_target",
     )
 
     team_details_cols = st.columns(2)
     team_tools = team_details_cols[0].text_input(
         tr("Tools", "Collaboration tools"),
         value=team_data.get("collaboration_tools", ""),
-        key=ProfilePaths.TEAM_COLLABORATION_TOOLS,
+        key="ui.summary.team.tools",
     )
     team_locations = team_details_cols[1].text_input(
         tr("Team-Standorte", "Team locations"),
         value=team_data.get("locations", ""),
-        key=ProfilePaths.TEAM_LOCATIONS,
+        key="ui.summary.team.locations",
     )
 
     contact_cols = st.columns(2)
@@ -9781,7 +9780,7 @@ def _summary_position() -> None:
     customer_contact_required = contact_cols[1].toggle(
         tr(*CUSTOMER_CONTACT_TOGGLE_LABEL),
         value=bool(data["position"].get("customer_contact_required")),
-        key=ProfilePaths.POSITION_CUSTOMER_CONTACT_REQUIRED,
+        key="ui.summary.position.customer_contact_required",
         help=tr(*POSITION_CUSTOMER_CONTACT_TOGGLE_HELP),
     )
 
@@ -9789,7 +9788,7 @@ def _summary_position() -> None:
         customer_contact_details = st.text_area(
             tr("Kontakt-Details", "Contact details"),
             value=data["position"].get("customer_contact_details", ""),
-            key=ProfilePaths.POSITION_CUSTOMER_CONTACT_DETAILS,
+            key="ui.summary.position.customer_contact_details",
             height=80,
             placeholder=tr(*POSITION_CUSTOMER_CONTACT_DETAILS_HINT),
         )
@@ -9948,7 +9947,7 @@ def _summary_requirements() -> None:
         key="ui.summary.requirements.certs",
     )
 
-    _render_compliance_toggle_group(requirements)
+    _render_compliance_toggle_group(requirements, key_prefix="ui.summary.requirements")
 
     st.caption(
         tr(

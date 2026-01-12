@@ -12,11 +12,11 @@ from wizard_pages.base import WizardPage
 def _company_step() -> WizardPage:
     return WizardPage(
         key="company",
-        label=("Business-Kontext", "Business context"),
-        panel_header=("Business-Kontext", "Business context"),
-        panel_subheader=("Domain & Organisation", "Domain & organisation"),
+        label=("Unternehmensdetails", "Company details"),
+        panel_header=("Unternehmensdetails", "Company details"),
+        panel_subheader=("Profil, Standort & Kontakte", "Profile, location & contacts"),
         panel_intro_variants=(("Intro DE", "Intro EN"),),
-        required_fields=("business_context.domain",),
+        required_fields=(),
         summary_fields=(),
         allow_skip=False,
     )

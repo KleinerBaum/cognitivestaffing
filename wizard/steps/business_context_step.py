@@ -88,7 +88,6 @@ def _step_business_context() -> None:
 
     def _render_business_context_known() -> None:
         render_step_warning_banner()
-        render_missing_field_summary(missing_here)
         if subtitle:
             st.caption(subtitle)
         for intro in intros:

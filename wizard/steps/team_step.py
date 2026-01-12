@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from types import ModuleType
-from typing import Any, cast
+from typing import Any, Mapping, cast
 
 import streamlit as st
 
@@ -12,7 +12,6 @@ from constants.keys import ProfilePaths
 from wizard.layout import (
     format_missing_label,
     merge_missing_help,
-    render_missing_field_summary,
     render_section_heading,
     render_step_warning_banner,
 )
@@ -98,6 +97,40 @@ def _bind_flow_dependencies(flow: ModuleType) -> None:
         globals()[name] = getattr(flow, name)
 
 
+def _format_summary_value(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, (list, tuple, set)):
+        cleaned = [str(item).strip() for item in value if str(item).strip()]
+        return ", ".join(cleaned)
+    return str(value).strip()
+
+
+def _render_team_summary(profile: Mapping[str, Any]) -> None:
+    lang = st.session_state.get("lang", "de")
+    department = profile.get("department") if isinstance(profile.get("department"), dict) else {}
+    team = profile.get("team") if isinstance(profile.get("team"), dict) else {}
+    position = profile.get("position") if isinstance(profile.get("position"), dict) else {}
+    meta = profile.get("meta") if isinstance(profile.get("meta"), dict) else {}
+    items = [
+        (tr("Jobtitel", "Job title", lang=lang), position.get("job_title")),
+        (tr("Abteilung", "Department", lang=lang), department.get("name")),
+        (tr("Teamname", "Team name", lang=lang), team.get("name")),
+        (tr("Berichtslinie", "Reporting line", lang=lang), team.get("reporting_line")),
+        (tr("Vorgesetzte Person", "Reporting manager", lang=lang), position.get("reporting_manager_name")),
+        (tr("Startdatum", "Start date", lang=lang), meta.get("target_start_date")),
+    ]
+    summary_lines = []
+    for label, value in items:
+        formatted = _format_summary_value(value)
+        if formatted:
+            summary_lines.append(f"- **{label}**: {formatted}")
+    if summary_lines:
+        st.markdown("\n".join(summary_lines))
+    else:
+        st.info(tr("Noch keine Teamdetails vorhanden.", "No team details captured yet.", lang=lang))
+
+
 def _step_team() -> None:
     """Render the team and position context step.
 
@@ -121,6 +154,7 @@ def _step_team() -> None:
         render_team_advisor(profile=data, position=position, update_profile=_update_profile)
 
     def _render_team_missing() -> None:
+        _render_team_inputs()
         _render_followups_for_fields((ProfilePaths.POSITION_JOB_TITLE,), data, container_factory=st.container)
         _render_followups_for_fields((ProfilePaths.META_TARGET_START_DATE,), data, container_factory=st.container)
         _render_followups_for_fields((ProfilePaths.POSITION_REPORTS_TO,), data, container_factory=st.container)
@@ -130,12 +164,8 @@ def _step_team() -> None:
         _render_followups_for_fields((ProfilePaths.POSITION_ROLE_SUMMARY,), data, container_factory=st.container)
         _render_followups_for_step("team", data)
 
-    def _render_team_known() -> None:
+    def _render_team_inputs() -> None:
         render_step_warning_banner()
-        render_missing_field_summary(missing_here)
-        for intro in intros:
-            st.caption(intro)
-
         render_section_heading(
             tr("Pflichtangaben", "Required basics"),
             icon="📌",
@@ -297,6 +327,112 @@ def _step_team() -> None:
         )
         if ProfilePaths.POSITION_ROLE_SUMMARY in missing_here and not position.get("role_summary"):
             summary_container.caption(tr("Dieses Feld ist erforderlich", "This field is required"))
+
+        render_section_heading(tr("Abteilung & Team", "Department & team"), icon="👥", size="compact")
+
+        department = data.setdefault("department", {})
+        dept_cols = st.columns(2, gap="small")
+        department["name"] = dept_cols[0].text_input(
+            tr("Abteilung", "Department"),
+            value=department.get("name", ""),
+            key=ProfilePaths.DEPARTMENT_NAME,
+            placeholder=tr("Abteilung beschreiben", "Describe the department"),
+        )
+        _update_profile(ProfilePaths.DEPARTMENT_NAME, department.get("name", ""))
+        department["function"] = dept_cols[1].text_input(
+            tr("Funktion", "Function"),
+            value=department.get("function", ""),
+            key=ProfilePaths.DEPARTMENT_FUNCTION,
+            placeholder=tr("Aufgabe des Bereichs skizzieren", "Outline the department's function"),
+        )
+        _update_profile(ProfilePaths.DEPARTMENT_FUNCTION, department.get("function", ""))
+
+        leader_cols = st.columns(2, gap="small")
+        department["leader_name"] = leader_cols[0].text_input(
+            tr("Abteilungsleitung", "Department lead"),
+            value=department.get("leader_name", ""),
+            key=ProfilePaths.DEPARTMENT_LEADER_NAME,
+            placeholder=tr("Name der Leitung", "Name of the lead"),
+        )
+        _update_profile(ProfilePaths.DEPARTMENT_LEADER_NAME, department.get("leader_name", ""))
+        department["leader_title"] = leader_cols[1].text_input(
+            tr("Titel der Leitung", "Lead title"),
+            value=department.get("leader_title", ""),
+            key=ProfilePaths.DEPARTMENT_LEADER_TITLE,
+            placeholder=tr("Rollenbezeichnung der Leitung", "Lead's title"),
+        )
+        _update_profile(ProfilePaths.DEPARTMENT_LEADER_TITLE, department.get("leader_title", ""))
+
+        department["strategic_goals"] = st.text_area(
+            tr("Strategische Ziele", "Strategic goals"),
+            value=department.get("strategic_goals", ""),
+            key=ProfilePaths.DEPARTMENT_STRATEGIC_GOALS,
+            height=90,
+        )
+        _update_profile(ProfilePaths.DEPARTMENT_STRATEGIC_GOALS, department.get("strategic_goals", ""))
+
+        team_cols = st.columns((1, 1), gap="small")
+        team["name"] = team_cols[0].text_input(
+            tr("Teamname", "Team name"),
+            value=team.get("name", ""),
+            key=ProfilePaths.TEAM_NAME,
+            placeholder=tr("Team benennen", "Name the team"),
+        )
+        _update_profile(ProfilePaths.TEAM_NAME, team.get("name", ""))
+        team["mission"] = team_cols[1].text_input(
+            tr("Teamauftrag", "Team mission"),
+            value=team.get("mission", ""),
+            key=ProfilePaths.TEAM_MISSION,
+            placeholder=tr("Mission oder Zweck", "Mission or purpose"),
+        )
+        _update_profile(ProfilePaths.TEAM_MISSION, team.get("mission", ""))
+
+        team_headcount_cols = st.columns(2, gap="small")
+        team["headcount_current"] = team_headcount_cols[0].number_input(
+            tr("Headcount aktuell", "Current headcount"),
+            min_value=0,
+            step=1,
+            value=int(team.get("headcount_current") or 0),
+            key=ProfilePaths.TEAM_HEADCOUNT_CURRENT,
+        )
+        _update_profile(ProfilePaths.TEAM_HEADCOUNT_CURRENT, team.get("headcount_current"))
+        team["headcount_target"] = team_headcount_cols[1].number_input(
+            tr("Headcount Ziel", "Target headcount"),
+            min_value=0,
+            step=1,
+            value=int(team.get("headcount_target") or 0),
+            key=ProfilePaths.TEAM_HEADCOUNT_TARGET,
+        )
+        _update_profile(ProfilePaths.TEAM_HEADCOUNT_TARGET, team.get("headcount_target"))
+
+        team_details_cols = st.columns(2, gap="small")
+        team["collaboration_tools"] = team_details_cols[0].text_input(
+            tr("Tools", "Collaboration tools"),
+            value=team.get("collaboration_tools", ""),
+            key=ProfilePaths.TEAM_COLLABORATION_TOOLS,
+            placeholder=tr("Genutzte Tools", "Tools in use"),
+        )
+        _update_profile(ProfilePaths.TEAM_COLLABORATION_TOOLS, team.get("collaboration_tools", ""))
+        team["locations"] = team_details_cols[1].text_input(
+            tr("Team-Standorte", "Team locations"),
+            value=team.get("locations", ""),
+            key=ProfilePaths.TEAM_LOCATIONS,
+            placeholder=tr("Verteilte Standorte", "Distributed locations"),
+        )
+        _update_profile(ProfilePaths.TEAM_LOCATIONS, team.get("locations", ""))
+
+        position["team_structure"] = st.text_input(
+            tr("Teamstruktur", "Team structure"),
+            value=position.get("team_structure", ""),
+            key=ProfilePaths.POSITION_TEAM_STRUCTURE,
+            placeholder=tr("Teamstruktur erläutern", "Explain the team structure"),
+        )
+
+        position["key_projects"] = st.text_area(
+            tr("Schlüsselprojekte", "Key projects"),
+            value=position.get("key_projects", ""),
+            height=90,
+        )
 
         render_section_heading(tr("Zeitplan", "Timing"), icon="⏱️", size="compact")
 
@@ -588,6 +724,12 @@ def _step_team() -> None:
             )
         else:
             employment.pop("relocation_details", None)
+
+    def _render_team_known() -> None:
+        render_step_warning_banner()
+        for intro in intros:
+            st.caption(intro)
+        _render_team_summary(profile)
 
     # GREP:STEP_TEAM_LAYOUT_V1
     render_step_layout(
