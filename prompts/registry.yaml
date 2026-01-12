@@ -69,13 +69,18 @@ llm:
         {text}'
     skill_suggestions:
       user:
-        en: List exactly 12 IT technologies, 12 hard skills, 12 soft skills, and 12
-          relevant certificates for the job title '{job_title}'. Respond with JSON
-          using the keys 'tools_and_technologies', 'hard_skills', 'soft_skills', and
-          'certificates'.{focus_clause}{existing_clause}{responsibility_clause}
-        de: Gib exakt 12 IT-Technologien, 12 Hard Skills, 12 Soft Skills und 12 relevante
-          Zertifikate für den Jobtitel '{job_title}'. Antworte als JSON mit den Schlüsseln
-          'tools_and_technologies', 'hard_skills', 'soft_skills' und 'certificates'.{focus_clause}{existing_clause}{responsibility_clause}
+        en: |-
+          List exactly 12 IT technologies, 12 hard skills, 12 soft skills, and 12 relevant certificates for the job title '{job_title}'.
+          Return ONLY valid JSON. No prose. No markdown. No code fences.
+          Use the keys 'tools_and_technologies', 'hard_skills', 'soft_skills', and 'certificates'.{focus_clause}{existing_clause}{responsibility_clause}
+          Example:
+          {"tools_and_technologies":["Tool 1","Tool 2","Tool 3","Tool 4","Tool 5","Tool 6","Tool 7","Tool 8","Tool 9","Tool 10","Tool 11","Tool 12"],"hard_skills":["Hard skill 1","Hard skill 2","Hard skill 3","Hard skill 4","Hard skill 5","Hard skill 6","Hard skill 7","Hard skill 8","Hard skill 9","Hard skill 10","Hard skill 11","Hard skill 12"],"soft_skills":["Soft skill 1","Soft skill 2","Soft skill 3","Soft skill 4","Soft skill 5","Soft skill 6","Soft skill 7","Soft skill 8","Soft skill 9","Soft skill 10","Soft skill 11","Soft skill 12"],"certificates":["Certificate 1","Certificate 2","Certificate 3","Certificate 4","Certificate 5","Certificate 6","Certificate 7","Certificate 8","Certificate 9","Certificate 10","Certificate 11","Certificate 12"]}
+        de: |-
+          Gib exakt 12 IT-Technologien, 12 Hard Skills, 12 Soft Skills und 12 relevante Zertifikate für den Jobtitel '{job_title}'.
+          Antworte NUR mit gültigem JSON. Kein Fließtext. Kein Markdown. Keine Codefences.
+          Nutze die Schlüssel 'tools_and_technologies', 'hard_skills', 'soft_skills' und 'certificates'.{focus_clause}{existing_clause}{responsibility_clause}
+          Beispiel:
+          {"tools_and_technologies":["Tool 1","Tool 2","Tool 3","Tool 4","Tool 5","Tool 6","Tool 7","Tool 8","Tool 9","Tool 10","Tool 11","Tool 12"],"hard_skills":["Hard Skill 1","Hard Skill 2","Hard Skill 3","Hard Skill 4","Hard Skill 5","Hard Skill 6","Hard Skill 7","Hard Skill 8","Hard Skill 9","Hard Skill 10","Hard Skill 11","Hard Skill 12"],"soft_skills":["Soft Skill 1","Soft Skill 2","Soft Skill 3","Soft Skill 4","Soft Skill 5","Soft Skill 6","Soft Skill 7","Soft Skill 8","Soft Skill 9","Soft Skill 10","Soft Skill 11","Soft Skill 12"],"certificates":["Zertifikat 1","Zertifikat 2","Zertifikat 3","Zertifikat 4","Zertifikat 5","Zertifikat 6","Zertifikat 7","Zertifikat 8","Zertifikat 9","Zertifikat 10","Zertifikat 11","Zertifikat 12"]}
       focus_clause:
         en: ' Prioritise options connected to: {focus_terms}.'
         de: ' Berücksichtige diese Schwerpunkte bei der Auswahl: {focus_terms}.'
