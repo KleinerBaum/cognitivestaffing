@@ -12,14 +12,18 @@ from config.models import ModelTask, get_model_for
 from llm.openai_responses import (
     ResponsesCallResult,
     build_json_schema_format,
-    call_responses_safe,
+    call_responses,
 )
 from llm.response_schemas import (
     BENEFIT_SUGGESTION_SCHEMA_NAME,
     SKILL_SUGGESTION_SCHEMA_NAME,
     get_response_schema,
 )
+from openai import OpenAIError
+from openai_utils.errors import LLMResponseFormatError
 from openai_utils.extraction import _format_prompt, _style_prompt_hint
+from utils.json_repair import JsonRepairStatus
+from utils.skill_suggestions import parse_skill_suggestions_payload
 
 logger = logging.getLogger(__name__)
 
@@ -47,6 +51,15 @@ def _clean_string_list(items: Any, *, limit: int | None = None) -> list[str]:
         if limit and len(cleaned) >= limit:
             break
     return cleaned
+
+
+def _truncate_for_log(value: str | None, *, limit: int = 500) -> str:
+    if not value:
+        return ""
+    snippet = value.strip().replace("\n", " ")
+    if len(snippet) > limit:
+        return f"{snippet[:limit]}…"
+    return snippet
 
 
 def _fallback_skills_via_legacy(
@@ -245,19 +258,45 @@ def suggest_skills_for_role(
             responsibilities=responsibilities,
         )
 
-    response = call_responses_safe(
-        [{"role": "user", "content": prompt}],
-        model=model,
-        response_format=build_json_schema_format(
-            name=SKILL_SUGGESTION_SCHEMA_NAME,
-            schema=get_response_schema(SKILL_SUGGESTION_SCHEMA_NAME),
-        ),
-        max_completion_tokens=400,
-        reasoning_effort=REASONING_EFFORT,
-        task=ModelTask.SKILL_SUGGESTION,
-        logger_instance=logger,
-        context="skill suggestion",
+    response: ResponsesCallResult | None
+    response_format = build_json_schema_format(
+        name=SKILL_SUGGESTION_SCHEMA_NAME,
+        schema=get_response_schema(SKILL_SUGGESTION_SCHEMA_NAME),
     )
+    try:
+        response = call_responses(
+            [{"role": "user", "content": prompt}],
+            model=model,
+            response_format=response_format,
+            temperature=0.0,
+            max_completion_tokens=400,
+            reasoning_effort=REASONING_EFFORT,
+            task=ModelTask.SKILL_SUGGESTION,
+        )
+    except LLMResponseFormatError as exc:
+        logger.warning(
+            "Structured skill suggestion response could not be parsed: %s",
+            exc,
+        )
+        raw_content = exc.raw_content or ""
+        logger.debug(
+            "Skill suggestion raw output (truncated): %s",
+            _truncate_for_log(raw_content),
+        )
+        response = ResponsesCallResult(
+            content=raw_content,
+            usage={},
+            response_id=None,
+            raw_response=None,
+            used_chat_fallback=False,
+        )
+    except OpenAIError as exc:
+        logger.warning(
+            "Structured skill suggestion call failed; falling back to legacy backend: %s",
+            exc,
+        )
+        response = None
+
     if response is None:
         logger.warning("Falling back to legacy skill suggestion backend after Responses API failure")
         return _fallback_skills_via_legacy(
@@ -269,15 +308,23 @@ def suggest_skills_for_role(
             existing_items=existing_items,
             responsibilities=responsibilities,
         )
-    if isinstance(response, ResponsesCallResult) and response.used_chat_fallback:
+    if response.used_chat_fallback:
         logger.info("Skill suggestions succeeded via classic chat fallback")
 
     try:
-        payload = json.loads(response.content or "{}")
-    except json.JSONDecodeError as exc:  # pragma: no cover - defensive parsing
+        parsed = parse_skill_suggestions_payload(
+            response.content or "",
+            schema_name=SKILL_SUGGESTION_SCHEMA_NAME,
+            schema=get_response_schema(SKILL_SUGGESTION_SCHEMA_NAME),
+        )
+    except ValueError as exc:
         logger.warning(
-            "Responses API skill suggestion returned invalid JSON; falling back to legacy backend.",
-            exc_info=exc,
+            "Responses API skill suggestion failed schema validation; falling back to legacy backend: %s",
+            exc,
+        )
+        logger.debug(
+            "Skill suggestion raw output (truncated): %s",
+            _truncate_for_log(response.content),
         )
         return _fallback_skills_via_legacy(
             job_title,
@@ -288,6 +335,27 @@ def suggest_skills_for_role(
             existing_items=existing_items,
             responsibilities=responsibilities,
         )
+    if parsed.payload is None:
+        logger.warning(
+            "Responses API skill suggestion returned invalid JSON; falling back to legacy backend.",
+        )
+        logger.debug(
+            "Skill suggestion raw output (truncated): %s",
+            _truncate_for_log(response.content),
+        )
+        return _fallback_skills_via_legacy(
+            job_title,
+            lang=lang,
+            model=model,
+            focus_terms=focus_terms,
+            tone_style=tone_style,
+            existing_items=existing_items,
+            responsibilities=responsibilities,
+        )
+    if parsed.status is JsonRepairStatus.REPAIRED:
+        logger.info("Skill suggestion JSON required repair before parsing.")
+
+    payload = parsed.payload
 
     tools = _clean_string_list(payload.get("tools_and_technologies"), limit=12)
     hard = _clean_string_list(payload.get("hard_skills"), limit=12)

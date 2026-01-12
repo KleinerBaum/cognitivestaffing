@@ -41,7 +41,9 @@ from models.interview_guide import (
 from pydantic import ValidationError
 
 from utils.i18n import tr
+from utils.json_repair import JsonRepairStatus
 from utils.normalization import extract_company_size
+from utils.skill_suggestions import parse_skill_suggestions_payload
 from constants.style_variants import STYLE_VARIANTS
 from constants.keys import StateKeys
 from . import api
@@ -136,6 +138,15 @@ def _style_lang(lang: str | None) -> str:
     """Return normalized language code for style texts."""
 
     return "de" if str(lang or "de").lower().startswith("de") else "en"
+
+
+def _truncate_for_log(value: str | None, *, limit: int = 500) -> str:
+    if not value:
+        return ""
+    snippet = value.strip().replace("\n", " ")
+    if len(snippet) > limit:
+        return f"{snippet[:limit]}…"
+    return snippet
 
 
 def _style_instruction_text(tone_style: str | None, lang: str | None) -> str:
@@ -997,48 +1008,71 @@ def suggest_skills_for_role(
         prompt += f"\n{tone_hint}"
 
     messages = [{"role": "user", "content": prompt}]
+    schema = {
+        "type": "object",
+        "properties": {
+            "tools_and_technologies": {
+                "type": "array",
+                "items": {"type": "string"},
+            },
+            "hard_skills": {
+                "type": "array",
+                "items": {"type": "string"},
+            },
+            "soft_skills": {
+                "type": "array",
+                "items": {"type": "string"},
+            },
+            "certificates": {
+                "type": "array",
+                "items": {"type": "string"},
+            },
+        },
+        "required": [
+            "tools_and_technologies",
+            "hard_skills",
+            "soft_skills",
+            "certificates",
+        ],
+        "additionalProperties": False,
+    }
     res = api.call_chat_api(
         messages,
         model=model,
         json_schema={
             "name": "skill_suggestions",
-            "schema": {
-                "type": "object",
-                "properties": {
-                    "tools_and_technologies": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                    },
-                    "hard_skills": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                    },
-                    "soft_skills": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                    },
-                    "certificates": {
-                        "type": "array",
-                        "items": {"type": "string"},
-                    },
-                },
-                "required": [
-                    "tools_and_technologies",
-                    "hard_skills",
-                    "soft_skills",
-                    "certificates",
-                ],
-                "additionalProperties": False,
-            },
+            "schema": schema,
         },
         max_completion_tokens=400,
+        temperature=0.0,
         task=ModelTask.SKILL_SUGGESTION,
     )
     raw = _chat_content(res)
     try:
-        data = json.loads(raw)
-    except Exception:
-        data = {}
+        parsed = parse_skill_suggestions_payload(
+            raw or "",
+            schema_name="skill_suggestions",
+            schema=schema,
+        )
+    except ValueError as exc:
+        logger.warning("Legacy skill suggestion failed schema validation: %s", exc)
+        logger.debug(
+            "Legacy skill suggestion raw output (truncated): %s",
+            _truncate_for_log(raw),
+        )
+        parsed = None
+
+    if parsed is None or parsed.payload is None:
+        logger.warning("Legacy skill suggestion returned invalid JSON.")
+        logger.debug(
+            "Legacy skill suggestion raw output (truncated): %s",
+            _truncate_for_log(raw),
+        )
+        data: dict[str, Any] = {}
+    else:
+        if parsed.status is JsonRepairStatus.REPAIRED:
+            logger.info("Legacy skill suggestion JSON required repair before parsing.")
+        data = dict(parsed.payload)
 
     def _clean(items: Any) -> list[str]:
         if not isinstance(items, list):

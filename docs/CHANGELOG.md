@@ -52,6 +52,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Job-ad extraction now surfaces a progress indicator that tracks structured extraction and follow-up generation.
 
 ### Changed
+- Skill suggestion prompts now enforce JSON-only output with schema validation and repair before fallback parsing.
 - ESCO occupation selector now initializes the widget key before render and syncs the selection back into the profile to prevent Streamlit session-state mutation errors.
 - NeedAnalysis schema generation now enforces `required` arrays for every object (including map-like nodes) and adds a schema integrity test to prevent OpenAI `response_format` drift.
 - Updated the German benefits prompt wording to use "Vorteile oder Zusatzleistungen."

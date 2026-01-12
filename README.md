@@ -157,6 +157,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
 - **Tier defaults**: FAST (`gpt-5-nano`) handles quick work, QUALITY (`gpt-5-mini`) handles reasoning-heavy prompts, LONG_CONTEXT (`gpt-4.1-nano`) powers extraction and document refinement, and PRECISE (`gpt-5.1`) only activates when Precise is toggled.
 - **Startup model map**: on launch the app selects and stores one model per tier in `st.session_state["model_map"]`, using fallback chains: FAST → `gpt-5-nano`, `gpt-4.1-nano`, `gpt-4o-mini`; QUALITY → `gpt-5-mini`, `gpt-4.1-mini`, `gpt-4o`; LONG_CONTEXT → `gpt-4.1-nano`, `gpt-4.1-mini`.
 - **Responses fallbacks**: suggestion helpers only log chat fallback usage when the Responses client returns a structured `ResponsesCallResult` to avoid type mismatches during tests or mocking.
+- **Skill suggestion parsing**: prompts demand JSON-only output, and parsing validates against the skill suggestion schema with local repair before optional LLM repair/fallbacks.
 - **Tool-aware routing**: prompts that request web/file search tools prefer GPT-5 tiers, while ultra-long prompts (>300k estimated tokens) route to LONG_CONTEXT (`gpt-4.1-nano`).
 
 ### Cost controls

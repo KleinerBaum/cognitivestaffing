@@ -181,4 +181,54 @@ def repair_profile_payload(
     return result
 
 
-__all__ = ["parse_profile_json", "repair_profile_payload"]
+def repair_json_payload(
+    raw: str,
+    *,
+    schema_name: str,
+    schema: Mapping[str, Any],
+) -> Mapping[str, Any] | None:
+    """Return a repaired JSON payload using the provided schema."""
+
+    if not is_llm_enabled():
+        logger.debug("Skipping JSON repair because no OpenAI API key is configured.")
+        return None
+
+    response_format = build_json_schema_format(name=schema_name, schema=schema)
+    system_prompt = (
+        "You repair invalid JSON outputs to match the provided schema. "
+        "Return JSON only with no markdown, code fences, or prose."
+    )
+    user_prompt = (
+        "Invalid JSON (may include extra text):\n"
+        f"{raw}\n\n"
+        "Return corrected JSON only."
+    )
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_prompt},
+    ]
+
+    response = call_responses_safe(
+        messages,
+        model=get_model_for(ModelTask.JSON_REPAIR),
+        response_format=response_format,
+        temperature=0.0,
+        max_completion_tokens=600,
+        task=ModelTask.JSON_REPAIR,
+        logger_instance=logger,
+        context=f"{schema_name} json repair",
+    )
+    if response is None or not response.content:
+        return None
+
+    try:
+        repaired = json.loads(response.content)
+    except json.JSONDecodeError:
+        return None
+
+    if isinstance(repaired, Mapping):
+        return dict(repaired)
+    return None
+
+
+__all__ = ["parse_profile_json", "repair_profile_payload", "repair_json_payload"]
