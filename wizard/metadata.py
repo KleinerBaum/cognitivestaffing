@@ -36,8 +36,9 @@ PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
 
 PAGE_FOLLOWUP_PREFIXES: Final[dict[str, tuple[str, ...]]] = {
     "jobad": ("meta.",),
-    "company": ("business_context.", "company.", "department.", "location.", "position.team_"),
+    "company": ("business_context.", "company.", "location."),
     "team": (
+        "department.",
         "team.",
         "position.reporting_line",
         "position.role_summary",
@@ -61,6 +62,8 @@ _CRITICAL_SECTION_KEYS: Final[tuple[str, ...]] = (
 
 _PAGE_EXTRA_FIELDS: dict[str, tuple[str, ...]] = {
     "company": (
+        "business_context.domain",
+        "business_context.industry_codes",
         "company.name",
         "company.contact_name",
         "company.contact_email",

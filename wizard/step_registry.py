@@ -61,20 +61,25 @@ def _render_jobad_step(context: WizardContext) -> None:
 
 
 def _render_company_step(context: WizardContext) -> None:
-    from wizard.steps import business_context_step
+    from wizard.steps import company_step
 
-    business_context_step.step_business_context(context)
+    company_step.step_company(context)
 
 
-BUSINESS_CONTEXT_REQUIRED_FIELDS: Final[tuple[str, ...]] = ("business_context.domain",)
-
-BUSINESS_CONTEXT_SUMMARY_FIELDS: Final[tuple[str, ...]] = (
+COMPANY_SUMMARY_FIELDS: Final[tuple[str, ...]] = (
     "business_context.domain",
     "business_context.industry_codes",
-    "business_context.org_name",
-    "business_context.org_unit",
-    "business_context.location",
-    "business_context.compliance_flags",
+    "company.name",
+    "company.industry",
+    "company.size",
+    "company.hq_location",
+    "company.website",
+    "company.mission",
+    "company.culture",
+    "company.contact_email",
+    "company.contact_phone",
+    "location.primary_city",
+    "location.country",
 )
 
 
@@ -142,49 +147,46 @@ WIZARD_STEPS: Final[tuple[StepDefinition, ...]] = (  # GREP:STEP_REGISTRY_V2
     ),
     StepDefinition(
         key="company",
-        label=("Business-Kontext", "Business context"),
-        panel_header=("Business-Kontext", "Business context"),
-        panel_subheader=("Domain & Organisation", "Domain & organisation"),
+        label=("Unternehmensdetails", "Company details"),
+        panel_header=("Unternehmensdetails", "Company details"),
+        panel_subheader=("Profil, Standort & Kontakte", "Profile, location & contacts"),
         panel_intro_variants=(
             (
-                "Bitte überprüfe die Business-Domain und ergänze fehlende Kontextfelder.",
-                "Review the business domain and add any missing context.",
+                "Bitte überprüfe die Unternehmensdaten und ergänze fehlende Details.",
+                "Review company details and fill any missing basics.",
             ),
             (
-                "Domain-First: Organisation und Standort sind optional.",
-                "Domain-first: organisation and location are optional.",
+                "Nutze die Zusammenfassung oben, um fehlende Angaben gezielt zu ergänzen.",
+                "Use the summary above to fill any missing details quickly.",
             ),
         ),
-        required_fields=BUSINESS_CONTEXT_REQUIRED_FIELDS,
-        summary_fields=BUSINESS_CONTEXT_SUMMARY_FIELDS,
+        required_fields=(),
+        summary_fields=COMPANY_SUMMARY_FIELDS,
         allow_skip=False,
         renderer=_render_company_step,
     ),
     StepDefinition(
         key="team",
-        label=("Team & Struktur", "Team & Structure"),
-        panel_header=("Team & Struktur", "Team & Structure"),
-        panel_subheader=("Berichtslinien & Teamaufbau", "Reporting & team setup"),
+        label=("Abteilung & Team", "Department & Team"),
+        panel_header=("Abteilung & Team", "Department & Team"),
+        panel_subheader=("Struktur, Reporting & Rolle", "Structure, reporting & role"),
         panel_intro_variants=(
             (
-                "Skizziere Struktur, Berichtslinien und Startzeitpunkt der Rolle.",
-                "Outline the team structure, reporting line, and start timing for the role.",
+                "Skizziere Abteilung, Teamstruktur und Reporting-Linie der Rolle.",
+                "Outline department context, team structure, and reporting line for the role.",
             ),
             (
-                "Präzise Angaben zu Seniorität, Reporting und Standort steuern Folgefragen und Automatisierung.",
-                "Precise details on seniority, reporting, and location inform follow-up prompts and automation.",
+                "Präzise Angaben zu Seniorität, Reporting und Arbeitsmodell steuern Folgefragen.",
+                "Precise details on seniority, reporting, and work setup guide follow-ups.",
             ),
             (
-                "Erzähl kurz, wer die neue Person an die Hand nimmt und ab wann es losgeht.",
-                "Let us know who the new hire reports to and when they’ll get started.",
+                "Erzähl kurz, wer die neue Person führt und ab wann es losgeht.",
+                "Share who the new hire reports to and when they’ll get started.",
             ),
         ),
-        required_fields=(
-            "team.reporting_line",
-            "position.reporting_manager_name",
-            "position.job_title",
-        ),
+        required_fields=(),
         summary_fields=(
+            "department.name",
             "team.name",
             "team.mission",
             "team.reporting_line",
@@ -201,27 +203,24 @@ WIZARD_STEPS: Final[tuple[StepDefinition, ...]] = (  # GREP:STEP_REGISTRY_V2
     ),
     StepDefinition(
         key="role_tasks",
-        label=("Rolle & Aufgaben", "Role & Tasks"),
-        panel_header=("Rolle & Aufgaben", "Role & Tasks"),
-        panel_subheader=("Deliverables & Wirkung", "Deliverables & impact"),
+        label=("Aufgaben & Skills", "Tasks & Skills"),
+        panel_header=("Aufgaben & Skills", "Tasks & Skills"),
+        panel_subheader=("Kernaufgaben & Skillbedarf", "Core tasks & skill needs"),
         panel_intro_variants=(
             (
-                "Fasse zusammen, welche Ergebnisse die Rolle kurzfristig liefern muss.",
-                "Summarise the outcomes this role needs to deliver in the near term.",
+                "Fasse zusammen, welche Aufgaben und Skills für die Rolle zentral sind.",
+                "Summarise the core tasks and skills for this role.",
             ),
             (
-                "Konkret benannte Deliverables helfen bei Automatisierung von Anzeigen, Scorecards und Onboarding.",
-                "Explicit deliverables feed automation for job ads, scorecards, and onboarding.",
+                "Klare Aufgaben und Skills verbessern Anzeigen, Scorecards und Suchstrings.",
+                "Clear tasks and skills improve job ads, scorecards, and searches.",
             ),
             (
                 "Schreibe locker runter, woran die Person in den ersten Monaten wirklich arbeitet.",
-                "Jot down what this person will actually be tackling in the first months.",
+                "Jot down what this person will tackle in the first months.",
             ),
         ),
-        required_fields=(
-            "responsibilities.items",
-            "requirements.hard_skills_required",
-        ),
+        required_fields=(),
         summary_fields=(
             "responsibilities.items",
             "requirements.hard_skills_required",
@@ -238,21 +237,21 @@ WIZARD_STEPS: Final[tuple[StepDefinition, ...]] = (  # GREP:STEP_REGISTRY_V2
     ),
     StepDefinition(
         key="skills",
-        label=("Fähigkeiten & Anforderungen", "Skills & Requirements"),
-        panel_header=("Skills & Anforderungen", "Skills & Requirements"),
-        panel_subheader=("Pflicht & Nice-to-have", "Must-have & nice-to-have"),
+        label=("Skills-Überblick", "Skills recap"),
+        panel_header=("Skills-Überblick", "Skills recap"),
+        panel_subheader=("Check & Feinschliff", "Review & refine"),
         panel_intro_variants=(
             (
-                "Lege fest, welche Kompetenzen zwingend und welche optional sind.",
-                "Specify which competencies are mandatory and which are optional.",
+                "Überprüfe die gesammelten Skills und korrigiere bei Bedarf.",
+                "Review the captured skills and fine-tune as needed.",
             ),
             (
-                "Sauber strukturierte Skill-Daten verbessern Scoring, Marktvergleiche und Exportqualität.",
-                "Well-structured skill data improves scoring, market benchmarks, and export quality.",
+                "Ein kurzer Check sorgt für konsistente Exporte und Matching.",
+                "A quick check keeps exports and matching consistent.",
             ),
             (
-                "Markiere locker, was die Person wirklich können muss – den Rest packen wir unter Nice-to-have.",
-                "Flag what this person absolutely needs to know and we’ll park the rest as nice-to-have.",
+                "Passe fehlende Details an, falls nötig.",
+                "Fill in any missing details if needed.",
             ),
         ),
         required_fields=(),
@@ -271,21 +270,21 @@ WIZARD_STEPS: Final[tuple[StepDefinition, ...]] = (  # GREP:STEP_REGISTRY_V2
     ),
     StepDefinition(
         key="benefits",
-        label=("Vergütung", "Compensation"),
-        panel_header=("Vergütung", "Compensation"),
-        panel_subheader=("Gehalt & Zusatzleistungen", "Salary & benefits"),
+        label=("Benefits", "Benefits"),
+        panel_header=("Benefits", "Benefits"),
+        panel_subheader=("Vergütung & Zusatzleistungen", "Compensation & benefits"),
         panel_intro_variants=(
             (
-                "Lege Gehaltsrahmen, Bonusmodell und Benefits transparent fest.",
-                "Set a clear salary range, bonus model, and benefit package.",
+                "Lege Gehaltsrahmen und Benefits transparent fest.",
+                "Set a clear salary range and benefit package.",
             ),
             (
-                "Strukturierte Vergütungsdaten verbessern Marktplatz-Matching, Benchmarks und Angebotsunterlagen.",
-                "Structured compensation data improves marketplace matching, benchmarking, and offer collateral.",
+                "Strukturierte Vergütungsdaten verbessern Matching und Benchmarks.",
+                "Structured compensation data improves matching and benchmarks.",
             ),
             (
                 "Sag offen, was ihr zahlt und womit ihr Kandidat:innen begeistert.",
-                "Be upfront about pay and the perks that make candidates excited.",
+                "Be upfront about pay and the perks that excite candidates.",
             ),
         ),
         required_fields=(),
@@ -308,8 +307,8 @@ WIZARD_STEPS: Final[tuple[StepDefinition, ...]] = (  # GREP:STEP_REGISTRY_V2
     ),
     StepDefinition(
         key="interview",
-        label=("Bewerbungsprozess", "Hiring Process"),
-        panel_header=("Bewerbungsprozess", "Hiring Process"),
+        label=("Recruiting-Prozess", "Recruitment process"),
+        panel_header=("Recruiting-Prozess", "Recruitment process"),
         panel_subheader=("Phasen & Beteiligte", "Stages & stakeholders"),
         panel_intro_variants=(
             (
@@ -325,7 +324,7 @@ WIZARD_STEPS: Final[tuple[StepDefinition, ...]] = (  # GREP:STEP_REGISTRY_V2
                 "Give a quick rundown of how candidates move through your process and who they meet.",
             ),
         ),
-        required_fields=("process.phases",),
+        required_fields=(),
         summary_fields=(
             "process.phases",
             "process.stakeholders",

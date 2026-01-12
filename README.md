@@ -42,17 +42,17 @@ The wizard supports German and English job ads and maps common DE/EN section hea
 ### The 8 steps (fixed order)
 
 1. Onboarding / Job Ad
-2. Business-Kontext
-3. Team & Structure
-4. Role & Tasks
-5. Skills & Requirements
-6. Compensation / Benefits
-7. Hiring Process
+2. Company details
+3. Department & Team
+4. Tasks & Skills
+5. Skills recap
+6. Benefits
+7. Recruitment process
 8. Summary (Final Review + Exports)
 
 The onboarding step starts with a single hero block (logo + eyebrow/headline/subheadline) plus a primary CTA and a compact three-step timeline, followed immediately by a two-panel URL vs. upload call-to-action with an explicit OR divider so the first screen is focused and uncluttered. The hero copy stays bilingual and directs users to the onboarding source anchor (`#onboarding-source`) to keep the value prop → action flow clear. The onboarding details expander reinforces the extraction process, privacy handling, and accuracy expectations in bilingual copy. Subsequent steps keep the layout focused on the form without any global hero/banner. Secondary messaging stays in helper text or expanders.
 
-Navigation defaults to **linear Back/Next**, but steps can optionally resolve a dynamic next step for branching flows. “Next” is **disabled** until required fields for the current step are filled, with inline validation messaging below the controls.
+Navigation defaults to **linear Back/Next**, but steps can optionally resolve a dynamic next step for branching flows. “Next” is **disabled** until required fields for the current step are filled, with inline validation messaging below the controls (critical fields remain highlighted without blocking navigation).
 The navigation footer also shows an emoji stepper that mirrors the localized step labels, highlighting active/done/upcoming states for quick context.
 Validation errors always render in a reserved area below the navigation controls to avoid layout shifts and to keep bilingual messaging consistent across steps.
 Field labels can include origin markers (🔎 extracted / 🤖 suggested / ✍️ manual) so reviewers can immediately see where a value came from.
@@ -60,10 +60,10 @@ Steps can be conditionally inactive based on the profile or schema (for example,
 
 The sidebar Flow mode setting now keeps the wizard in the single-page view, which renders all steps in order inside expanders with a top-level missing-fields summary to validate everything at once.
 
-The Business-Kontext step captures the domain-first context (business domain, industry codes, and optional organisation details), while company contact and department inputs remain accessible so missing-field badges appear where inputs live.
-When the onboarding source context is set to agency, the Business-Kontext step uses client-facing labels while staying in the same step position.
-Location follow-ups (`location.*`) are routed to the Business-Kontext step to ensure missing prompts surface alongside the location inputs.
-Position team follow-ups (`position.team_*`) are routed to the Business-Kontext step to match where the team structure inputs are rendered.
+The Company details step captures the business domain plus core company/location/contact information, while department/team inputs now live in the Department & Team step so missing-field badges appear where inputs live.
+When the onboarding source context is set to agency, the Company details step uses client-facing labels while staying in the same step position.
+Location follow-ups (`location.*`) are routed to the Company details step to ensure missing prompts surface alongside the location inputs.
+Department follow-ups (`department.*`) are routed to the Department & Team step to match where those inputs are rendered.
 
 The Summary step is organized into tabs for **Overview**, **Edit (core company/team/role/skills/compensation/process fields)**, **Exports**, and **Warnings** to keep review, export, and validation in one place. The Exports tab now includes a compact artifact list that centralizes downloads.
 
@@ -87,13 +87,13 @@ Every step MUST render in the same top-down pattern:
 4) **Next / Back navigation**  
    - One primary action: continue.
 
-Missing prompts should not duplicate inputs that are already editable in the Known tab; inline fields (for example, the Team reporting line) are edited once to avoid conflicting updates.
+Missing prompts should not duplicate inputs that are already editable in the Known section; inline fields (for example, the Team reporting line) are edited once to avoid conflicting updates.
 
 The baseline UX uses the guided-flow UI kit in `app.py` (emoji stepper, context bar, progress microcopy, and inline saved feedback) to keep navigation stable without layout shifts.
 Wizard widget keys should always be generated via `wiz.k(...)` so session state remains namespaced for multi-wizard and multi-repo safety.
 
-The Business-Kontext step now uses the shared `render_step_layout` helper to align with the Known/Missing/Tools structure (`wizard/step_layout.py`).
-The Team & Structure step now uses the shared `render_step_layout` helper to align with the Known/Missing/Tools structure (`wizard/step_layout.py`).
+The Company details step now uses the shared `render_step_layout` helper to align with the Known/Missing/Validate/Tools structure (`wizard/step_layout.py`).
+The Department & Team step now uses the shared `render_step_layout` helper to align with the Known/Missing/Validate/Tools structure (`wizard/step_layout.py`).
 
 ### Tools & assistants (UX rule)
 
@@ -207,7 +207,7 @@ MODEL_ROUTING__interview_guide = "gpt-4o-mini"
 - Sidebar settings (language, theme, intro banner, advanced LLM options):
   - `sidebar/__init__.py`
 - Shared step layout pattern (recommended):
-  - `wizard/step_layout.py` *(Known/Missing tabs with optional tools expander)*
+  - `wizard/step_layout.py` *(Known → Missing → Validate sections with optional tools expander)*
   - `wizard/step_scaffold.py` *(add if not present; centralize Known/Missing/Validate/Nav)*
   - `render_step_layout` accepts localized strings or `(de, en)` tuples for titles/intro copy.
 

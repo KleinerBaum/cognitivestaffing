@@ -38,7 +38,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Summary Edit now includes compensation and hiring process fields so salary and interview details can be adjusted in-place.
 - Missing-field detection helpers in `wizard/missing_fields.py` with unit coverage.
 - Step-level status helpers for missing required vs. critical fields in `wizard/step_status.py` with unit coverage.
-- Step layout helper for consistent Known/Missing tabs with an optional tools expander.
+- Step layout helper for consistent Known → Missing → Validate sections with an optional tools expander.
 - Wizard step registry metadata with ordered keys for shared navigation references.
 - Feature-flagged sidebar stepper that summarizes per-step missing fields in the sidebar.
 - Sidebar stepper navigation flag (`feature.sidebar_stepper_nav_v1`) to let users jump back to previous steps.
@@ -53,6 +53,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Job-ad extraction now surfaces a progress indicator that tracks structured extraction and follow-up generation.
 
 ### Changed
+- Wizard step labels and headers now align to Company details → Department & Team → Tasks & Skills → Skills recap → Benefits → Recruitment process, with summary-first layouts and department/team inputs consolidated into the Department & Team step.
 - Flow mode now defaults to and enforces the single-page wizard view, removing the guided multi-step toggle from the sidebar settings.
 - OTLP telemetry bootstrap now logs missing endpoint configuration at debug level to reduce noise in local runs.
 - Skill suggestion prompts now enforce JSON-only output with schema validation and repair before fallback parsing.
@@ -60,7 +61,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - NeedAnalysis schema generation now enforces `required` arrays for every object (including map-like nodes) and adds a schema integrity test to prevent OpenAI `response_format` drift.
 - Updated the German benefits prompt wording to use "Vorteile oder Zusatzleistungen."
 - Startup model routing now selects and stores one resolved model per tier (FAST/QUALITY/LONG_CONTEXT) with explicit fallback chains for each tier.
-- Wizard flow step 2 now centers on Business-Kontext (domain-first) while preserving legacy company/department mappings for exports.
+- Wizard flow step 2 now focuses on Company details (business context + core company/location data), while department/team inputs live in the dedicated Department & Team step.
 - `app.py` now renders the guided-flow UI kit stepper/context/progress elements and inline saved feedback to stabilize the baseline wizard UX.
 - Wizard back navigation now prefers a history stack so branching paths return to the actual previous step.
 - Company step headers and captions now adapt when the client branch is active.
@@ -93,10 +94,9 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Onboarding hero copy now uses a human-centric headline, adds a primary CTA with a three-step timeline, and aligns product naming to Cognitive Staffing — Recruitment Need Analysis.
 - Onboarding copy now follows a unified value-prop → action narrative with aligned DE/EN terminology across the global banner and job-ad intake step.
 - Onboarding URL/upload inputs now use the `.onboarding-source-inputs` theme class for the two-column-to-stacked responsive layout.
-- Location follow-up fields now map to the Company step in prefix-based routing to match where the inputs are rendered.
-- Department follow-up fields (`department.*`) now belong to the Company step so required badges and targeted prompts render where the inputs live.
-- Location follow-up fields (`location.*`) now belong to the Company step so missing prompts appear alongside the company location inputs.
-- Position team follow-up fields (`position.team_*`) now route to the Company step to match the team structure inputs.
+- Location follow-up fields now map to the Company details step in prefix-based routing to match where the inputs are rendered.
+- Department follow-up fields (`department.*`) now belong to the Department & Team step so required badges and targeted prompts render where the inputs live.
+- Location follow-up fields (`location.*`) now belong to the Company details step so missing prompts appear alongside the company location inputs.
 - GPT-5.2 tuning: job ad and interview-guide prompts now include short outlining steps, medium reasoning routes through `gpt-5.2-mini`, and long-form calls request richer sections to avoid terse bilingual outputs while keeping schemas intact.
 - Default reasoning effort now initializes to `none` when no override is set; legacy `minimal` inputs are mapped to `effort: none` in API payloads, and verbosity hints are forwarded via Responses calls except for GPT-5 Codex models.
 - Cost-saver routing now downgrades QUALITY to FAST for non-critical tasks (job ads, document refinement, and final explanations stay on QUALITY), and still clamps `max_completion_tokens` for cheaper responses while respecting explicit model overrides.
@@ -117,7 +117,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Removed the model selection dropdown from the extraction settings; the UI now relies solely on the default routing chain without surfacing `model_override` state.
 - The strict JSON extraction toggle was removed from the UI; strict parsing now stays enabled by default and relies on automatic repair/fallback flows when payloads are invalid.
 - Team & Structure now enforces the job title as a required field and keeps the AI team advisor disabled until job title and reporting-line details are available, preventing empty prompts from running.
-- Company step now uses the shared Known/Missing step layout with a dedicated tools expander for assistants.
+- Company details now use the shared summary-first Known/Missing/Validate step layout with a dedicated tools expander for assistants.
 - Team & Structure step now uses the shared Known/Missing step layout with a dedicated tools expander for assistants.
 
 ### Removed

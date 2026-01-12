@@ -30,7 +30,7 @@ def test_migrate_business_context_state_backfills_org_fields() -> None:
 def test_business_context_domain_is_only_required_field() -> None:
     step = get_step("company")
     assert step is not None
-    assert step.required_fields == (str(ProfilePaths.BUSINESS_CONTEXT_DOMAIN),)
+    assert step.required_fields == ()
 
 
 def test_business_context_round_trip_persists_values() -> None:
