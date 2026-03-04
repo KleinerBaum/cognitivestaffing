@@ -53,6 +53,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Job-ad extraction now surfaces a progress indicator that tracks structured extraction and follow-up generation.
 
 ### Changed
+- Compensation benefits chips now use view-specific widget key suffixes in step and summary views (`step_compensation` / `summary_compensation`) while keeping the shared profile state key `compensation.benefits` to avoid Streamlit duplicate-key collisions.
 - Wizard step labels and headers now align to Company details → Department & Team → Tasks & Skills → Skills recap → Benefits → Recruitment process, with summary-first layouts and department/team inputs consolidated into the Department & Team step.
 - Flow mode now defaults to and enforces the single-page wizard view, removing the guided multi-step toggle from the sidebar settings.
 - OTLP telemetry bootstrap now logs missing endpoint configuration at debug level to reduce noise in local runs.

@@ -66,6 +66,7 @@ Location follow-ups (`location.*`) are routed to the Company details step to ens
 Department follow-ups (`department.*`) are routed to the Department & Team step to match where those inputs are rendered.
 
 The Summary step is organized into tabs for **Overview**, **Edit (core company/team/role/skills/compensation/process fields)**, **Exports**, and **Warnings** to keep review, export, and validation in one place. The Exports tab now includes a compact artifact list that centralizes downloads.
+Compensation benefit chips are intentionally keyed per view (`step_compensation` vs. `summary_compensation`) while sharing the same profile state path (`compensation.benefits`) so data stays synchronized without Streamlit duplicate widget-key collisions.
 
 ### Per-step UI pattern (mandatory)
 
