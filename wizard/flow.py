@@ -9101,6 +9101,7 @@ def _step_compensation() -> None:
         values=existing_benefits,
         add_more_hint=ADD_MORE_BENEFITS_HINT,
         state_key=str(ProfilePaths.COMPENSATION_BENEFITS),
+        key_suffix="step_compensation",
     )
     data["compensation"]["benefits"] = unique_normalized(selected_benefits)
 
@@ -10289,6 +10290,7 @@ def _summary_compensation() -> None:
         values=existing_benefits,
         add_more_hint=ADD_MORE_BENEFITS_HINT,
         state_key=str(ProfilePaths.COMPENSATION_BENEFITS),
+        key_suffix="summary_compensation",
     )
     benefits = unique_normalized(benefits)
 
