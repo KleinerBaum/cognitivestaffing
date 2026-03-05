@@ -49,3 +49,32 @@ def test_gpt35_disables_schema_capabilities() -> None:
     capabilities = config.get_model_capabilities("gpt-3.5-turbo")
     assert capabilities.supports_json_schema is False
     assert capabilities.supports_response_format is False
+
+
+def test_task_fallbacks_prioritise_schema_capable_models() -> None:
+    """Structured chain should keep schema-capable models before text-only fallback."""
+
+    fallbacks = config.get_task_fallbacks(ModelTask.EXTRACTION)
+    assert fallbacks
+
+    first_non_schema_index: int | None = None
+    for index, model_name in enumerate(fallbacks):
+        capabilities = config.get_model_capabilities(model_name)
+        if not capabilities.supports_json_schema:
+            first_non_schema_index = index
+            break
+
+    if first_non_schema_index is None:
+        return
+
+    for model_name in fallbacks[:first_non_schema_index]:
+        capabilities = config.get_model_capabilities(model_name)
+        assert capabilities.supports_json_schema is True
+
+
+def test_task_fallbacks_match_model_candidates_order() -> None:
+    """Runtime routing candidates should reflect task fallback order."""
+
+    fallbacks = config.get_task_fallbacks(ModelTask.EXTRACTION)
+    candidates = config.get_model_candidates(ModelTask.EXTRACTION)
+    assert candidates[: len(fallbacks)] == fallbacks

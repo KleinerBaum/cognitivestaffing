@@ -116,6 +116,8 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Structured extraction and JSON repair now call the Chat Completions API directly with JSON schemas, removing the Responses → Chat fallback hop to reduce noise and latency.
 - Consolidated model constants, aliases, and routing logic into `config/models.py` to keep overrides in one place.
 - Primary model selection defaults to `gpt-5-nano` but can be overridden for deployments that require different cost/quality trade-offs.
+- Model routing defaults are harmonized around `gpt-4o-mini` as the fast baseline; Quick mode now keeps extraction/fast paths on that tier, while Genau/Precise mode routes to `o3-mini` and preserves task-specific overrides.
+- Task fallback chains now prioritise realistically available structured-output models first and keep text-only routes as last-resort rescue candidates for schema-driven calls.
 - Removed the model selection dropdown from the extraction settings; the UI now relies solely on the default routing chain without surfacing `model_override` state.
 - The strict JSON extraction toggle was removed from the UI; strict parsing now stays enabled by default and relies on automatic repair/fallback flows when payloads are invalid.
 - Team & Structure now enforces the job title as a required field and keeps the AI team advisor disabled until job title and reporting-line details are available, preventing empty prompts from running.

@@ -6,6 +6,7 @@ import importlib
 import logging
 import sys
 from pathlib import Path
+from typing import Iterator
 
 import pytest
 
@@ -21,7 +22,7 @@ pytestmark = pytest.mark.integration
 
 
 @pytest.fixture(autouse=True)
-def reset_model_availability() -> None:
+def reset_model_availability() -> Iterator[None]:
     """Ensure each test sees a clean availability cache."""
 
     model_config.clear_unavailable_models()
@@ -30,39 +31,39 @@ def reset_model_availability() -> None:
 
 
 def test_extraction_uses_cost_optimised_chain() -> None:
-    """Extraction should start on the long-context tier and cascade through fallbacks."""
+    """Extraction should start with the fast baseline and keep realistic fallbacks."""
 
     fallbacks = model_config.get_model_fallbacks_for(model_config.ModelTask.EXTRACTION)
     assert fallbacks[:4] == [
-        model_config.GPT41_NANO,
-        model_config.GPT41_MINI,
-        model_config.FAST,
         model_config.GPT4O_MINI,
+        model_config.GPT4O,
+        model_config.O3_MINI,
+        model_config.O4_MINI,
     ]
 
 
-def test_fallback_to_gpt41_mini_when_nano_unavailable(caplog: pytest.LogCaptureFixture) -> None:
-    """When GPT-4.1 nano is unavailable we should warn and fall back to GPT-4.1 mini."""
+def test_fallback_to_gpt4o_when_mini_unavailable(caplog: pytest.LogCaptureFixture) -> None:
+    """When GPT-4o mini is unavailable we should warn and fall back to GPT-4o."""
 
-    model_config.mark_model_unavailable(model_config.GPT41_NANO)
+    model_config.mark_model_unavailable(model_config.GPT4O_MINI)
     with caplog.at_level(logging.WARNING, logger="cognitive_needs.model_routing"):
         model = model_config.get_first_available_model(model_config.ModelTask.EXTRACTION)
-    assert model == model_config.GPT41_MINI
-    assert model_config.GPT41_NANO in caplog.text
-    assert model_config.GPT41_MINI in caplog.text
+    assert model == model_config.GPT4O
+    assert model_config.GPT4O_MINI in caplog.text
+    assert model_config.GPT4O in caplog.text
 
 
 def test_fallback_cascades_to_fast_tier(caplog: pytest.LogCaptureFixture) -> None:
-    """If long-context tiers are down, the fast tier should be selected with telemetry."""
+    """If first extraction tiers are down, routing should move to the next candidate."""
 
-    model_config.mark_model_unavailable(model_config.GPT41_NANO)
-    model_config.mark_model_unavailable(model_config.GPT41_MINI)
+    model_config.mark_model_unavailable(model_config.GPT4O_MINI)
+    model_config.mark_model_unavailable(model_config.GPT4O)
     with caplog.at_level(logging.WARNING, logger="cognitive_needs.model_routing"):
         model = model_config.get_first_available_model(model_config.ModelTask.EXTRACTION)
-    assert model == model_config.FAST
-    assert model_config.GPT41_NANO in caplog.text
-    assert model_config.GPT41_MINI in caplog.text
-    assert model_config.FAST in caplog.text
+    assert model == model_config.O3_MINI
+    assert model_config.GPT4O_MINI in caplog.text
+    assert model_config.GPT4O in caplog.text
+    assert model_config.O3_MINI in caplog.text
 
 
 def test_default_model_prefers_cost_optimised_tier() -> None:
