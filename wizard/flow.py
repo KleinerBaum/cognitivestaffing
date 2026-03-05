@@ -6769,6 +6769,7 @@ def _render_esco_occupation_selector(
     *,
     parent: DeltaGenerator | None = None,
     compact: bool = False,
+    key_suffix: str | None = None,
 ) -> None:
     """Render a picker for ESCO occupation suggestions."""
 
@@ -6802,7 +6803,13 @@ def _render_esco_occupation_selector(
 
     selected_ids = [sid for sid in selected_ids if sid in option_ids]
 
-    widget_key = UIKeys.POSITION_ESCO_OCCUPATION_WIDGET
+    suffix = (key_suffix or "").strip()
+    widget_key = (
+        f"{UIKeys.POSITION_ESCO_OCCUPATION_WIDGET}.{suffix}" if suffix else UIKeys.POSITION_ESCO_OCCUPATION_WIDGET
+    )
+    clear_button_key = f"{widget_key}.clear"
+    selected_chip_key_prefix = f"{widget_key}.selected"
+    available_chip_key_prefix = f"{widget_key}.available"
     profile_key = UIKeys.POSITION_ESCO_OCCUPATION
 
     override_sentinel = object()
@@ -6914,7 +6921,7 @@ def _render_esco_occupation_selector(
             with header_cols[1]:
                 if st.button(
                     "✕",
-                    key="esco.occupations.clear",
+                    key=clear_button_key,
                     help=tr("Alle entfernen", "Clear all"),
                     type="secondary",
                     width="stretch",
@@ -6924,7 +6931,7 @@ def _render_esco_occupation_selector(
                     st.rerun()
             clicked_selected = render_chip_button_grid(
                 selected_labels,
-                key_prefix="esco.occupations.selected",
+                key_prefix=selected_chip_key_prefix,
                 button_type="primary",
                 columns=3,
             )
@@ -6945,7 +6952,7 @@ def _render_esco_occupation_selector(
         if available_labels:
             clicked_available = render_chip_button_grid(
                 available_labels,
-                key_prefix="esco.occupations.available",
+                key_prefix=available_chip_key_prefix,
                 columns=3,
             )
             if clicked_available is not None:
@@ -7989,7 +7996,11 @@ def _step_requirements() -> None:
     with helper_columns[1]:
         lang_code = st.session_state.get("lang", "de") or "de"
         _render_requirements_esco_search(position_mapping, lang=lang_code)
-        _render_esco_occupation_selector(position_mapping, compact=True)
+        _render_esco_occupation_selector(
+            position_mapping,
+            compact=True,
+            key_suffix="role_tasks",
+        )
         current_esco_opt_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_ESCO_OPT_IN))
         esco_button_label = (
             tr("🌐 ESCO-Vorschläge laden", "🌐 Fetch suggestions from ESCO")
