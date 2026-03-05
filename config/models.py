@@ -159,6 +159,14 @@ class TaskModelConfig:
     allow_response_format: bool = True
 
 
+@dataclass(frozen=True)
+class ModelCapabilities:
+    """Capabilities for a concrete model identifier."""
+
+    supports_json_schema: bool = True
+    supports_response_format: bool = True
+
+
 REASONING_EFFORT = "none"
 LIGHTWEIGHT_MODEL = LIGHTWEIGHT_MODEL_DEFAULT
 MEDIUM_REASONING_MODEL = MEDIUM_REASONING_MODEL_DEFAULT
@@ -299,6 +307,14 @@ def _canonical_model_name(value: str | None) -> str:
     if not value:
         return ""
     return value.strip().lower()
+
+
+_MODEL_CAPABILITY_OVERRIDES: dict[str, ModelCapabilities] = {
+    _canonical_model_name(GPT35): ModelCapabilities(
+        supports_json_schema=False,
+        supports_response_format=False,
+    )
+}
 
 
 def resolve_supported_model(value: str | None, fallback: str) -> str:
@@ -514,6 +530,20 @@ def is_model_available(model: str) -> bool:
     if not canonical:
         return False
     return canonical not in _UNAVAILABLE_MODELS
+
+
+def get_model_capabilities(model: str | None) -> ModelCapabilities:
+    """Return capability flags for ``model`` with sane defaults."""
+
+    canonical = _canonical_model_name(normalise_model_name(model) or model)
+    if not canonical:
+        return ModelCapabilities()
+    if canonical.startswith("gpt-3.5"):
+        return ModelCapabilities(
+            supports_json_schema=False,
+            supports_response_format=False,
+        )
+    return _MODEL_CAPABILITY_OVERRIDES.get(canonical, ModelCapabilities())
 
 
 def get_model_fallbacks_for(task: ModelTask | str) -> list[str]:
