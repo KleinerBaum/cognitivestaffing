@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import sys
-from typing import Any, Callable
+from typing import Any, Callable, Literal
 
 import pytest
 import streamlit as st
@@ -25,7 +25,7 @@ class _DummyContainer:
     def __enter__(self) -> "_DummyContainer":
         return self
 
-    def __exit__(self, *_: object) -> bool:
+    def __exit__(self, *_: object) -> Literal[False]:
         return False
 
     def markdown(self, *_args: Any, **_kwargs: Any) -> None:
@@ -221,3 +221,82 @@ def test_render_esco_occupation_selector_consumes_override(
         }
     ]
     assert st.session_state[StateKeys.ESCO_SKILLS] == ["Python"]
+
+
+def test_render_esco_occupation_selector_supports_multiple_instances(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Two selector instances in one render pass should use unique widget keys."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state[StateKeys.PROFILE] = {"position": {}}
+    position = st.session_state[StateKeys.PROFILE]["position"]
+    st.session_state[StateKeys.UI_ESCO_OCCUPATION_OPTIONS] = [
+        {
+            "preferredLabel": "Data Scientist",
+            "group": "Science professionals",
+            "uri": "uri:1",
+        },
+        {
+            "preferredLabel": "Data Analyst",
+            "group": "Science professionals",
+            "uri": "uri:2",
+        },
+    ]
+    st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = []
+    st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] = True
+
+    monkeypatch.setattr("wizard.get_essential_skills", lambda *_args, **_kwargs: [])
+
+    seen_multiselect_keys: list[str] = []
+    seen_button_keys: list[str] = []
+    seen_chip_prefixes: list[str] = []
+
+    def fake_multiselect(
+        _label: str,
+        *,
+        options: list[str],
+        key: str,
+        format_func: Callable[[str], str],
+        on_change: Callable[[], None],
+        **_kwargs: Any,
+    ) -> list[str]:
+        assert options
+        assert format_func(options[0])
+        assert key not in seen_multiselect_keys
+        seen_multiselect_keys.append(key)
+        on_change()
+        return []
+
+    _install_streamlit_fakes(monkeypatch, multiselect_handler=fake_multiselect)
+
+    def fake_button(*_args: Any, **kwargs: Any) -> bool:
+        key = str(kwargs.get("key", ""))
+        if key:
+            assert key not in seen_button_keys
+            seen_button_keys.append(key)
+        return False
+
+    monkeypatch.setattr(st, "button", fake_button)
+
+    def fake_chip_grid(
+        _labels: list[str],
+        *,
+        key_prefix: str,
+        **_kwargs: Any,
+    ) -> None:
+        assert key_prefix not in seen_chip_prefixes
+        seen_chip_prefixes.append(key_prefix)
+        return None
+
+    monkeypatch.setattr("wizard.render_chip_button_grid", fake_chip_grid)
+
+    _render_esco_occupation_selector(position, key_suffix="instance_a")
+    _render_esco_occupation_selector(position, key_suffix="instance_b")
+
+    assert seen_multiselect_keys == [
+        f"{UIKeys.POSITION_ESCO_OCCUPATION_WIDGET}.instance_a",
+        f"{UIKeys.POSITION_ESCO_OCCUPATION_WIDGET}.instance_b",
+    ]
+    assert all("instance_a" in prefix or "instance_b" in prefix for prefix in seen_chip_prefixes)
