@@ -35,10 +35,10 @@ O3 = "o3"
 O3_MINI = "o3-mini"
 GPT35 = "gpt-3.5-turbo"
 
-FAST = "gpt-5-nano"
-QUALITY = "gpt-5-mini"
-LONG_CONTEXT = "gpt-4.1-nano"
-PRECISE = "gpt-5.1"
+FAST = GPT4O_MINI
+QUALITY = GPT4O
+LONG_CONTEXT = GPT41_MINI
+PRECISE = O3_MINI
 
 EMBED_MODEL = "text-embedding-3-large"  # RAG
 
@@ -353,8 +353,8 @@ def _prefer_lightweight(task: str) -> bool:
 def _build_model_config(overrides: Mapping[str, str] | None) -> Dict[str, TaskModelConfig]:
     config: Dict[str, TaskModelConfig] = {
         ModelTask.DEFAULT.value: TaskModelConfig(model=OPENAI_MODEL),
-        ModelTask.EXTRACTION.value: TaskModelConfig(model=LONG_CONTEXT),
-        ModelTask.COMPANY_INFO.value: TaskModelConfig(model=LONG_CONTEXT),
+        ModelTask.EXTRACTION.value: TaskModelConfig(model=LIGHTWEIGHT_MODEL),
+        ModelTask.COMPANY_INFO.value: TaskModelConfig(model=LIGHTWEIGHT_MODEL),
         ModelTask.FOLLOW_UP_QUESTIONS.value: TaskModelConfig(
             model=REASONING_MODEL,
             allow_json_schema=True,
@@ -411,23 +411,32 @@ def _build_model_config(overrides: Mapping[str, str] | None) -> Dict[str, TaskMo
 
 
 MODEL_FALLBACKS: Dict[str, list[str]] = {
-    _canonical_model_name(GPT52_PRO): [GPT52_PRO, GPT52, GPT4O, GPT4O_MINI, GPT4, GPT35],
-    _canonical_model_name(GPT52): [GPT52, GPT52_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35],
-    _canonical_model_name(GPT52_MINI): [GPT52_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35, GPT52],
-    _canonical_model_name(GPT52_NANO): [GPT52_NANO, GPT4O_MINI, GPT4O, GPT4, GPT35],
-    _canonical_model_name(PRECISE): [PRECISE, QUALITY, FAST, GPT4O, GPT4O_MINI, GPT4, GPT35],
-    _canonical_model_name(GPT51): [GPT51, QUALITY, FAST, GPT4O, GPT4O_MINI, GPT4, GPT35, GPT52_MINI],
-    _canonical_model_name(GPT51_MINI): [GPT51_MINI, FAST, GPT4O_MINI, GPT4O, GPT4, GPT35],
-    _canonical_model_name(GPT51_NANO): [GPT51_NANO, GPT4O_MINI, GPT4O, GPT4, GPT35],
-    _canonical_model_name(GPT41_NANO): [GPT41_NANO, GPT41_MINI, FAST, GPT4O_MINI, GPT4O, GPT4, GPT35],
-    _canonical_model_name(O3): [O3, O3_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35],
-    _canonical_model_name(O3_MINI): [O3_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35],
-    _canonical_model_name(O4_MINI): [O4_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35],
-    _canonical_model_name(GPT4O_MINI): [GPT4O_MINI, GPT4O, GPT4, GPT35, GPT52_MINI],
-    _canonical_model_name(GPT4O): [GPT4O, GPT4O_MINI, GPT4, GPT35, GPT52_MINI],
-    _canonical_model_name(GPT4): [GPT4, GPT4O, GPT4O_MINI, GPT35, GPT52_MINI],
-    _canonical_model_name(GPT35): [GPT35, GPT4O_MINI, GPT4O, GPT4, GPT52_MINI],
+    _canonical_model_name(GPT52_PRO): [GPT52_PRO, O3, O3_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35],
+    _canonical_model_name(GPT52): [GPT52, O3_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35],
+    _canonical_model_name(GPT52_MINI): [GPT52_MINI, GPT4O, GPT4O_MINI, O3_MINI, GPT4, GPT35],
+    _canonical_model_name(GPT52_NANO): [GPT52_NANO, GPT4O_MINI, GPT4O, GPT41_MINI, GPT4, GPT35],
+    _canonical_model_name(PRECISE): [PRECISE, O4_MINI, GPT4O, GPT4O_MINI, GPT41_MINI, GPT4, GPT35],
+    _canonical_model_name(GPT51): [GPT51, O3_MINI, GPT4O, GPT4O_MINI, GPT41_MINI, GPT4, GPT35],
+    _canonical_model_name(GPT51_MINI): [GPT51_MINI, GPT4O, GPT4O_MINI, O3_MINI, GPT41_MINI, GPT4, GPT35],
+    _canonical_model_name(GPT51_NANO): [GPT51_NANO, GPT4O_MINI, GPT4O, GPT41_MINI, GPT4, GPT35],
+    _canonical_model_name(GPT41_NANO): [GPT41_NANO, GPT41_MINI, GPT4O_MINI, GPT4O, O3_MINI, GPT4, GPT35],
+    _canonical_model_name(O3): [O3, O3_MINI, O4_MINI, GPT4O, GPT4O_MINI, GPT4, GPT35],
+    _canonical_model_name(O3_MINI): [O3_MINI, O4_MINI, GPT4O, GPT4O_MINI, GPT41_MINI, GPT4, GPT35],
+    _canonical_model_name(O4_MINI): [O4_MINI, O3_MINI, GPT4O, GPT4O_MINI, GPT41_MINI, GPT4, GPT35],
+    _canonical_model_name(GPT4O_MINI): [GPT4O_MINI, GPT4O, O3_MINI, O4_MINI, GPT41_MINI, GPT4, GPT35],
+    _canonical_model_name(GPT4O): [GPT4O, GPT4O_MINI, O3_MINI, O4_MINI, GPT41_MINI, GPT4, GPT35],
+    _canonical_model_name(GPT4): [GPT4, GPT4O, GPT4O_MINI, GPT41_MINI, O3_MINI, GPT35],
+    _canonical_model_name(GPT35): [GPT35, GPT4O_MINI, GPT4O, GPT41_MINI, GPT4],
 }
+
+
+def get_task_fallbacks(task: ModelTask | str) -> list[str]:
+    """Return task fallbacks with schema-capable models prioritised first."""
+
+    ordered = get_model_fallbacks_for(task)
+    structured_chain = [model_name for model_name in ordered if get_model_capabilities(model_name).supports_json_schema]
+    text_only_chain = [model_name for model_name in ordered if model_name not in structured_chain]
+    return [*structured_chain, *text_only_chain]
 
 
 def _merge_chains(primary: Sequence[str], secondary: Sequence[str]) -> list[str]:
@@ -643,7 +652,7 @@ def _collect_candidate_models(task: ModelTask | str, override: str | None) -> li
         if override_name:
             candidates.append(override_name)
             _extend_with_model_chain(override_name)
-    fallback_chain = get_model_fallbacks_for(task)
+    fallback_chain = get_task_fallbacks(task)
     mode = _get_reasoning_mode() if task_key != ModelTask.DEFAULT.value else None
     if mode == "quick" and _prefer_lightweight(task_key):
         lightweight_chain = MODEL_FALLBACKS.get(

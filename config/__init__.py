@@ -594,6 +594,7 @@ select_model = model_config.select_model
 get_model_candidates = model_config.get_model_candidates
 get_first_available_model = model_config.get_first_available_model
 get_model_fallbacks_for = model_config.get_model_fallbacks_for
+get_task_fallbacks = model_config.get_task_fallbacks
 get_task_config = model_config.get_task_config
 get_model_capabilities = model_config.get_model_capabilities
 get_reasoning_mode = model_config.get_reasoning_mode

@@ -153,12 +153,13 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
 
 ## LLM configuration
 
-- **Cost saver toggle (sidebar)**: when enabled, the wizard downgrades QUALITY (`gpt-5-mini`) to FAST (`gpt-5-nano`) for non-critical tasks and clamps `max_completion_tokens` to a tighter ceiling for cheaper, faster responses. Critical tasks (job ads, document refinement, final explanations) retain the default quality tier, and explicit model overrides still take priority if a caller sets one directly.
-- **Quick vs. Precise mode**: Quick lowers reasoning effort and Precise raises it; both respect the cost saver toggle when it is enabled.
-- **Tier defaults**: FAST (`gpt-5-nano`) handles quick work, QUALITY (`gpt-5-mini`) handles reasoning-heavy prompts, LONG_CONTEXT (`gpt-4.1-nano`) powers extraction and document refinement, and PRECISE (`gpt-5.1`) only activates when Precise is toggled.
-- **Startup model map**: on launch the app selects and stores one model per tier in `st.session_state["model_map"]`, using fallback chains: FAST → `gpt-5-nano`, `gpt-4.1-nano`, `gpt-4o-mini`; QUALITY → `gpt-5-mini`, `gpt-4.1-mini`, `gpt-4o`; LONG_CONTEXT → `gpt-4.1-nano`, `gpt-4.1-mini`.
+- **Cost saver toggle (sidebar)**: when enabled, the wizard keeps FAST on `gpt-4o-mini`, downgrades QUALITY (`gpt-4o`) for non-critical tasks where possible, and clamps `max_completion_tokens` to a tighter ceiling for cheaper, faster responses. Critical tasks (job ads, document refinement, final explanations) retain the default quality tier, and explicit model overrides still take priority if a caller sets one directly.
+- **Quick vs. Precise mode**: Quick lowers reasoning effort and keeps fast paths on `gpt-4o-mini`; Genau/Precise raises reasoning effort and routes toward the PRECISE tier (`o3-mini`). Both modes still respect the cost saver toggle.
+- **Tier defaults**: FAST (`gpt-4o-mini`) handles quick/standard paths (including extraction baselines), QUALITY (`gpt-4o`) handles richer reasoning prompts, LONG_CONTEXT (`gpt-4.1-mini`) powers long-document refinement, and PRECISE (`o3-mini`) activates for the Genau/Precise mode.
+- **Startup model map**: on launch the app selects and stores one model per tier in `st.session_state["model_map"]`, using realistic fallback chains: FAST → `gpt-4o-mini`, `gpt-4o`, `o3-mini`; QUALITY → `gpt-4o`, `gpt-4o-mini`, `o3-mini`; LONG_CONTEXT → `gpt-4.1-mini`, `gpt-4o`, `gpt-4o-mini`.
 - **Responses fallbacks**: suggestion helpers only log chat fallback usage when the Responses client returns a structured `ResponsesCallResult` to avoid type mismatches during tests or mocking.
 - **Skill suggestion parsing**: prompts demand JSON-only output, and parsing validates against the skill suggestion schema with local repair before optional LLM repair/fallbacks.
+- **Structured fallback behavior**: task fallback chains are now reordered so JSON-schema-capable models are attempted first for structured tasks; text-only capable routes are only used as final rescue options.
 - **Tool-aware routing**: prompts that request web/file search tools prefer GPT-5 tiers, while ultra-long prompts (>300k estimated tokens) route to LONG_CONTEXT (`gpt-4.1-nano`).
 
 ### Cost controls
