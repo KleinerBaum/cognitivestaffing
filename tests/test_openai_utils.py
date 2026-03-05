@@ -974,6 +974,36 @@ def test_call_chat_api_dual_prompt_custom_metadata(monkeypatch):
     assert result.secondary_response_id == "secondary-id"
 
 
+def test_call_chat_api_gpt35_drops_response_format_json_schema(monkeypatch: pytest.MonkeyPatch) -> None:
+    """gpt-3.5 fallback requests must not include json_schema response_format payloads."""
+
+    captured: dict[str, Any] = {}
+
+    class _FakeCompletions:
+        def create(self, **kwargs: Any):
+            captured.update(kwargs)
+            return {"choices": [{"message": {"content": "ok"}}], "usage": {"prompt_tokens": 1, "completion_tokens": 1}}
+
+    class _FakeChat:
+        completions = _FakeCompletions()
+
+    class _FakeClient:
+        chat = _FakeChat()
+
+    fake_client = _FakeClient()
+    monkeypatch.setattr("openai_utils.api.client", fake_client, raising=False)
+    monkeypatch.setattr("openai_utils.api.get_client", lambda: fake_client)
+
+    call_chat_api(
+        [{"role": "user", "content": "hi"}],
+        model=model_config.GPT35,
+        json_schema={"name": "fallback_schema", "schema": {"type": "object"}},
+        use_response_format=True,
+    )
+
+    assert "response_format" not in captured
+
+
 def test_call_chat_api_sets_json_schema_text_format(monkeypatch):
     """Structured calls should configure the JSON schema text format."""
 

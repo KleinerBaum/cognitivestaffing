@@ -44,6 +44,7 @@ from config import (
     ModelTask,
     VERBOSITY,
     get_active_verbosity,
+    get_model_capabilities,
     get_task_config,
     is_model_available,
     mark_model_unavailable,
@@ -214,6 +215,33 @@ def _inject_verbosity_hint(
         new_messages.insert(0, {"role": "system", "content": instruction})
 
     return new_messages
+
+
+def _apply_schema_capability_fallback(
+    *,
+    model: str | None,
+    json_schema: Optional[dict],
+    use_response_format: bool,
+    context: str,
+) -> tuple[Optional[dict], bool]:
+    """Disable structured output flags when the model does not support them."""
+
+    capabilities = get_model_capabilities(model)
+    degraded = False
+    if json_schema is not None and not capabilities.supports_json_schema:
+        json_schema = None
+        degraded = True
+    if use_response_format and not capabilities.supports_response_format:
+        use_response_format = False
+        degraded = True
+
+    if degraded:
+        logger.warning(
+            "Model '%s' lacks structured-output capability; degrading to text/free JSON mode in %s.",
+            model,
+            context,
+        )
+    return json_schema, use_response_format
 
 
 def _message_indicates_parameter_unsupported(message: str, parameter: str) -> bool:
@@ -1862,6 +1890,12 @@ def _call_chat_api_single(
 
     active_mode = resolve_api_mode(api_mode)
     step_label = str(task.value) if isinstance(task, ModelTask) else str(task) if task is not None else None
+    json_schema, use_response_format = _apply_schema_capability_fallback(
+        model=model,
+        json_schema=json_schema,
+        use_response_format=use_response_format,
+        context="_call_chat_api_single",
+    )
     request = build_chat_payload(
         messages,
         model=model,
@@ -1902,6 +1936,17 @@ def _call_chat_api_single(
     current_model = context.initial_model()
     payload["model"] = current_model
 
+    json_schema, use_response_format = _apply_schema_capability_fallback(
+        model=current_model,
+        json_schema=json_schema,
+        use_response_format=use_response_format,
+        context="_call_chat_api_single(resolved-model)",
+    )
+    if json_schema is None or not use_response_format:
+        payload.pop("response_format", None)
+        schema_bundle = None
+        schema_name = None
+
     with log_context(pipeline_task=step_label, model=current_model):
         set_model(current_model)
         retry_state = create_retry_state()
@@ -1909,6 +1954,7 @@ def _call_chat_api_single(
         chat_retry_attempts = 0
         max_chat_retries = 2
         timed_out_models: set[str] = set()
+        schema_degradation_attempted: set[str] = set()
 
         while True:
             with log_context(model=current_model):
@@ -1924,6 +1970,17 @@ def _call_chat_api_single(
                         getattr(err, "message", str(err)),
                         exc_info=err,
                     )
+
+                    if schema_error and current_model not in schema_degradation_attempted:
+                        schema_degradation_attempted.add(current_model)
+                        payload.pop("response_format", None)
+                        schema_bundle = None
+                        schema_name = None
+                        logger.warning(
+                            "Schema-related BadRequest for model '%s'; retrying same model without structured response format.",
+                            current_model,
+                        )
+                        continue
 
                     timed_out = isinstance(err, APITimeoutError)
                     if timed_out:
@@ -1953,9 +2010,21 @@ def _call_chat_api_single(
                         payload["model"] = next_model
                         current_model = next_model
                         set_model(current_model)
+                        _, use_response_format = _apply_schema_capability_fallback(
+                            model=current_model,
+                            json_schema=None,
+                            use_response_format=use_response_format,
+                            context="_call_chat_api_single(timeout-fallback)",
+                        )
+                        if not use_response_format:
+                            payload.pop("response_format", None)
                         continue
 
-                    if not active_mode.is_classic and (schema_error or not fallback_to_chat_attempted):
+                    if (
+                        not active_mode.is_classic
+                        and (schema_error or not fallback_to_chat_attempted)
+                        and not (schema_error and current_model in schema_degradation_attempted)
+                    ):
                         fallback_to_chat_attempted = True
                         fallback_payload = _build_chat_fallback_payload(
                             payload,
@@ -1987,6 +2056,32 @@ def _call_chat_api_single(
                                 step=step_label,
                                 api_mode=active_mode.value,
                             )
+                    elif schema_error and current_model in schema_degradation_attempted:
+                        next_model = context.register_failure(current_model)
+                        if next_model is None:
+                            raise _wrap_openai_exception(
+                                err,
+                                model=current_model,
+                                schema_name=schema_name,
+                                step=step_label,
+                                api_mode=active_mode.value,
+                            )
+                        logger.warning(
+                            "Model '%s' still rejects schema-related request after degradation; retrying fallback model '%s'.",
+                            current_model,
+                            next_model,
+                        )
+                        payload["model"] = next_model
+                        current_model = next_model
+                        set_model(current_model)
+                        _, use_response_format = _apply_schema_capability_fallback(
+                            model=current_model,
+                            json_schema=None,
+                            use_response_format=use_response_format,
+                            context="_call_chat_api_single(model-fallback)",
+                        )
+                        payload.pop("response_format", None)
+                        continue
                     elif active_mode.is_classic and chat_retry_attempts < max_chat_retries:
                         delay = 0.5 * (2**chat_retry_attempts)
                         chat_retry_attempts += 1
@@ -2027,6 +2122,14 @@ def _call_chat_api_single(
                         payload["model"] = next_model
                         current_model = next_model
                         set_model(current_model)
+                        _, use_response_format = _apply_schema_capability_fallback(
+                            model=current_model,
+                            json_schema=None,
+                            use_response_format=use_response_format,
+                            context="_call_chat_api_single(timeout-fallback)",
+                        )
+                        if not use_response_format:
+                            payload.pop("response_format", None)
                         continue
 
             response_id = _extract_response_id(response)
@@ -2219,6 +2322,14 @@ def call_chat_api(
 
     if task_config and not task_config.allow_response_format:
         use_response_format = False
+
+    capability_model = model or (task_config.model if task_config is not None else None)
+    json_schema, use_response_format = _apply_schema_capability_fallback(
+        model=capability_model,
+        json_schema=json_schema,
+        use_response_format=use_response_format,
+        context="call_chat_api",
+    )
 
     active_mode = resolve_api_mode(api_mode)
     single_kwargs: dict[str, Any] = {

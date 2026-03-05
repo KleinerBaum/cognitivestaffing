@@ -41,3 +41,11 @@ def test_json_tasks_allow_schema(task: ModelTask) -> None:
     config_entry = get_task_config(task)
     assert config_entry.allow_json_schema is True
     assert config_entry.allow_response_format is True
+
+
+def test_gpt35_disables_schema_capabilities() -> None:
+    """Legacy gpt-3.5 models should not advertise structured output support."""
+
+    capabilities = config.get_model_capabilities("gpt-3.5-turbo")
+    assert capabilities.supports_json_schema is False
+    assert capabilities.supports_response_format is False
