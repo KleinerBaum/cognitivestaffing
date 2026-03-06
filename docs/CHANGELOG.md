@@ -53,6 +53,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Job-ad extraction now surfaces a progress indicator that tracks structured extraction and follow-up generation.
 
 ### Changed
+- Single-page wizard validation now hides the global missing-field list behind a neutral helper message until users click **Validate all steps** (or reach the Summary step), preventing premature cross-step warnings.
 - ESCO occupation selector now supports optional `key_suffix` widget namespacing so multiple selector instances can render in one pass without duplicate Streamlit widget keys, while keeping shared profile synchronization on `ui.position.esco_occupation`.
 - Compensation benefits chips now use view-specific widget key suffixes in step and summary views (`step_compensation` / `summary_compensation`) while keeping the shared profile state key `compensation.benefits` to avoid Streamlit duplicate-key collisions.
 - Wizard step labels and headers now align to Company details → Department & Team → Tasks & Skills → Skills recap → Benefits → Recruitment process, with summary-first layouts and department/team inputs consolidated into the Department & Team step.
