@@ -90,10 +90,9 @@ def _render_team_step(context: WizardContext) -> None:
 
 
 def _render_role_tasks_step(context: WizardContext) -> None:
-    from wizard import flow as wizard_flow
+    from wizard.steps import role_tasks_step
 
-    _ = context
-    wizard_flow._step_requirements()
+    role_tasks_step.step_role_tasks(context)
 
 
 def _render_skills_step(context: WizardContext) -> None:
@@ -104,17 +103,15 @@ def _render_skills_step(context: WizardContext) -> None:
 
 
 def _render_benefits_step(context: WizardContext) -> None:
-    from wizard import flow as wizard_flow
+    from wizard.steps import benefits_step
 
-    _ = context
-    wizard_flow._step_compensation()
+    benefits_step.step_benefits(context)
 
 
 def _render_interview_step(context: WizardContext) -> None:
-    from wizard import flow as wizard_flow
+    from wizard.steps import interview_step
 
-    _ = context
-    wizard_flow._step_process()
+    interview_step.step_interview(context)
 
 
 def _render_summary_step(context: WizardContext) -> None:
