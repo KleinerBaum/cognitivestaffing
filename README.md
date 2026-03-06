@@ -54,7 +54,7 @@ The onboarding step starts with a single hero block (logo + eyebrow/headline/sub
 
 Navigation defaults to **linear Back/Next**, but steps can optionally resolve a dynamic next step for branching flows. “Next” is **disabled** until required fields for the current step are filled, with inline validation messaging below the controls (critical fields remain highlighted without blocking navigation).
 The navigation footer also shows an emoji stepper that mirrors the localized step labels, highlighting active/done/upcoming states for quick context.
-Validation errors always render in a reserved area below the navigation controls to avoid layout shifts and to keep bilingual messaging consistent across steps.
+Validation errors render in a dedicated area below the navigation controls when errors are present, keeping bilingual messaging consistent without showing an empty warning container.
 Field labels can include origin markers (🔎 extracted / 🤖 suggested / ✍️ manual) so reviewers can immediately see where a value came from.
 Steps can be conditionally inactive based on the profile or schema (for example, the Team step may be skipped if the team data model is disabled); navigation and deep links must always land on the nearest active step.
 
