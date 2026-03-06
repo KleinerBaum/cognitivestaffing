@@ -139,6 +139,7 @@ OPENAI_SESSION_TOKEN_LIMIT = _parse_positive_int_env(_raw_budget_limit, env_var=
 
 CHATKIT_ENABLED = _is_truthy_flag(os.getenv("CHATKIT_ENABLED", "1"))
 WIZARD_STEP_FORM_FADE = _is_truthy_flag(os.getenv("WIZARD_STEP_FORM_FADE", "0"))
+WIZARD_SINGLE_PAGE_LEGACY = _is_truthy_flag(os.getenv("WIZARD_SINGLE_PAGE_LEGACY", "0"))
 CHATKIT_DOMAIN_KEY = os.getenv("CHATKIT_DOMAIN_KEY", "")
 CHATKIT_WORKFLOW_ID = os.getenv("CHATKIT_WORKFLOW_ID", "")
 CHATKIT_FOLLOWUPS_WORKFLOW_ID = os.getenv("CHATKIT_FOLLOWUPS_WORKFLOW_ID", CHATKIT_WORKFLOW_ID)

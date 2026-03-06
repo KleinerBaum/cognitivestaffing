@@ -58,7 +58,7 @@ Validation errors always render in a reserved area below the navigation controls
 Field labels can include origin markers (🔎 extracted / 🤖 suggested / ✍️ manual) so reviewers can immediately see where a value came from.
 Steps can be conditionally inactive based on the profile or schema (for example, the Team step may be skipped if the team data model is disabled); navigation and deep links must always land on the nearest active step.
 
-The sidebar Flow mode setting now keeps the wizard in the single-page view, which renders all steps in order inside expanders with a top-level missing-fields summary to validate everything at once.
+The sidebar Flow mode setting defaults to the single-page view, which renders all steps in order inside expanders with a top-level missing-fields summary to validate everything at once. Multi-step sessions remain supported when `StateKeys.FLOW_MODE` is set to `FlowMode.MULTI_STEP`; set `WIZARD_SINGLE_PAGE_LEGACY=1` only if you need to force the previous single-page-only behavior.
 
 The Company details step captures the business domain plus core company/location/contact information, while department/team inputs now live in the Department & Team step so missing-field badges appear where inputs live.
 When the onboarding source context is set to agency, the Company details step uses client-facing labels while staying in the same step position.
@@ -205,6 +205,7 @@ MODEL_ROUTING__interview_guide = "gpt-4o-mini"
   - Feature flag: set `st.session_state["feature.sidebar_stepper_v1"] = True` to preview the sidebar stepper.
   - Navigation flag: set `st.session_state["feature.sidebar_stepper_nav_v1"] = True` to allow clicking previous steps in the sidebar stepper.
   - Step-panel fade: set `WIZARD_STEP_FORM_FADE=1` (env/secrets) or `st.session_state["wizard.step_form_fade"] = True` to enable the optional step fade wrapper.
+  - Legacy single-page override: set `WIZARD_SINGLE_PAGE_LEGACY=1` to coerce `FlowMode.MULTI_STEP` sessions back to single-page rendering (default `0`).
   - Form-based fade mode: toggle `USE_FORM_PANEL_FADE` in `app.py` to render wizard steps inside a `st.form` with submit-based navigation.
 - Sidebar settings (language, theme, intro banner, advanced LLM options):
   - `sidebar/__init__.py`
