@@ -7,6 +7,7 @@ from typing import Any, Callable, Sequence
 
 import pytest
 
+from constants.flow_mode import FlowMode
 from constants.keys import StateKeys, UIKeys
 from wizard.steps import jobad_step
 from wizard_router import WizardContext
@@ -56,8 +57,11 @@ class DummyStreamlit:
         return None
 
     def columns(self, spec: int | Sequence[object], **__: Any) -> tuple[DummyColumn, ...]:
-        _ = spec
-        return tuple(DummyColumn() for _ in range(3))
+        if isinstance(spec, int):
+            count = spec
+        else:
+            count = len(spec)
+        return tuple(DummyColumn() for _ in range(count))
 
     def container(self, *_: Any, **__: Any) -> DummyContainer:
         return DummyContainer()
@@ -123,7 +127,7 @@ def stub_onboarding_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
     """Neutralise expensive onboarding dependencies for fast tests."""
 
     stub_flow = SimpleNamespace(
-        _render_onboarding_hero=lambda: None,
+        _render_onboarding_hero=lambda *args, **kwargs: None,
         _maybe_run_extraction=lambda schema: None,
         _render_extraction_review=lambda: False,
         _render_followups_for_step=lambda *args, **kwargs: None,
@@ -136,6 +140,7 @@ def stub_onboarding_dependencies(monkeypatch: pytest.MonkeyPatch) -> None:
         _build_profile_context=lambda profile: {},
         _format_dynamic_message=lambda default, context, variants: default[0],
         _get_profile_state=lambda: {},
+        get_flow_mode=lambda: FlowMode.SINGLE_PAGE,
     )
     monkeypatch.setattr(jobad_step, "_get_flow_module", lambda: stub_flow)
 
@@ -152,3 +157,49 @@ def test_jobad_step_populates_session_state(stubbed_streamlit: DummyStreamlit) -
     assert UIKeys.EXTRACTION_REASONING_MODE in stubbed_streamlit.session_state
     assert StateKeys.EXTRACTION_STRICT_FORMAT in stubbed_streamlit.session_state
     assert UIKeys.EXTRACTION_STRICT_FORMAT in stubbed_streamlit.session_state
+
+
+def test_jobad_step_does_not_render_manual_next_button_in_multistep(
+    monkeypatch: pytest.MonkeyPatch,
+    stubbed_streamlit: DummyStreamlit,
+) -> None:
+    """The onboarding step must not trigger local next navigation in multi-step mode."""
+
+    button_labels: list[str] = []
+    advance_calls = 0
+
+    def record_button(label: str, *_: Any, **__: Any) -> bool:
+        button_labels.append(label)
+        return False
+
+    def mark_advance() -> None:
+        nonlocal advance_calls
+        advance_calls += 1
+
+    monkeypatch.setattr(stubbed_streamlit, "button", record_button)
+    monkeypatch.setattr(
+        jobad_step,
+        "_get_flow_module",
+        lambda: SimpleNamespace(
+            _render_onboarding_hero=lambda *args, **kwargs: None,
+            _maybe_run_extraction=lambda schema: None,
+            _render_extraction_review=lambda: False,
+            _render_followups_for_step=lambda *args, **kwargs: None,
+            _advance_from_onboarding=mark_advance,
+            _apply_parsing_mode=lambda mode: mode,
+            _queue_extraction_rerun=lambda: None,
+            _is_onboarding_locked=lambda: False,
+            on_url_changed=lambda: None,
+            on_file_uploaded=lambda: None,
+            _build_profile_context=lambda profile: {},
+            _format_dynamic_message=lambda default, context, variants: default[0],
+            _get_profile_state=lambda: {},
+            get_flow_mode=lambda: FlowMode.MULTI_STEP,
+        ),
+    )
+
+    stubbed_streamlit.session_state[StateKeys.PROFILE] = {}
+    jobad_step.step_jobad(WizardContext(schema={}, critical_fields=()))
+
+    assert "Weiter ▶" not in button_labels
+    assert advance_calls == 0
