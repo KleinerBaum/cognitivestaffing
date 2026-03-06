@@ -209,15 +209,6 @@ def _step_onboarding(schema: dict) -> None:
     if not review_rendered:
         flow._render_followups_for_step("jobad", profile)
 
-    if flow.get_flow_mode() != FlowMode.SINGLE_PAGE:
-        if st.button(
-            tr("Weiter ▶", "Next ▶"),
-            type="primary",
-            key="onboarding_next_compact",
-            disabled=locked,
-        ):
-            flow._advance_from_onboarding()
-
 
 def step_jobad(context: WizardContext) -> None:
     """Render the job ad intake step using ``context``."""
