@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from dataclasses import dataclass
+from typing import Literal
+
 import pytest
 import streamlit as st
 
@@ -17,7 +20,7 @@ class DummyContainer:
     def __enter__(self) -> "DummyContainer":
         return self
 
-    def __exit__(self, exc_type, exc, tb) -> bool:  # type: ignore[override]
+    def __exit__(self, exc_type, exc, tb) -> Literal[False]:
         return False
 
 
@@ -28,8 +31,16 @@ class _SessionStateShim(dict):
         super().clear()
 
 
+@dataclass
+class _RouterSpy:
+    run_count: int = 0
+
+    def run(self) -> None:
+        self.run_count += 1
+
+
 @pytest.fixture(autouse=True)
-def stub_streamlit(monkeypatch: pytest.MonkeyPatch) -> None:
+def stub_streamlit(monkeypatch: pytest.MonkeyPatch) -> Generator[None, None, None]:
     """Patch Streamlit UI calls to no-ops for flow tests."""
 
     state = _SessionStateShim()
@@ -42,6 +53,7 @@ def stub_streamlit(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(st, "warning", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(st, "info", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(st, "divider", lambda *_args, **_kwargs: None)
+    monkeypatch.setattr(wizard_flow.app_config, "WIZARD_SINGLE_PAGE_LEGACY", False)
     yield
     state.clear()
 
@@ -74,15 +86,38 @@ def test_single_page_renders_all_steps_once(monkeypatch: pytest.MonkeyPatch) -> 
     assert render_log == list(step_keys())
 
 
-def test_multi_step_setting_coerces_to_single_page(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Multi-step mode is coerced to the single-page flow."""
+def test_multi_step_uses_router_run(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Multi-step mode executes ``WizardRouter(...).run()`` instead of single-page rendering."""
+
+    st.session_state[StateKeys.FLOW_MODE] = FlowMode.MULTI_STEP
+    st.session_state[StateKeys.PROFILE] = {}
+    render_log: list[str] = []
+    renderers = _build_renderers(render_log)
+    router_spy = _RouterSpy()
+    monkeypatch.setattr(wizard_flow, "STEP_RENDERERS", renderers)
+
+    def _router_factory(*_args, **_kwargs) -> _RouterSpy:
+        return router_spy
+
+    monkeypatch.setattr(wizard_flow, "WizardRouter", _router_factory)
+
+    wizard_flow._run_wizard_v2(schema={}, critical=())
+
+    assert router_spy.run_count == 1
+    assert render_log == []
+
+
+def test_multi_step_can_be_forced_to_legacy_single_page(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Legacy single-page flag forces multi-step sessions back to single-page rendering."""
 
     st.session_state[StateKeys.FLOW_MODE] = FlowMode.MULTI_STEP
     st.session_state[StateKeys.PROFILE] = {}
     render_log: list[str] = []
     renderers = _build_renderers(render_log)
     monkeypatch.setattr(wizard_flow, "STEP_RENDERERS", renderers)
+    monkeypatch.setattr(wizard_flow.app_config, "WIZARD_SINGLE_PAGE_LEGACY", True)
 
     wizard_flow._run_wizard_v2(schema={}, critical=())
 
     assert render_log == list(step_keys())
+    assert st.session_state[StateKeys.FLOW_MODE] == FlowMode.SINGLE_PAGE

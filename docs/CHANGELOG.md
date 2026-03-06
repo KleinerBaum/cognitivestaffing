@@ -56,7 +56,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - ESCO occupation selector now supports optional `key_suffix` widget namespacing so multiple selector instances can render in one pass without duplicate Streamlit widget keys, while keeping shared profile synchronization on `ui.position.esco_occupation`.
 - Compensation benefits chips now use view-specific widget key suffixes in step and summary views (`step_compensation` / `summary_compensation`) while keeping the shared profile state key `compensation.benefits` to avoid Streamlit duplicate-key collisions.
 - Wizard step labels and headers now align to Company details → Department & Team → Tasks & Skills → Skills recap → Benefits → Recruitment process, with summary-first layouts and department/team inputs consolidated into the Department & Team step.
-- Flow mode now defaults to and enforces the single-page wizard view, removing the guided multi-step toggle from the sidebar settings.
+- Flow mode now defaults to the single-page wizard view in the sidebar, while `FlowMode.MULTI_STEP` is honored in the wizard runtime unless the explicit `WIZARD_SINGLE_PAGE_LEGACY=1` override is enabled.
 - OTLP telemetry bootstrap now logs missing endpoint configuration at debug level to reduce noise in local runs.
 - Skill suggestion prompts now enforce JSON-only output with schema validation and repair before fallback parsing.
 - ESCO occupation selector now initializes the widget key before render and syncs the selection back into the profile to prevent Streamlit session-state mutation errors.

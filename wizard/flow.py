@@ -51,15 +51,17 @@ def get_flow_mode() -> FlowMode:
     stored = st.session_state.get(StateKeys.FLOW_MODE, FlowMode.SINGLE_PAGE)
     if isinstance(stored, FlowMode):
         normalized = stored
-    if isinstance(stored, str):
+    elif isinstance(stored, str):
         try:
             normalized = FlowMode(stored)
         except ValueError:
             normalized = FlowMode.SINGLE_PAGE
-    elif not isinstance(stored, FlowMode):
+    else:
         normalized = FlowMode.SINGLE_PAGE
-    if normalized == FlowMode.MULTI_STEP:
+
+    if normalized == FlowMode.MULTI_STEP and app_config.WIZARD_SINGLE_PAGE_LEGACY:
         normalized = FlowMode.SINGLE_PAGE
+
     st.session_state[StateKeys.FLOW_MODE] = normalized
     return normalized
 
@@ -12870,11 +12872,12 @@ def _run_wizard_v2(schema: Mapping[str, object], critical: Sequence[str]) -> Non
         session_state=cast(Mapping[str, object], st.session_state),
     )
     st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(active_pages)
-    missing_fields = get_missing_critical_fields()
-    _update_section_progress(missing_fields)
-
     context = WizardContext(schema=schema, critical_fields=critical)
-    if get_flow_mode() == FlowMode.SINGLE_PAGE:
+    flow_mode = get_flow_mode()
+
+    if flow_mode == FlowMode.SINGLE_PAGE:
+        missing_fields = get_missing_critical_fields()
+        _update_section_progress(missing_fields)
         _render_single_page_wizard(
             pages=WIZARD_PAGES,
             renderers=STEP_RENDERERS,
