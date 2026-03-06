@@ -258,7 +258,10 @@ def render_navigation(state: NavigationState, *, location: Literal["top", "botto
 
 
 def render_validation_warnings(pending_validation_errors: dict[str, LocalizedText]) -> None:
-    messages = list(dict.fromkeys(pending_validation_errors.values())) if pending_validation_errors else []
+    if not pending_validation_errors:
+        return
+
+    messages = list(dict.fromkeys(pending_validation_errors.values()))
     lang = st.session_state.get("lang", "de")
     combined = "\n\n".join(tr(de, en, lang=lang) for de, en in messages)
     sanitized = html.escape(combined).replace("\n", "<br />")
