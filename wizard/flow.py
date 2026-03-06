@@ -12802,8 +12802,29 @@ def _record_step_ui_keys(step_key: str, before: Mapping[str, object]) -> None:
 def _render_single_page_summary(missing_fields: Sequence[str]) -> None:
     """Render the single-page validation summary panel."""
 
+    reveal_state_key = "wizard.single_page.reveal_global_missing"
+    reveal_global_missing = bool(st.session_state.get(reveal_state_key, False))
+    summary_step_reached = st.session_state.get(StateKeys.WIZARD_LAST_STEP) == "summary"
+
     with st.expander(tr("Alle Schritte prüfen", "Validate all steps"), expanded=True):
         st.caption(tr("Fehlende Pflichtfelder anzeigen", "Show missing critical fields"))
+        if st.button(
+            tr("Alle Schritte prüfen", "Validate all steps"),
+            key="ui.single_page.validate_all_steps",
+            use_container_width=True,
+        ):
+            reveal_global_missing = True
+            st.session_state[reveal_state_key] = True
+
+        if not reveal_global_missing and not summary_step_reached:
+            st.info(
+                tr(
+                    "Die globale Liste der fehlenden Pflichtfelder wird nach einer Prüfung oder im Summary-Schritt angezeigt.",
+                    "The global list of missing critical fields appears after validation or in the summary step.",
+                )
+            )
+            return
+
         if missing_fields:
             render_missing_field_summary(missing_fields, scope="global")
         else:
