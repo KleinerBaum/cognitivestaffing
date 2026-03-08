@@ -33,6 +33,7 @@ from config import (
 )
 from .openai_responses import (
     ResponsesCallResult,
+    UnrecoverableSchemaShortCircuitError,
     build_json_schema_format,
     call_responses_safe,
 )
@@ -58,6 +59,7 @@ class StructuredExtractionOutcome:
     content: str
     source: str
     low_confidence: bool = False
+    schema_unrecoverable_short_circuit: bool = False
 
 
 _STRUCTURED_EXTRACTION_CHAIN: Any | None = None
@@ -504,6 +506,7 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
     strict_format = _strict_extraction_enabled()
     low_confidence = False
     source = "responses"
+    schema_short_circuit = False
 
     def _build_chat_call() -> Callable[[], StructuredExtractionOutcome]:
         def _invoke() -> StructuredExtractionOutcome:
@@ -561,13 +564,18 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
 
             try:
                 result = _attempt(active_model)
-            except BadRequestError as err:
-                if is_unrecoverable_schema_error(err):
+            except (BadRequestError, UnrecoverableSchemaShortCircuitError) as err:
+                if is_unrecoverable_schema_error(err) or isinstance(err, UnrecoverableSchemaShortCircuitError):
                     logger.warning(
-                        "Responses schema invalid for %s; switching to chat fallback without retrying.",
+                        "Responses schema invalid for %s; schema_unrecoverable_short_circuit=true",
                         prompt_digest,
                     )
-                    return StructuredExtractionOutcome(content="", source="responses", low_confidence=True)
+                    return StructuredExtractionOutcome(
+                        content="",
+                        source="responses",
+                        low_confidence=True,
+                        schema_unrecoverable_short_circuit=True,
+                    )
                 raise
 
             if result is None:
@@ -589,7 +597,12 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
                         "All API attempts failed for structured extraction via Responses for %s.",
                         prompt_digest,
                     )
-                    return StructuredExtractionOutcome(content="", source="responses", low_confidence=True)
+                    return StructuredExtractionOutcome(
+                        content="",
+                        source="responses",
+                        low_confidence=True,
+                        schema_unrecoverable_short_circuit=schema_short_circuit,
+                    )
             outcome_source = "responses"
             if result.used_chat_fallback:
                 outcome_source = "chat"
@@ -621,9 +634,14 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
                 content = candidate
                 low_confidence = low_confidence or candidate.low_confidence
                 source = candidate.source
+                schema_short_circuit = schema_short_circuit or candidate.schema_unrecoverable_short_circuit
                 break
             low_confidence = low_confidence or candidate.low_confidence
             source = candidate.source
+            schema_short_circuit = schema_short_circuit or candidate.schema_unrecoverable_short_circuit
+            if candidate.schema_unrecoverable_short_circuit:
+                content = candidate
+                break
         except Exception as err:  # pragma: no cover - network/SDK issues
             last_error = err
             logger.warning(
@@ -634,25 +652,37 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
             )
 
     if content is None or not content.content.strip():
+        fallback_kwargs: dict[str, Any] = {
+            "messages": payload["messages"],
+            "model": payload["model"],
+            "temperature": 0,
+            "reasoning_effort": payload.get("reasoning_effort"),
+            "verbosity": payload.get("verbosity"),
+            "task": ModelTask.EXTRACTION,
+            "api_mode": "chat",
+        }
+        if not schema_short_circuit:
+            fallback_kwargs["json_schema"] = {
+                "name": "need_analysis_profile",
+                "schema": NEED_ANALYSIS_SCHEMA,
+            }
+        else:
+            fallback_kwargs["use_response_format"] = False
+            logger.warning(
+                "Structured extraction short-circuit fallback engaged; schema_unrecoverable_short_circuit=true",
+            )
         logger.warning(
             "Structured extraction streaming returned empty content; retrying via chat completions for %s.",
             prompt_digest,
         )
-        call_result = call_chat_api(
-            payload["messages"],
-            model=payload["model"],
-            temperature=0,
-            reasoning_effort=payload.get("reasoning_effort"),
-            verbosity=payload.get("verbosity"),
-            json_schema={
-                "name": "need_analysis_profile",
-                "schema": NEED_ANALYSIS_SCHEMA,
-            },
-            task=ModelTask.EXTRACTION,
-            api_mode="chat",
-        )
+        call_result = call_chat_api(**fallback_kwargs)
         fallback_content = (call_result.content or "").strip()
-        content = StructuredExtractionOutcome(content=fallback_content, source="chat", low_confidence=True)
+        content = StructuredExtractionOutcome(
+            content=fallback_content,
+            source="chat",
+            low_confidence=True,
+            schema_unrecoverable_short_circuit=schema_short_circuit,
+        )
         low_confidence = True
         source = "chat"
 
@@ -757,6 +787,7 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
             content=validated_payload,
             source=source,
             low_confidence=low_confidence,
+            schema_unrecoverable_short_circuit=schema_short_circuit,
         )
 
     if last_error is not None:
@@ -845,6 +876,10 @@ def _extract_json_outcome(
             )
             span.set_attribute("llm.extract.source", outcome.source)
             span.set_attribute("llm.extract.low_confidence", bool(outcome.low_confidence))
+            span.set_attribute(
+                "llm.extract.schema_unrecoverable_short_circuit",
+                bool(outcome.schema_unrecoverable_short_circuit),
+            )
             output = outcome.content
             if locked_fields:
                 data = json.loads(output)

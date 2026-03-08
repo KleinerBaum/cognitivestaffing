@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import streamlit as st
-from openai import OpenAIError
+from openai import BadRequestError, OpenAIError
 
 import openai_utils.api as api
 from openai_utils.errors import ExternalServiceError
@@ -57,3 +57,15 @@ def test_rate_limit_error_does_not_mark_quota_unavailable() -> None:
     assert api._is_quota_exceeded_error(error) is False
     assert api._should_abort_retry(error) is False
     assert st.session_state.get("openai_unavailable", False) is False
+
+
+def test_invalid_request_response_format_aborts_retry() -> None:
+    fake_response = type("_Resp", (), {"request": object(), "status_code": 400, "headers": {}})()
+    error = BadRequestError(
+        "invalid_request_error: unsupported response_format",
+        response=fake_response,
+        body=None,
+    )
+    error.type = "invalid_request_error"
+
+    assert api._should_abort_retry(error) is True

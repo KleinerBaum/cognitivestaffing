@@ -16,6 +16,7 @@ from openai_utils.api import (
     _inject_verbosity_hint,
     _resolve_verbosity,
     build_schema_format_bundle,
+    is_unrecoverable_schema_error,
     LLMResponseFormatError,
     call_chat_api,
 )
@@ -78,6 +79,10 @@ class ResponsesCallResult:
 
 class ResponsesSchemaError(ValueError):
     """Raised when a Responses payload lacks a JSON schema."""
+
+
+class UnrecoverableSchemaShortCircuitError(RuntimeError):
+    """Raised when a request must short-circuit after an unrecoverable schema error."""
 
 
 def build_json_schema_format(
@@ -276,6 +281,13 @@ def call_responses_safe(
         )
         return None
     except (OpenAIError, LLMResponseFormatError) as exc:
+        if is_unrecoverable_schema_error(exc):
+            active_logger.error(
+                "Structured %s call short-circuited after unrecoverable schema error; "
+                "schema_unrecoverable_short_circuit=true",
+                context,
+            )
+            raise UnrecoverableSchemaShortCircuitError(str(exc)) from exc
         active_logger.error(
             "Structured chat call for %s failed: %s",
             context,
@@ -319,6 +331,7 @@ def call_responses_safe(
 
 __all__ = [
     "ResponsesCallResult",
+    "UnrecoverableSchemaShortCircuitError",
     "build_json_schema_format",
     "call_responses",
     "call_responses_safe",
