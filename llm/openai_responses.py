@@ -25,6 +25,46 @@ from utils.json_repair import JsonRepairStatus, parse_json_with_repair
 logger = logging.getLogger("cognitive_needs.llm.responses")
 
 
+def _assert_required_matches_properties(schema: Mapping[str, Any], *, path: str = "$") -> None:
+    """Ensure each object in ``schema`` has ``required`` exactly matching ``properties``."""
+
+    if not isinstance(schema, Mapping):
+        return
+
+    if schema.get("type") == "object":
+        properties = schema.get("properties")
+        if isinstance(properties, Mapping):
+            required = schema.get("required")
+            if not isinstance(required, list):
+                raise ValueError(f"Schema at {path} must define required as a list.")
+            property_keys = set(str(key) for key in properties.keys())
+            required_keys = set(str(key) for key in required)
+            if required_keys != property_keys:
+                missing = sorted(property_keys - required_keys)
+                extra = sorted(required_keys - property_keys)
+                details = []
+                if missing:
+                    details.append(f"missing from required: {', '.join(missing)}")
+                if extra:
+                    details.append(f"unknown required keys: {', '.join(extra)}")
+                raise ValueError(f"Schema at {path} has mismatched required/properties ({'; '.join(details)})")
+
+            for key, value in properties.items():
+                if isinstance(value, Mapping):
+                    _assert_required_matches_properties(value, path=f"{path}.{key}")
+
+    items = schema.get("items")
+    if isinstance(items, Mapping):
+        _assert_required_matches_properties(items, path=f"{path}[*]")
+
+    for composite_key in ("anyOf", "oneOf", "allOf"):
+        options = schema.get(composite_key)
+        if isinstance(options, list):
+            for index, option in enumerate(options):
+                if isinstance(option, Mapping):
+                    _assert_required_matches_properties(option, path=f"{path}.{composite_key}[{index}]")
+
+
 @dataclass(slots=True)
 class ResponsesCallResult:
     """Structured return value for :func:`call_responses`."""
@@ -164,6 +204,7 @@ def call_responses(
     _ = retries  # retained for backwards compatibility with callers
 
     schema_bundle = _build_schema_bundle_from_format(response_format)
+    _assert_required_matches_properties(schema_bundle.schema, path=f"response_format:{schema_bundle.name}")
 
     prepared_messages = _prepare_messages(_inject_verbosity_hint(messages, _resolve_verbosity(verbosity)))
 

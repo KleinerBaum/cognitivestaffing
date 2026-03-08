@@ -534,6 +534,13 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
             name="need_analysis_profile",
             schema=NEED_ANALYSIS_SCHEMA,
         )
+        business_context_snippet = (
+            response_format.get("json_schema", {}).get("schema", {}).get("properties", {}).get("business_context")
+        )
+        logger.debug(
+            "Structured extraction schema business_context snippet: %s",
+            json.dumps(business_context_snippet, ensure_ascii=False, sort_keys=True),
+        )
 
         def _call_responses() -> StructuredExtractionOutcome:
             def _attempt(model_name: str) -> ResponsesCallResult | None:

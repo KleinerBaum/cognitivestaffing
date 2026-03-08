@@ -54,6 +54,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Job-ad extraction now surfaces a progress indicator that tracks structured extraction and follow-up generation.
 
 ### Changed
+- Structured extraction schema generation now excludes `business_context.source_confidence` from the LLM response schema, validates `required == properties` on every object before API calls, and logs the final `business_context` schema snippet at DEBUG level for drift diagnostics.
 - Summary follow-up rendering now deduplicates repeated follow-up field paths before widget creation, preventing duplicate Streamlit keys and aligning parsing/service output to first-win field deduplication.
 - Sidebar rendering now resolves the active step key from `st.session_state["wizard"]["current_step_key"]` (with safe legacy fallbacks) and replaces the landing step overview with a compact bilingual next-steps helper.
 - Legacy `wizard_pages` proxies now include `wizard_pages/00_landing.py`, and router smoke tests assert that page ordering/mappings are derived from `WIZARD_STEPS` (`landing` -> `jobad` remains the first transition).

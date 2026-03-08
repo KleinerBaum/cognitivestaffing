@@ -185,3 +185,14 @@ def test_need_analysis_schema_can_be_limited_to_sections() -> None:
     assert set(trimmed["properties"]) == {"company", "position"}
     assert set(trimmed.get("required") or []) == {"company", "position"}
     assert "location" not in trimmed["properties"]
+
+
+def test_business_context_source_confidence_excluded_from_extraction_schema() -> None:
+    """Extraction schema excludes ``source_confidence`` from business context output."""
+
+    schema = build_need_analysis_responses_schema()
+    business_context = schema["properties"]["business_context"]
+
+    assert "source_confidence" not in business_context["properties"]
+    assert "source_confidence" not in (business_context.get("required") or [])
+    assert set(business_context.get("required") or []) == set(business_context["properties"])

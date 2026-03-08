@@ -1606,6 +1606,19 @@ def build_need_analysis_responses_schema(*, sections: Collection[str] | None = N
         schema["properties"] = selected
         schema["required"] = [name for name in schema.get("required", []) if name in selected]
 
+    business_context_schema = schema.get("properties", {}).get("business_context")
+    if isinstance(business_context_schema, dict):
+        business_context_properties = business_context_schema.get("properties")
+        if isinstance(business_context_properties, dict):
+            # ``source_confidence`` is UI/runtime metadata and not required from the
+            # extraction model output. We backfill defaults during canonicalisation.
+            business_context_properties.pop("source_confidence", None)
+        business_context_required = business_context_schema.get("required")
+        if isinstance(business_context_required, list):
+            business_context_schema["required"] = [
+                field for field in business_context_required if field != "source_confidence"
+            ]
+
     company_schema = schema.get("properties", {}).get("company")
     if isinstance(company_schema, dict):
         company_properties = company_schema.get("properties")
