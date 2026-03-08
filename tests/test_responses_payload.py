@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+from typing import cast
 from typing import Any, Mapping
 
 import pytest
-from openai import OpenAIError
+from httpx import Response
+from openai import BadRequestError, OpenAIError
 
 import config.models as model_config
 from llm import openai_responses
@@ -144,6 +147,34 @@ def test_call_responses_safe_propagates_api_errors(monkeypatch: pytest.MonkeyPat
     )
 
     assert result is None
+
+
+def test_call_responses_safe_raises_unrecoverable_schema_short_circuit(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Unrecoverable schema errors should trigger explicit short-circuit handling."""
+
+    fmt = openai_responses.build_json_schema_format(
+        name="need_analysis_profile",
+        schema={"type": "object"},
+    )
+    fake_response = cast(Response, SimpleNamespace(request=SimpleNamespace(), status_code=400, headers={}))
+
+    def _raise_error(*_: Any, **__: Any) -> Any:
+        raise BadRequestError(
+            "invalid_json_schema: missing required schema fields",
+            response=fake_response,
+            body={"error": {"code": "invalid_json_schema"}},
+        )
+
+    monkeypatch.setattr(openai_responses, "call_responses", _raise_error)
+
+    with pytest.raises(openai_responses.UnrecoverableSchemaShortCircuitError):
+        openai_responses.call_responses_safe(
+            messages=[{"role": "user", "content": "hi"}],
+            model=model_config.GPT4O_MINI,
+            response_format=fmt,
+        )
 
 
 def test_call_responses_rejects_mismatched_required_and_properties(monkeypatch: pytest.MonkeyPatch) -> None:

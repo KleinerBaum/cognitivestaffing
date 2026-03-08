@@ -422,6 +422,12 @@ def _should_abort_retry(error: Exception) -> bool:
             return True
         if _is_parameter_unsupported_error(error, "response_format"):
             return True
+        if (
+            isinstance(error, BadRequestError)
+            and str(getattr(error, "type", "")).strip().lower() == "invalid_request_error"
+            and "response_format" in str(getattr(error, "message", str(error))).lower()
+        ):
+            return True
     return is_unrecoverable_schema_error(error) or isinstance(error, APITimeoutError)
 
 

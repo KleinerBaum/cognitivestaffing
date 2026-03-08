@@ -166,6 +166,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
 - **Responses fallbacks**: suggestion helpers only log chat fallback usage when the Responses client returns a structured `ResponsesCallResult` to avoid type mismatches during tests or mocking.
 - **Skill suggestion parsing**: prompts demand JSON-only output, and parsing validates against the skill suggestion schema with local repair before optional LLM repair/fallbacks.
 - **Structured fallback behavior**: task fallback chains are now reordered so JSON-schema-capable models are attempted first for structured tasks; text-only capable routes are only used as final rescue options.
+- **Schema short-circuit behavior**: unrecoverable schema errors (`invalid_request_error`/`invalid_json_schema` with `response_format`) now short-circuit retries and model rotation, then switch directly to a non-strict plain-text fallback path with explicit telemetry (`schema_unrecoverable_short_circuit=true`).
 - **Tool-aware routing**: prompts that request web/file search tools prefer GPT-5 tiers, while ultra-long prompts (>300k estimated tokens) route to LONG_CONTEXT (`gpt-4.1-nano`).
 
 ### Cost controls
