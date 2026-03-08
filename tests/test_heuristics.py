@@ -12,6 +12,7 @@ from ingest.heuristics import (
     guess_company,
     guess_employment_details,
     guess_job_title,
+    refine_requirements,
 )
 from openai_utils.extraction import _prepare_job_ad_payload
 from models.need_analysis import NeedAnalysisProfile
@@ -716,3 +717,46 @@ def test_numeric_context_extraction() -> None:
     assert updated.position.team_size == 5
     assert updated.position.supervises == 3
     assert updated.employment.travel_share == 30
+
+
+def test_extract_skill_phrase_filters_benefit_subclauses() -> None:
+    bullet = "Du arbeitest mit Python und SQL, damit wir flexible Arbeitszeiten und 30 Tage Urlaub bieten können."
+
+    phrases = heuristics._extract_skill_phrases_from_bullet(bullet)
+
+    assert phrases == []
+
+
+def test_refine_requirements_filters_task_like_fragments_and_keeps_whitelisted_matches() -> None:
+    text = """
+    Anforderungen:
+    - Du koordinierst das Team und sorgst für gute Stimmung sowie 30 Tage Urlaub.
+    - Erfahrung mit Python, SQL und AWS.
+    - Deutsch und Englisch (C1)
+    """
+    profile = NeedAnalysisProfile.model_validate(
+        {
+            "requirements": {
+                "hard_skills_required": [
+                    "You collaborate with German stakeholders and support onboarding.",
+                    "Deutsch und Englisch (C1)",
+                    "Python",
+                    "PYTHON ",
+                ],
+                "tools_and_technologies": ["AWS", "Roadmap planning"],
+            }
+        }
+    )
+
+    refined = refine_requirements(profile, text)
+
+    assert (
+        "You collaborate with German stakeholders and support onboarding."
+        not in refined.requirements.hard_skills_required
+    )
+    assert "Python" in refined.requirements.hard_skills_required
+    assert "PYTHON " not in refined.requirements.hard_skills_required
+    assert "German" in refined.requirements.languages_required
+    assert "English" in refined.requirements.languages_required
+    assert "Roadmap planning" not in refined.requirements.tools_and_technologies
+    assert not any("30 Tage Urlaub" in entry for entry in refined.requirements.hard_skills_required)
