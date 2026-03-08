@@ -63,3 +63,30 @@ def test_parse_followups_missing_required_key() -> None:
     assert result.fallback_reason == "schema_invalid"
     assert result.error_reason == "schema_invalid"
     assert result.validation_errors
+
+
+def test_parse_followups_deduplicates_fields() -> None:
+    payload = {
+        "questions": [
+            {
+                "field": "company.name",
+                "question": "What is the company name?",
+                "priority": "critical",
+                "suggestions": ["ACME"],
+            },
+            {
+                "field": "company.name",
+                "question": "Please confirm company name.",
+                "priority": "normal",
+                "suggestions": ["ACME GmbH"],
+            },
+        ]
+    }
+
+    result = followups_mod._parse_followup_response(json.dumps(payload))
+
+    assert result.fallback_reason is None
+    questions = result.payload["questions"]
+    assert len(questions) == 1
+    assert questions[0]["field"] == "company.name"
+    assert questions[0]["question"] == "What is the company name?"
