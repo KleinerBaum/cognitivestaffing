@@ -12893,7 +12893,12 @@ def _run_wizard_v2(schema: Mapping[str, object], critical: Sequence[str]) -> Non
         session_state=cast(Mapping[str, object], st.session_state),
     )
     st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(active_pages)
-    context = WizardContext(schema=schema, critical_fields=critical)
+    context = WizardContext(
+        schema=schema,
+        critical_fields=critical,
+        profile_updater=_update_profile,
+        next_step_callback=next_step,
+    )
     flow_mode = get_flow_mode()
 
     if flow_mode == FlowMode.SINGLE_PAGE:
