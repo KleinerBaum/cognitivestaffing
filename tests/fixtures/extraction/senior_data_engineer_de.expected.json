@@ -1,0 +1,13 @@
+{
+  "position": {"job_title": "Senior Data Engineer"},
+  "company": {
+    "name": "BlueOrbit GmbH",
+    "website": "https://blueorbit.de",
+    "contact_email": "recruiting@blueorbit.de"
+  },
+  "location": {"primary_city": "Berlin"},
+  "requirements": {
+    "hard_skills_required": ["Python", "SQL", "AWS", "Airflow"],
+    "soft_skills_required": ["Teamfähigkeit", "analytisches Denken"]
+  }
+}

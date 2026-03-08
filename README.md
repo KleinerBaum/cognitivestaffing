@@ -303,6 +303,7 @@ NeedAnalysis schema, so rule path drift fails fast in CI.
 Job ad fixtures live under `tests/fixtures/job_ads/`. Use the helper in
 `tests/fixtures/job_ads/__init__.py` to load UTF-8 fixture text for regression
 tests.
+Extraction goldenset fixtures for deterministic core-field evaluation live under `tests/fixtures/extraction/`; `tests/test_e2e_extraction.py::test_extraction_goldenset_field_accuracy` writes a machine-readable report to `artifacts/extraction_eval_report.json` and fails CI on required-field regressions.
 
 ---
 

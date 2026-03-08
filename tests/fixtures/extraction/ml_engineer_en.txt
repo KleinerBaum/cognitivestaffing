@@ -1,0 +1,9 @@
+Machine Learning Engineer
+NovaAI Labs GmbH | Munich
+Website: https://novaai.eu
+Contact: talent@novaai.eu
+
+Requirements
+- Strong Python and PyTorch skills
+- Experience with MLOps and Docker
+- Excellent communication and collaboration

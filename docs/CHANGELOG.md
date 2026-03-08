@@ -13,6 +13,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 ## [Unreleased]
 
 ### Added
+- Reproducible extraction goldenset fixtures (`tests/fixtures/extraction/`) plus a core-field evaluator that emits `artifacts/extraction_eval_report.json` for CI regression gating.
 - New bilingual landing step at the start of the wizard to capture job title, location, and line-based tasks/skills/benefits before entering onboarding.
 - Troubleshooting guidance for the common Streamlit ScriptRunContext warning and OTLP telemetry configuration.
 - Business-Kontext wizard step with domain-first inputs, industry-code suggestions, and optional organisation/contact fields.
