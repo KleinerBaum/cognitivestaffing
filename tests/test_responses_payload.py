@@ -65,6 +65,7 @@ def test_call_responses_builds_chat_payload(monkeypatch: pytest.MonkeyPatch) -> 
             "type": "object",
             "additionalProperties": False,
             "$schema": "http://json-schema.org/draft-07/schema#",
+            "required": [],
         },
         "strict": True,
     }
@@ -143,3 +144,37 @@ def test_call_responses_safe_propagates_api_errors(monkeypatch: pytest.MonkeyPat
     )
 
     assert result is None
+
+
+def test_call_responses_rejects_mismatched_required_and_properties(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Responses call guard rejects object schemas with required/properties drift."""
+
+    invoked = False
+
+    def _fake_chat(*_: Any, **__: Any) -> _FakeChatResult:
+        nonlocal invoked
+        invoked = True
+        return _FakeChatResult()
+
+    monkeypatch.setattr(openai_responses, "call_chat_api", _fake_chat)
+
+    class _Bundle:
+        name = "need_analysis_profile"
+        strict = True
+        schema = {
+            "type": "object",
+            "additionalProperties": False,
+            "properties": {"foo": {"type": "string"}},
+            "required": [],
+        }
+
+    monkeypatch.setattr(openai_responses, "_build_schema_bundle_from_format", lambda _fmt: _Bundle())
+
+    with pytest.raises(ValueError, match="mismatched required/properties"):
+        openai_responses.call_responses(
+            messages=[{"role": "user", "content": "hi"}],
+            model=model_config.GPT4O_MINI,
+            response_format={"type": "json_schema", "json_schema": {"name": "need_analysis_profile", "schema": {}}},
+        )
+
+    assert invoked is False
