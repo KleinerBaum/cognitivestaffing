@@ -413,9 +413,14 @@ def _render_sidebar_sections(
         _render_settings()
 
     with plan.body:
+        active_step_key = _resolve_active_step_key()
+        is_landing_step = active_step_key == "landing"
         current_step = st.session_state.get(StateKeys.STEP, 0)
-        if current_step > 0:
+        if current_step > 0 and not is_landing_step:
             _render_hero(context)
+            st.divider()
+        elif is_landing_step:
+            _render_landing_next_steps_compact()
             st.divider()
         if _is_sidebar_stepper_enabled():  # GREP:SIDEBAR_STEPPER_V1
             _render_sidebar_stepper(context)
@@ -1044,6 +1049,42 @@ def _resolve_step_key_for_path(path: str) -> str | None:
         if path.startswith(prefix):
             return step_key
     return None
+
+
+def _resolve_active_step_key() -> str | None:
+    """Resolve the active step key from router state with legacy fallbacks."""
+
+    wizard_state = st.session_state.get("wizard", {})
+    if isinstance(wizard_state, Mapping):
+        raw_step_key = wizard_state.get("current_step_key")
+        if isinstance(raw_step_key, str):
+            normalized_key = raw_step_key.strip().lower()
+            if normalized_key:
+                return normalized_key
+
+    summary_payload = _get_step_summary_payload()
+    if summary_payload is not None:
+        current_index = summary_payload[0]
+        if 0 <= current_index < len(WIZARD_PAGES):
+            return WIZARD_PAGES[current_index].key
+
+    fallback_index = st.session_state.get(StateKeys.STEP, 0)
+    if isinstance(fallback_index, int) and 0 <= fallback_index < len(WIZARD_PAGES):
+        return WIZARD_PAGES[fallback_index].key
+
+    return None
+
+
+def _render_landing_next_steps_compact() -> None:
+    """Render a compact helper block for users on the landing step."""
+
+    st.markdown(f"### ✨ {tr('Wie geht es weiter?', 'What happens next?')}")
+    st.caption(
+        tr(
+            "Starte mit dem Jobprofil. Danach führt dich der Wizard Schritt für Schritt durch alle Bereiche.",
+            "Start with the job profile. The wizard then guides you step by step through every section.",
+        )
+    )
 
 
 def _render_hero(context: SidebarContext) -> None:

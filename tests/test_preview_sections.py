@@ -103,3 +103,26 @@ def test_string_values_are_not_split_into_characters() -> None:
 
     skill_entries = step_entries["skills"]
     assert skill_entries == [("Notes", "Python, SQL")]
+
+
+def test_resolve_active_step_key_prefers_wizard_state() -> None:
+    """Sidebar should prefer the router-provided wizard step key when available."""
+
+    st.session_state.clear()
+    st.session_state["wizard"] = {"current_step_key": "landing"}
+
+    from sidebar import _resolve_active_step_key
+
+    assert _resolve_active_step_key() == "landing"
+
+
+def test_resolve_active_step_key_falls_back_to_legacy_step_index() -> None:
+    """Legacy numeric step state should map to a canonical wizard page key."""
+
+    st.session_state.clear()
+    st.session_state["_wizard_step_summary"] = "invalid"
+    st.session_state[StateKeys.STEP] = 0
+
+    from sidebar import _resolve_active_step_key
+
+    assert _resolve_active_step_key() == "landing"
