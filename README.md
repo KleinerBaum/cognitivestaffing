@@ -316,6 +316,7 @@ tests.
 - If you see the “OTLP endpoint not configured” telemetry message, either set the
   `OTEL_EXPORTER_OTLP_ENDPOINT` env var or ignore it during local development. See
   `docs/Troubleshooting.md` for details.
+- Dependency constraints for `requests`, `urllib3`, `chardet`, and `charset-normalizer` are intentionally pinned to compatible ranges in `pyproject.toml` to prevent Streamlit Cloud startup warnings caused by resolver drift. Regenerate `poetry.lock` after changing these constraints and commit both files together for reproducible deploys.
 - Recoverable wizard failures now surface a retry button and a UI-only reset option; prefer UI
   resets before clearing the full profile to avoid losing captured data.
 - ESCO occupation selector state is split between widget and profile keys to avoid Streamlit
