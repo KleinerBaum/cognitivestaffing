@@ -42,6 +42,7 @@ The wizard supports German and English job ads and maps common DE/EN section hea
 ### The 8 steps (fixed order)
 
 A dedicated bilingual **landing screen** appears before step 1 to capture role basics (title, location, tasks, skills, benefits) and unlock the guided flow with a single Continue action.
+On this landing view, the global stepper, context bar, and progress microcopy stay hidden; they reappear unchanged once users move into the numbered wizard steps.
 
 1. Onboarding / Job Ad
 2. Company details

@@ -354,12 +354,13 @@ _sync_display_wizard(display_wiz, active_keys)
 saved_key = _mark_saved_if_profile_changed(display_wiz)
 
 legend = tr("🔎 extrahiert · 🤖 vorgeschlagen", "🔎 extracted · 🤖 suggested", lang=lang)
-with stepper_slot:
-    render_stepper(display_wiz)
-with context_slot:
-    render_context_bar(display_wiz, legend_right=legend)
-with progress_slot:
-    render_progress_and_microcopy(display_wiz)
+if display_wiz.current_step().id != "landing":
+    with stepper_slot:
+        render_stepper(display_wiz)
+    with context_slot:
+        render_context_bar(display_wiz, legend_right=legend)
+    with progress_slot:
+        render_progress_and_microcopy(display_wiz)
 with saved_slot:
     render_saved_badge_if_recent(display_wiz, saved_key)
 

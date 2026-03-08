@@ -55,6 +55,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ### Changed
 - Legacy `wizard_pages` proxies now include `wizard_pages/00_landing.py`, and router smoke tests assert that page ordering/mappings are derived from `WIZARD_STEPS` (`landing` -> `jobad` remains the first transition).
+- Landing mode now suppresses the global wizard stepper, context bar, and progress microcopy; these progress UI components render unchanged on all non-landing steps.
 - Wizard navigation validation warnings now short-circuit when there are no pending errors, so no empty warning placeholder is rendered below the controls.
 - Single-page wizard validation now hides the global missing-field list behind a neutral helper message until users click **Validate all steps** (or reach the Summary step), preventing premature cross-step warnings.
 - ESCO occupation selector now supports optional `key_suffix` widget namespacing so multiple selector instances can render in one pass without duplicate Streamlit widget keys, while keeping shared profile synchronization on `ui.position.esco_occupation`.
