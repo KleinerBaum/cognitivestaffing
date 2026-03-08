@@ -126,3 +126,41 @@ def test_resolve_active_step_key_falls_back_to_legacy_step_index() -> None:
     from sidebar import _resolve_active_step_key
 
     assert _resolve_active_step_key() == "landing"
+
+
+def test_sidebar_hides_step_overview_on_landing(monkeypatch) -> None:
+    """Landing should suppress the sidebar step-overview block."""
+
+    st.session_state.clear()
+    st.session_state["wizard"] = {"current_step_key": "landing"}
+    st.session_state[StateKeys.STEP] = 0
+
+    from sidebar import SidebarPlan, _render_sidebar_sections
+
+    calls = {"hero": 0, "landing": 0}
+
+    class _Dummy:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+    monkeypatch.setattr("sidebar._build_context", lambda: SidebarContext({}, {}, {}, set(), {}, []))
+    monkeypatch.setattr("sidebar._render_hero", lambda _ctx: calls.__setitem__("hero", calls["hero"] + 1))
+    monkeypatch.setattr(
+        "sidebar._render_landing_next_steps_compact",
+        lambda: calls.__setitem__("landing", calls["landing"] + 1),
+    )
+    monkeypatch.setattr("sidebar._render_settings", lambda: None)
+    monkeypatch.setattr("sidebar._render_salary_expectation", lambda _profile: None)
+    monkeypatch.setattr("sidebar._render_help_section", lambda: None)
+    monkeypatch.setattr("sidebar._render_step_context", lambda _ctx: None)
+    monkeypatch.setattr("sidebar._is_sidebar_stepper_enabled", lambda: False)
+    monkeypatch.setattr(st, "divider", lambda: None)
+
+    plan = SidebarPlan(branding=_Dummy(), settings=_Dummy(), body=_Dummy())
+    _render_sidebar_sections(plan, logo_asset=None, logo_data_uri=None)
+
+    assert calls["hero"] == 0
+    assert calls["landing"] == 1

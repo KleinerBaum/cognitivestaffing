@@ -4,6 +4,17 @@ This guide documents the **single source of truth** for the wizard step registry
 
 ## 1) Add a `StepDefinition` in `wizard/step_registry.py`
 
+## Landing / pre-wizard step
+
+`landing` is a special pre-wizard step that appears before numbered data-entry sections.
+
+- Keep `required_fields=()` and `summary_fields=()` for `landing`.
+- Do not add `landing` to section-index based progress maps like `PAGE_SECTION_INDEXES`.
+- UI shells may suppress global progress indicators (stepper/progress/context bars) while `landing` is active and re-enable them starting at `jobad`.
+
+Treat it as intake/bootstrap UX, not as a numbered validation section.
+
+
 All wizard steps live in the canonical registry:
 
 - File: `wizard/step_registry.py`

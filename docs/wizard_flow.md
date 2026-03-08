@@ -2,6 +2,23 @@
 
 This document explains how the multi-step wizard keeps navigation order, rendering callbacks, and Streamlit session state in sync.
 
+## Canonical step order
+
+The registry is landing-first and keeps a fixed order for numbered wizard steps:
+
+0. `landing` (pre-wizard intake)
+1. `jobad`
+2. `company`
+3. `team`
+4. `role_tasks`
+5. `skills`
+6. `benefits`
+7. `interview`
+8. `summary`
+
+`landing` is intentionally excluded from section-index based progress (`PAGE_SECTION_INDEXES`) and from the app-level stepper/progress display. The global stepper/context/progress widgets are only shown once the user enters `jobad` and later steps.
+
+
 ## Page metadata (`wizard_pages`)
 
 * The canonical navigation order lives in `wizard_pages/__init__.py` via the `WIZARD_PAGES` tuple. Each entry is a `WizardPage` dataclass that carries the page key plus localized labels and required/summary field metadata.
@@ -32,4 +49,4 @@ This document explains how the multi-step wizard keeps navigation order, renderi
 3. Register the render callback in `wizard/flow.py` by adding a `WizardStepDescriptor` for the new key and linking it to a `StepRenderer`.
 4. Verify navigation and summary state via `WizardRouter` (link sharing, skip/complete buttons) and run `pytest tests/test_wizard_navigation.py`.
 
-Keeping `WIZARD_PAGES` as the single navigation source ensures the router, sidebar progress, and summary view stay consistent when pages move.
+Keeping `WIZARD_PAGES` as the single navigation source ensures the router, sidebar progress, and summary view stay consistent when pages move. The landing step remains a pre-wizard screen and should not be reintroduced into section-index progress displays.
