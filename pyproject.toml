@@ -5,7 +5,8 @@ requires-python = ">=3.11,<4.0"
 dependencies = [
     "backoff>=2.2",
     "beautifulsoup4>=4.12",
-    "chardet>=5.0",
+    "chardet>=5.2.0,<6.0.0",
+    "charset-normalizer>=3.4.1,<4.0.0",
     "email-validator>=2.1",
     "fastapi>=0.115",
     "httpx>=0.24",
@@ -25,8 +26,9 @@ dependencies = [
     "python-docx>=0.8.11",
     "python-dotenv>=1.0",
     "PyYAML>=6.0",
-    "requests>=2.31",
+    "requests>=2.32.3,<2.33.0",
     "streamlit>=1.33",
+    "urllib3>=2.2.3,<3.0.0",
     "streamlit-sortables==0.3.1",
     "types-PyYAML",
     "types-requests",
@@ -172,4 +174,3 @@ disallow_incomplete_defs = true
 [tool.coverage.report]
 fail_under = 88 # CI_COVERAGE_THRESHOLD
 show_missing = true
-
