@@ -116,7 +116,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
   - `wizard/navigation/` – navigation state machine, UI controls, and session/query param sync
 
 - Wizard UI  
-  - `wizard/`, `wizard_pages/`, `wizard_tools/` – step UIs + wizard utilities (legacy `wizard_pages` proxies the step registry)  
+  - `wizard/`, `wizard_pages/`, `wizard_tools/` – step UIs + wizard utilities (legacy `wizard_pages` proxies the step registry; `WIZARD_PAGES` is fully derived from `WIZARD_STEPS`, including `00_landing.py` as proxy module)  
   - `wizard_tools/experimental/` – opt-in stage graph tooling for agent workflows (`ENABLE_AGENT_GRAPH=1`)  
   - `ui/` – shared Streamlit wizard UX kit modules (including compatibility shims)  
   - `wizard/step_registry.py` – canonical step definitions (metadata + renderers + ordering)  
