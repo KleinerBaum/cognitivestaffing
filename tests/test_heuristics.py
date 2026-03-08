@@ -680,6 +680,51 @@ def test_contact_extraction_prefers_hr_section() -> None:
     assert updated.company.contact_phone == "0211 123"
 
 
+def test_contact_extraction_uses_labelled_contact_line_without_email() -> None:
+    text = """
+    Ansprechpartner: Benjamin Erben
+    Bewerbungen bitte an recruiting@beispiel.de
+    """
+
+    profile = NeedAnalysisProfile()
+    updated = apply_basic_fallbacks(profile, text)
+
+    assert updated.company.contact_name == "Benjamin Erben"
+
+
+def test_contact_extraction_labelled_contact_line_repairs_email_name_mismatch() -> None:
+    text = """
+    Ansprechpartner: Benjamin Erben
+    E-Mail: benjamin.erben@rheinbahn.de
+    """
+
+    profile = NeedAnalysisProfile()
+    profile.company.contact_name = "Recruiting Team"
+    profile.company.contact_email = "jobs@rheinbahn.de"
+    metadata: dict[str, object] = {"locked_fields": [], "high_confidence_fields": []}
+
+    updated = apply_basic_fallbacks(profile, text, metadata=metadata)
+
+    assert updated.company.contact_name == "Benjamin Erben"
+    assert updated.company.contact_email == "benjamin.erben@rheinbahn.de"
+    field_sources = metadata.get("field_sources")
+    assert isinstance(field_sources, dict)
+    assert field_sources["company.contact_name"]["rule"] == "labelled_contact_line"
+
+
+def test_contact_extraction_ignores_unplausible_labelled_contact_line_name() -> None:
+    text = """
+    Ansprechpartner: Recruiting Team
+    E-Mail: recruiting@example.com
+    """
+
+    profile = NeedAnalysisProfile()
+    updated = apply_basic_fallbacks(profile, text)
+
+    assert updated.company.contact_name is None
+    assert updated.company.contact_email == "recruiting@example.com"
+
+
 def test_company_website_extraction() -> None:
     text = "Mehr über uns auf https://www.rheinbahn.de/ und in den sozialen Medien."
 

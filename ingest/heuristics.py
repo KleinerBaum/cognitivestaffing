@@ -139,6 +139,11 @@ _TEAM_STRUCTURE_CONNECTOR_RE = re.compile(r"^(?:mit|with|in)\s+", re.IGNORECASE)
 _ROLE_CONTACT_RE = re.compile(
     r"(?P<title>[A-ZÄÖÜ][^:\n]{0,80}?)\s*:\s*(?P<name>[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`-]+(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`-]+){0,3})(?=[\s,;|).]|$)",
 )
+_LABELLED_CONTACT_LINE_RE = re.compile(
+    r"(?im)^\s*(?:ansprechpartner|ansprechperson|kontaktperson)\s*:\s*"
+    r"(?P<name>[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`-]+(?:\s+[A-ZÄÖÜ][A-Za-zÄÖÜäöüß'`-]+){1,3})"
+    r"(?:\s*[|,;–-]\s*(?P<rest>.*))?$",
+)
 _REPORTS_TO_RE = re.compile(
     r"\b(?:"
     r"reports?\s+to"
@@ -357,6 +362,7 @@ class _ContactCandidate:
     label_score: int
     email_score: int
     phone_score: int
+    source_rule: str = "contact_section"
 
 
 def _tokenize_name(name: str) -> list[str]:
@@ -729,6 +735,53 @@ def _extract_contact_candidates(text: str) -> list[_ContactCandidate]:
             )
             return [candidate]
     return []
+
+
+def _extract_labelled_contact_line_candidate(text: str) -> _ContactCandidate | None:
+    """Return contact candidate from explicit ``Ansprechpartner`` style lines."""
+
+    lines = text.splitlines()
+    emails = _collect_emails(lines)
+    phones = _collect_phones(lines)
+    for line_index, line in enumerate(lines):
+        match = _LABELLED_CONTACT_LINE_RE.match(line)
+        if not match:
+            continue
+        name = (match.group("name") or "").strip()
+        if not name or not _is_viable_contact_name(name):
+            continue
+        tokens = _tokenize_name(name)
+        if not tokens:
+            continue
+        email, email_score = _find_best_email(tokens, line_index, emails)
+        phone, phone_score = _find_best_phone(line_index, phones)
+        return _ContactCandidate(
+            name=name,
+            email=email,
+            phone=phone,
+            line_index=line_index,
+            hr_score=1,
+            label_score=4,
+            email_score=email_score,
+            phone_score=phone_score,
+            source_rule="labelled_contact_line",
+        )
+    return None
+
+
+def _contact_name_is_unplausible(name: str | None) -> bool:
+    """Return ``True`` if ``name`` is missing or unlikely to be a valid person name."""
+
+    if not name:
+        return True
+    stripped = name.strip()
+    if not stripped:
+        return True
+    if "@" in stripped:
+        return True
+    if any(char.isdigit() for char in stripped):
+        return True
+    return not _is_viable_contact_name(stripped)
 
 
 def _clean_team_phrase(raw: str) -> str:
@@ -3486,21 +3539,37 @@ def apply_basic_fallbacks(
                     detail=f"with value {footer_website!r}",
                 )
         email_mismatch = False
+    labelled_contact_candidate = _extract_labelled_contact_line_candidate(text)
     contact_candidate: _ContactCandidate | None = None
     if contact_name_needed or contact_email_needed or contact_phone_needed or email_mismatch:
-        candidates = _extract_contact_candidates(text)
-        if candidates:
-            contact_candidate = candidates[0]
+        if labelled_contact_candidate is not None:
+            contact_candidate = labelled_contact_candidate
+        else:
+            candidates = _extract_contact_candidates(text)
+            if candidates:
+                contact_candidate = candidates[0]
     if contact_candidate:
-        if contact_name_needed and not _is_locked(contact_name_field):
-            if profile.company.contact_name != contact_candidate.name:
-                profile.company.contact_name = contact_candidate.name
-                _mark_field_confidence(contact_name_field, "contact_section")
-                _log_heuristic_fill(
-                    contact_name_field,
-                    "contact_section",
-                    detail=f"with value {contact_candidate.name!r}",
-                )
+        active_contact_name = (profile.company.contact_name or "").strip()
+        contact_rule = contact_candidate.source_rule
+        should_update_name = False
+        if not _is_locked(contact_name_field):
+            if contact_name_needed or _contact_name_is_unplausible(active_contact_name):
+                should_update_name = True
+            elif (
+                email_mismatch
+                and contact_candidate.email
+                and existing_contact_email
+                and _email_matches_name(contact_candidate.email, contact_candidate.name)
+            ):
+                should_update_name = True
+        if should_update_name and profile.company.contact_name != contact_candidate.name:
+            profile.company.contact_name = contact_candidate.name
+            _mark_field_confidence(contact_name_field, contact_rule)
+            _log_heuristic_fill(
+                contact_name_field,
+                contact_rule,
+                detail=f"with value {contact_candidate.name!r}",
+            )
         updated_contact_name = profile.company.contact_name or contact_candidate.name
         existing_contact_email = str(profile.company.contact_email) if profile.company.contact_email else None
         email_should_update = False
@@ -3517,10 +3586,10 @@ def apply_basic_fallbacks(
         if email_should_update and contact_candidate.email:
             if existing_contact_email != contact_candidate.email:
                 profile.company.contact_email = contact_candidate.email
-                _mark_field_confidence(contact_email_field, "contact_section")
+                _mark_field_confidence(contact_email_field, contact_rule)
                 _log_heuristic_fill(
                     contact_email_field,
-                    "contact_section",
+                    contact_rule,
                     detail=f"with value {contact_candidate.email!r}",
                 )
         if contact_candidate.phone and not _is_locked(contact_phone_field):
@@ -3529,10 +3598,10 @@ def apply_basic_fallbacks(
             ):
                 if profile.company.contact_phone != contact_candidate.phone:
                     profile.company.contact_phone = contact_candidate.phone
-                    _mark_field_confidence(contact_phone_field, "contact_section")
+                    _mark_field_confidence(contact_phone_field, contact_rule)
                     _log_heuristic_fill(
                         contact_phone_field,
-                        "contact_section",
+                        contact_rule,
                         detail=f"with value {contact_candidate.phone!r}",
                     )
     contact_email_needed = not _is_locked(contact_email_field) and _needs_value(
