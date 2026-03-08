@@ -4208,12 +4208,16 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
         locked_items=locked_items,
         reasoning_effort=effort_value,
     )
+    extraction_cache_snapshot = {
+        "cache_key": st.session_state.get(StateKeys.EXTRACTION_CACHE_KEY),
+        "cache_result": st.session_state.get(StateKeys.EXTRACTION_CACHE_RESULT),
+    }
 
-    def _structured_extraction_task(_: WorkflowContext) -> ExtractionResult:
+    def _structured_extraction_task(context: WorkflowContext) -> ExtractionResult:
         if not is_llm_available():
             raise SkipTask("llm_unavailable")
-        cached_key = st.session_state.get(StateKeys.EXTRACTION_CACHE_KEY)
-        cached_result = st.session_state.get(StateKeys.EXTRACTION_CACHE_RESULT)
+        cached_key = context.get("cached_extraction_key")
+        cached_result = context.get("cached_extraction_result")
         if cached_key == extraction_cache_key and isinstance(cached_result, ExtractionResult):
             return cached_result
         start_time = time.perf_counter()
@@ -4236,7 +4240,12 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
     extraction_run = WorkflowRunner(
         [Task(name="structured_extraction", func=_structured_extraction_task, retries=1)],
         logger_=logger,
-    ).run()
+    ).run(
+        {
+            "cached_extraction_key": extraction_cache_snapshot["cache_key"],
+            "cached_extraction_result": extraction_cache_snapshot["cache_result"],
+        }
+    )
     workflow_status["extraction"] = extraction_run.as_dict()
     st.session_state[StateKeys.WORKFLOW_STATUS] = workflow_status
 
@@ -4459,12 +4468,16 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
         mode=followup_mode,
         vector_store_id=vector_store_id or None,
     )
+    followup_cache_snapshot = {
+        "cache_key": st.session_state.get(StateKeys.FOLLOWUPS_CACHE_KEY),
+        "cache_result": st.session_state.get(StateKeys.FOLLOWUPS_CACHE_RESULT),
+    }
 
     def _followup_generation_task(context: WorkflowContext) -> Mapping[str, Any]:
         if not is_llm_available():
             raise SkipTask("llm_unavailable")
-        cached_key = st.session_state.get(StateKeys.FOLLOWUPS_CACHE_KEY)
-        cached_result = st.session_state.get(StateKeys.FOLLOWUPS_CACHE_RESULT)
+        cached_key = context.get("cached_followup_key")
+        cached_result = context.get("cached_followup_result")
         if cached_key == followup_cache_key and isinstance(cached_result, Mapping):
             return dict(cached_result)
         payload = context.get("profile_payload")
@@ -4493,6 +4506,8 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
         logger_=logger,
     ).run(
         {
+            "cached_followup_key": followup_cache_snapshot["cache_key"],
+            "cached_followup_result": followup_cache_snapshot["cache_result"],
             "profile_payload": profile.model_dump(),
             "lang": str(lang),
             "vector_store_id": vector_store_id or None,

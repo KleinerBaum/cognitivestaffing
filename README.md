@@ -313,6 +313,7 @@ tests.
   “Debug: Flow diagram” expander in the wizard UI for easy copy/paste.
 - If you encounter “missing ScriptRunContext” warnings, ensure background tasks only compute data
   and keep Streamlit UI/session-state updates on the main thread.
+- The onboarding extraction/follow-up workflow already snapshots cache/session inputs before launching worker threads; keep that pattern for new threaded tasks by passing immutable context payloads into `WorkflowRunner` tasks.
 - If you see the “OTLP endpoint not configured” telemetry message, either set the
   `OTEL_EXPORTER_OTLP_ENDPOINT` env var or ignore it during local development. See
   `docs/Troubleshooting.md` for details.
