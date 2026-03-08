@@ -63,13 +63,8 @@ def step_landing(context: WizardContext) -> None:
     )
     city = st.text_input(
         tr("Standort (Stadt)", "Location (city)", lang=lang),
-        value=_get_nested_string(profile, "location", "city"),
+        value=_get_nested_string(profile, "location", "primary_city"),
         key="landing.location.city",
-    )
-    state = st.text_input(
-        tr("Standort (Bundesland/Region)", "Location (state/region)", lang=lang),
-        value=_get_nested_string(profile, "location", "state"),
-        key="landing.location.state",
     )
 
     tasks_raw = st.text_area(
@@ -101,7 +96,7 @@ def step_landing(context: WizardContext) -> None:
         height=140,
     )
 
-    can_continue = bool(job_title.strip() and city.strip() and state.strip())
+    can_continue = bool(job_title.strip() and city.strip())
     if st.button(
         tr("Weiter", "Continue", lang=lang),
         key="landing.continue",
@@ -109,8 +104,7 @@ def step_landing(context: WizardContext) -> None:
         type="primary",
     ):
         context.update_profile("position.job_title", job_title.strip())
-        context.update_profile("location.city", city.strip())
-        context.update_profile("location.state", state.strip())
+        context.update_profile("location.primary_city", city.strip())
         context.update_profile("responsibilities.items", _parse_multiline_items(tasks_raw))
         context.update_profile("requirements.hard_skills_required", _parse_multiline_items(skills_raw))
         context.update_profile("compensation.benefits", _parse_multiline_items(benefits_raw))
