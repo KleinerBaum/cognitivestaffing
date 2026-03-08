@@ -1,0 +1,13 @@
+Senior Data Engineer (m/w/d)
+BlueOrbit GmbH
+Standort: Berlin
+
+Über uns
+BlueOrbit GmbH entwickelt Datenplattformen für Energieunternehmen.
+Web: https://blueorbit.de
+Kontakt: recruiting@blueorbit.de
+
+Anforderungen
+- Python, SQL und dbt
+- Erfahrung mit AWS und Airflow
+- Teamfähigkeit und analytisches Denken

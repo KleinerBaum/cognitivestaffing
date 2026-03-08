@@ -1,0 +1,13 @@
+{
+  "position": {"job_title": "IT Projektmanager"},
+  "company": {
+    "name": "RheinTech Solutions AG",
+    "website": "https://rheintech-solutions.de/jobs",
+    "contact_email": "jobs@rheintech-solutions.de"
+  },
+  "location": {"primary_city": "Köln"},
+  "requirements": {
+    "hard_skills_required": ["Projektmanagement", "Jira", "Budgetplanung", "Stakeholder-Management"],
+    "soft_skills_required": ["Kommunikationsstärke", "Eigeninitiative"]
+  }
+}

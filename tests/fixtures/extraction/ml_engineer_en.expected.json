@@ -1,0 +1,13 @@
+{
+  "position": {"job_title": "Machine Learning Engineer"},
+  "company": {
+    "name": "NovaAI Labs GmbH",
+    "website": "https://novaai.eu",
+    "contact_email": "talent@novaai.eu"
+  },
+  "location": {"primary_city": "Munich"},
+  "requirements": {
+    "hard_skills_required": ["Python", "PyTorch", "MLOps", "Docker"],
+    "soft_skills_required": ["communication", "collaboration"]
+  }
+}
