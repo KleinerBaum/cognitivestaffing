@@ -1552,6 +1552,70 @@ _SKILL_TAIL_RE = re.compile(
     re.IGNORECASE,
 )
 
+_SKILL_PHRASE_MAX_TOKENS = 10
+_SKILL_PHRASE_MAX_CHARS = 96
+_SKILL_PHRASE_STOP_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(
+        r"\b(?:vertrag|contract|gehalt|salary|benefits?|urlaub|bonus|home\s*office|remote|hybrid|"
+        r"arbeitszeit(?:en)?|betriebliche|zuschuss|zuschüsse)\b",
+        re.IGNORECASE,
+    ),
+    re.compile(r"\b(?:damit|sodass|weil|whereby|which|that|wobei)\b", re.IGNORECASE),
+)
+_REQUIREMENT_SENTENCE_STOPWORDS: tuple[str, ...] = (
+    "benefits",
+    "benefit",
+    "vertrag",
+    "contract",
+    "urlaub",
+    "salary",
+    "gehalt",
+    "bonus",
+    "workation",
+    "betriebliche",
+)
+_REQUIREMENT_SIGNAL_TERMS: tuple[str, ...] = (
+    "erfahrung",
+    "experience",
+    "kenntnis",
+    "knowledge",
+    "skill",
+    "technologie",
+    "technology",
+    "framework",
+    "stack",
+    "zert",
+    "certificate",
+    "certification",
+    "sprache",
+    "language",
+    "abschluss",
+    "degree",
+    "bachelor",
+    "master",
+)
+_ACTION_CHAIN_RE = re.compile(
+    r"\b(?:you|we|du|wir|sie)\b.{0,120}\b(?:will|wirst|arbeitest|gestaltest|"
+    r"koordinierst|entwickelst|unterstützt|sorgst|deliver|drive|manage|coordinate|ensure)\b",
+    re.IGNORECASE,
+)
+_LANGUAGE_LEVEL_MARKERS = {
+    "a1",
+    "a2",
+    "b1",
+    "b2",
+    "c1",
+    "c2",
+    "native",
+    "fluent",
+    "business",
+    "verhandlungssicher",
+    "grundkenntnisse",
+    "kenntnisse",
+}
+_LANGUAGE_CONNECTORS = {"and", "und", "oder", "or", "plus", "&", "/", ","}
+_ALLOWED_SINGLE_CHAR_SKILL_TOKENS = {"r"}
+
 
 _BENEFIT_HEADINGS = {
     "benefits",
@@ -1814,7 +1878,37 @@ def _extract_hiring_process(text: str, *, max_lines: int = 8) -> list[str] | Non
 def _normalize_skill_marker(value: str) -> str:
     """Return a normalized marker for comparing skill labels."""
 
-    return re.sub(r"\s+", " ", (value or "").strip()).casefold()
+    normalized = re.sub(r"[\W_]+", " ", (value or "").strip(), flags=re.UNICODE)
+    return re.sub(r"\s+", " ", normalized).strip().casefold()
+
+
+def _is_likely_requirement_noise(entry: str) -> bool:
+    """Return ``True`` when ``entry`` looks like a non-requirement sentence."""
+
+    lowered = entry.casefold()
+    if any(stop in lowered for stop in _REQUIREMENT_SENTENCE_STOPWORDS):
+        return True
+    if any(signal in lowered for signal in _REQUIREMENT_SIGNAL_TERMS):
+        return False
+    if _find_tech_keywords(entry) or _language_hits(entry):
+        return False
+    if _ACTION_CHAIN_RE.search(entry):
+        return True
+    return False
+
+
+def _filter_requirement_candidates(entries: Sequence[str]) -> List[str]:
+    """Drop obvious responsibility/benefit fragments from requirements candidates."""
+
+    filtered: List[str] = []
+    for entry in entries:
+        cleaned = _clean_bullet(entry)
+        if not cleaned:
+            continue
+        if _is_likely_requirement_noise(cleaned):
+            continue
+        filtered.append(cleaned)
+    return filtered
 
 
 def _dedupe_skill_tiers(requirements: Requirements) -> None:
@@ -2026,6 +2120,29 @@ def _language_hits(text: str) -> Set[str]:
     return hits
 
 
+def _looks_like_language_list_item(item: str) -> bool:
+    """Return ``True`` when ``item`` resembles a language requirement fragment."""
+
+    cleaned = _clean_bullet(item)
+    if not cleaned:
+        return False
+    if len(cleaned) > 90:
+        return False
+    lowered = cleaned.casefold()
+    if re.search(r"\b(?:you|we|du|wir|sie)\b", lowered):
+        return False
+    words = re.findall(r"[a-zA-ZäöüÄÖÜß]+", lowered)
+    if len(words) > 12:
+        return False
+    allowed_words = set(_LANGUAGE_LEVEL_MARKERS) | set(_LANGUAGE_CONNECTORS)
+    variants = {variant.casefold() for values in _LANGUAGE_MAP.values() for variant in values}
+    for word in words:
+        if word in allowed_words or word in variants:
+            continue
+        return False
+    return True
+
+
 def _harvest_languages_from_skill_lists(requirements: Requirements) -> None:
     """Move language mentions out of skill lists into language fields."""
 
@@ -2036,6 +2153,9 @@ def _harvest_languages_from_skill_lists(requirements: Requirements) -> None:
         source = getattr(requirements, field)
         keep: List[str] = []
         for item in source:
+            if not _looks_like_language_list_item(item):
+                keep.append(item)
+                continue
             hits = _language_hits(item)
             if not hits:
                 keep.append(item)
@@ -2134,10 +2254,29 @@ def _split_soft_from_hard(req: NeedAnalysisProfile) -> None:
         setattr(r, source_name, keep)
 
 
+def _is_valid_tool_candidate(item: str) -> bool:
+    """Return ``True`` when ``item`` is a compact skill/tool fragment."""
+
+    cleaned = _clean_bullet(item)
+    if not cleaned:
+        return False
+    if len(cleaned) > 120:
+        return False
+    if _ACTION_CHAIN_RE.search(cleaned):
+        return False
+    words = re.findall(r"[\w#+.\-/]+", cleaned)
+    if len(words) > 14:
+        return False
+    if any(len(word) == 1 and word.casefold() not in _ALLOWED_SINGLE_CHAR_SKILL_TOKENS for word in words):
+        return False
+    return True
+
+
 def _extract_tools_from_lists(req: NeedAnalysisProfile) -> None:
     """Populate ``tools_and_technologies`` from known tech keywords."""
 
-    techs = set(req.requirements.tools_and_technologies)
+    allowed_tech = set(_TECH_KEYWORD_CATEGORIES)
+    techs = {tool.casefold() for tool in req.requirements.tools_and_technologies if tool.casefold() in allowed_tech}
     for field in [
         "hard_skills_required",
         "hard_skills_optional",
@@ -2145,8 +2284,12 @@ def _extract_tools_from_lists(req: NeedAnalysisProfile) -> None:
         "soft_skills_optional",
     ]:
         for item in getattr(req.requirements, field):
-            techs.update(_find_tech_keywords(item))
-    req.requirements.tools_and_technologies = list(techs)
+            if not _is_valid_tool_candidate(item):
+                continue
+            for match in _find_tech_keywords(item):
+                if match in allowed_tech:
+                    techs.add(match)
+    req.requirements.tools_and_technologies = sorted(techs)
 
 
 def _extract_languages(text: str) -> Tuple[List[str], List[str]]:
@@ -2227,8 +2370,8 @@ def refine_requirements(profile: NeedAnalysisProfile, text: str) -> NeedAnalysis
     _extract_tools_from_lists(profile)
 
     req_bullets, opt_bullets = _extract_requirement_bullets(text)
-    req_bullets = list(req_bullets) + misplaced_required
-    opt_bullets = list(opt_bullets) + misplaced_optional
+    req_bullets = _filter_requirement_candidates(list(req_bullets) + misplaced_required)
+    opt_bullets = _filter_requirement_candidates(list(opt_bullets) + misplaced_optional)
     hard_req: List[str] = []
     soft_req: List[str] = []
     hard_opt: List[str] = []
@@ -2394,9 +2537,17 @@ def _extract_skill_phrases_from_bullet(entry: str) -> List[str]:
 
     phrases: List[str] = []
     for match in _SKILL_TAIL_RE.finditer(entry):
-        phrase = match.group(1).strip(" -:\t")
-        if phrase:
-            phrases.append(phrase)
+        phrase = re.sub(r"\s+", " ", match.group(1).strip(" -:\t"))
+        if not phrase:
+            continue
+        tokens = phrase.split()
+        if len(tokens) > _SKILL_PHRASE_MAX_TOKENS or len(phrase) > _SKILL_PHRASE_MAX_CHARS:
+            continue
+        if any(pattern.search(phrase) for pattern in _SKILL_PHRASE_STOP_PATTERNS):
+            continue
+        if re.search(r",\s*(?:weil|damit|sodass|which|that)\b", phrase, flags=re.IGNORECASE):
+            continue
+        phrases.append(phrase)
     return phrases
 
 
