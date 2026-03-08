@@ -149,19 +149,23 @@ def query_params(monkeypatch: pytest.MonkeyPatch) -> _QueryParamStore:
 
 
 _STEP_DEFINITIONS: tuple[tuple[str, int, bool, tuple[str, ...]], ...] = (
-    ("jobad", 0, False, ()),
+    ("landing", 0, False, ()),
+    ("jobad", 1, False, ()),
     (
         "company",
-        1,
+        2,
         False,
-        (),
+        (
+            "company.contact_email",
+            "location.primary_city",
+        ),
     ),
-    ("team", 2, False, ()),
-    ("role_tasks", 3, False, ()),
-    ("skills", 4, False, ()),
-    ("benefits", 5, True, ()),
-    ("interview", 6, False, ()),
-    ("summary", 7, False, ()),
+    ("team", 3, False, ()),
+    ("role_tasks", 4, False, ()),
+    ("skills", 5, False, ()),
+    ("benefits", 6, True, ()),
+    ("interview", 7, False, ()),
+    ("summary", 8, False, ()),
 )
 
 
@@ -234,6 +238,29 @@ def _make_router(
         value_resolver=resolver,
     )
     return router, render_log
+
+
+
+
+def test_initial_route_defaults_to_landing(monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]) -> None:
+    """Router should start on the landing step when no query param is provided."""
+
+    st.session_state[StateKeys.PROFILE] = {"meta": {}}
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+
+    assert router._state["current_step"] == "landing"
+    assert query_params["step"] == ["landing"]
+
+
+def test_legacy_indices_shift_for_landing() -> None:
+    """Landing should occupy legacy index 0 and shift subsequent step indices."""
+
+    index_by_key = {key: index for key, index, _allow_skip, _required in _STEP_DEFINITIONS}
+
+    assert index_by_key["landing"] == 0
+    assert index_by_key["jobad"] == 1
+    assert index_by_key["summary"] == 8
 
 
 def test_invalid_query_param_defaults_to_first_step(
@@ -398,6 +425,8 @@ def test_next_advances_linearly(monkeypatch: pytest.MonkeyPatch, query_params: D
 
     missing_ref = {"value": None}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    router._state["current_step"] = "jobad"
+    query_params["step"] = ["jobad"]
 
     columns = [DummyColumn(), DummyColumn(), DummyColumn()]
     monkeypatch.setattr(st, "columns", lambda *_, **__: columns)
@@ -452,8 +481,8 @@ def test_pending_incomplete_jump_redirects_to_first_incomplete(
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
 
     wizard_state = router._state
-    assert wizard_state["current_step"] == "team"
-    assert query_params["step"] == ["team"]
+    assert wizard_state["current_step"] == "company"
+    assert query_params["step"] == ["company"]
     assert st.session_state["_wizard_scroll_to_top"] is True
 
 
@@ -586,6 +615,8 @@ def test_run_handles_renderer_exception_gracefully(
 
     first_key = _STEP_DEFINITIONS[0][0]
     router._renderers[first_key] = StepRenderer(callback=_failing_callback, legacy_index=0)
+    router._state["current_step"] = first_key
+    query_params["step"] = [first_key]
 
     router.run()
 
