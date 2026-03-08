@@ -102,6 +102,20 @@ class NeedAnalysisOutputParser:
     @classmethod
     def _collect_missing_sections(cls, profile: NeedAnalysisProfile) -> list[str]:
         missing: list[str] = []
+        if not cls._has_text(profile.position.job_title):
+            missing.append("position.job_title")
+        if not cls._has_text(profile.company.name):
+            missing.append("company.name")
+        if not cls._has_text(profile.location.primary_city):
+            missing.append("location.primary_city")
+        if not cls._has_text(profile.company.website):
+            missing.append("company.website")
+        if not cls._has_text(profile.company.contact_email):
+            missing.append("company.contact_email")
+        if not cls._sequence_has_text(profile.requirements.hard_skills_required):
+            missing.append("requirements.hard_skills_required")
+        if not cls._sequence_has_text(profile.requirements.soft_skills_required):
+            missing.append("requirements.soft_skills_required")
         if not cls._sequence_has_text(profile.responsibilities.items):
             missing.append("responsibilities.items")
         if not cls._has_text(profile.company.culture):

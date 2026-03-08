@@ -73,43 +73,71 @@ def _build_missing_section_schema(missing_sections: Sequence[str]) -> Mapping[st
     properties: dict[str, Any] = {}
     required: list[str] = []
 
+    def _ensure_object(name: str) -> dict[str, Any]:
+        existing = properties.get(name)
+        if isinstance(existing, dict):
+            return existing
+        block: dict[str, Any] = {"type": "object", "properties": {}}
+        properties[name] = block
+        return block
+
+    def _add_property(path: str, schema_fragment: Mapping[str, Any]) -> None:
+        top_key, nested_key = path.split(".", 1)
+        target = _ensure_object(top_key)
+        nested_properties = target.setdefault("properties", {})
+        if isinstance(nested_properties, MutableMapping):
+            nested_properties[nested_key] = dict(schema_fragment)
+        if top_key not in required:
+            required.append(top_key)
+
+    scalar_string_or_null = {"type": ["string", "null"]}
+    required_array = {"type": "array", "items": {"type": "string"}}
+
+    if "position.job_title" in missing_sections:
+        _add_property("position.job_title", scalar_string_or_null)
+
+    if "company.name" in missing_sections:
+        _add_property("company.name", scalar_string_or_null)
+
+    if "location.primary_city" in missing_sections:
+        _add_property("location.primary_city", scalar_string_or_null)
+
+    if "company.website" in missing_sections:
+        _add_property("company.website", scalar_string_or_null)
+
+    if "company.contact_email" in missing_sections:
+        _add_property("company.contact_email", scalar_string_or_null)
+    if "company.contact_name" in missing_sections:
+        _add_property("company.contact_name", scalar_string_or_null)
+
+    if "requirements.hard_skills_required" in missing_sections:
+        _add_property("requirements.hard_skills_required", required_array)
+    if "requirements.soft_skills_required" in missing_sections:
+        _add_property("requirements.soft_skills_required", required_array)
+
     if "responsibilities.items" in missing_sections:
-        properties["responsibilities"] = {
-            "type": "object",
-            "properties": {
-                "items": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                }
+        _add_property(
+            "responsibilities.items",
+            {
+                "type": "array",
+                "items": {"type": "string"},
             },
-        }
-        required.append("responsibilities")
+        )
 
     if "company.culture" in missing_sections:
-        properties["company"] = {
-            "type": "object",
-            "properties": {
-                "culture": {
-                    "type": ["string", "null"],
-                }
-            },
-        }
-        required.append("company")
+        _add_property("company.culture", scalar_string_or_null)
 
     if "process.overview" in missing_sections:
-        properties["process"] = {
-            "type": "object",
-            "properties": {
-                "recruitment_timeline": {"type": ["string", "null"]},
-                "hiring_process": {
-                    "type": ["array", "null"],
-                    "items": {"type": "string"},
-                },
-                "process_notes": {"type": ["string", "null"]},
-                "application_instructions": {"type": ["string", "null"]},
+        _add_property("process.recruitment_timeline", scalar_string_or_null)
+        _add_property(
+            "process.hiring_process",
+            {
+                "type": ["array", "null"],
+                "items": {"type": "string"},
             },
-        }
-        required.append("process")
+        )
+        _add_property("process.process_notes", scalar_string_or_null)
+        _add_property("process.application_instructions", scalar_string_or_null)
 
     return {
         "type": "object",
@@ -150,7 +178,22 @@ def _merge_missing_section_payload(base: Mapping[str, Any] | None, patch: Mappin
             else:
                 merged[key] = deepcopy(value)
         else:
-            merged[key] = deepcopy(value)
+            if key not in merged:
+                merged[key] = deepcopy(value)
+                continue
+            existing = merged.get(key)
+            if existing is None:
+                merged[key] = deepcopy(value)
+                continue
+            if isinstance(existing, str) and existing.strip() == "":
+                merged[key] = deepcopy(value)
+                continue
+            if (
+                isinstance(existing, Sequence)
+                and not isinstance(existing, (str, bytes, bytearray))
+                and len(existing) == 0
+            ):
+                merged[key] = deepcopy(value)
     return merged
 
 

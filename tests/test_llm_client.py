@@ -217,9 +217,137 @@ def test_structured_extraction_recovers_missing_sections(monkeypatch):
     }
 
     output = client._structured_extraction(payload)
-    parsed = json.loads(output)
+    parsed = json.loads(output.content)
 
     assert parsed["responsibilities"]["items"] == ["Design APIs"]
+
+
+def test_missing_section_schema_includes_business_critical_fragments() -> None:
+    """Missing section schema should expose requested business-critical keys."""
+
+    schema = client._build_missing_section_schema(
+        [
+            "position.job_title",
+            "company.name",
+            "location.primary_city",
+            "company.website",
+            "company.contact_email",
+            "requirements.hard_skills_required",
+            "requirements.soft_skills_required",
+        ]
+    )
+
+    assert set(schema["required"]) == {"position", "company", "location", "requirements"}
+    assert schema["properties"]["position"]["properties"]["job_title"]["type"] == ["string", "null"]
+    assert schema["properties"]["company"]["properties"]["name"]["type"] == ["string", "null"]
+    assert schema["properties"]["location"]["properties"]["primary_city"]["type"] == ["string", "null"]
+    assert schema["properties"]["company"]["properties"]["website"]["type"] == ["string", "null"]
+    assert schema["properties"]["company"]["properties"]["contact_email"]["type"] == ["string", "null"]
+    assert schema["properties"]["requirements"]["properties"]["hard_skills_required"]["type"] == "array"
+    assert schema["properties"]["requirements"]["properties"]["soft_skills_required"]["type"] == "array"
+
+
+def test_merge_missing_section_payload_does_not_override_confirmed_values() -> None:
+    """Merge should only patch missing/empty slots and preserve confirmed values."""
+
+    base = {
+        "position": {"job_title": "Senior Engineer"},
+        "company": {
+            "name": "Acme GmbH",
+            "website": "",
+            "contact_email": None,
+        },
+        "requirements": {
+            "hard_skills_required": ["Python"],
+            "soft_skills_required": [],
+        },
+    }
+    patch = {
+        "position": {"job_title": "Principal Engineer"},
+        "company": {
+            "name": "Other Corp",
+            "website": "https://acme.example",
+            "contact_email": "jobs@acme.example",
+        },
+        "requirements": {
+            "hard_skills_required": ["Kubernetes"],
+            "soft_skills_required": ["Communication"],
+        },
+    }
+
+    merged = client._merge_missing_section_payload(base, patch)
+
+    assert merged["position"]["job_title"] == "Senior Engineer"
+    assert merged["company"]["name"] == "Acme GmbH"
+    assert merged["company"]["website"] == "https://acme.example"
+    assert merged["company"]["contact_email"] == "jobs@acme.example"
+    assert merged["requirements"]["hard_skills_required"] == ["Python"]
+    assert merged["requirements"]["soft_skills_required"] == ["Communication"]
+
+
+def test_structured_extraction_business_critical_retry_patches_missing_only(monkeypatch) -> None:
+    """Business-critical retry should fill missing keys and keep confirmed values unchanged."""
+
+    missing_errors = [
+        {"loc": ("position", "job_title"), "msg": "missing"},
+        {"loc": ("company", "contact_email"), "msg": "missing"},
+        {"loc": ("requirements", "soft_skills_required"), "msg": "missing"},
+    ]
+    base = NeedAnalysisProfile().model_dump(mode="python")
+    base["position"]["job_title"] = ""  # missing
+    base["company"]["name"] = "Confirmed GmbH"  # confirmed
+    base["company"]["contact_email"] = None  # missing
+    base["requirements"]["soft_skills_required"] = []  # missing
+
+    class _FakeParser:
+        def parse(self, content: str):  # noqa: D401
+            raise NeedAnalysisParserError(
+                "missing business-critical fields",
+                raw_text=content,
+                data=base,
+                original=None,
+                errors=missing_errors,
+            )
+
+    def _fake_responses(messages, *, response_format=None, **kwargs):
+        return ResponsesCallResult(
+            content=json.dumps(
+                {
+                    "position": {"job_title": "Staff Engineer"},
+                    "company": {
+                        "name": "Should Not Replace",
+                        "contact_email": "talent@confirmed.example",
+                    },
+                    "requirements": {"soft_skills_required": ["Empathy"]},
+                }
+            ),
+            usage={},
+            response_id="resp_missing_critical",
+            raw_response={},
+            used_chat_fallback=False,
+        )
+
+    monkeypatch.setattr(client, "call_responses_safe", _fake_responses)
+    monkeypatch.setattr(responses_module, "call_responses_safe", _fake_responses)
+    monkeypatch.setattr(client, "get_need_analysis_output_parser", lambda: _FakeParser())
+    monkeypatch.setattr(client, "_summarise_prompt", lambda *_: "digest")
+
+    payload = {
+        "messages": [{"role": "user", "content": "text"}],
+        "model": model_config.GPT4O_MINI,
+        "reasoning_effort": "low",
+        "verbosity": None,
+        "retries": 1,
+        "source_text": "Role: Staff Engineer at Confirmed GmbH.",
+    }
+
+    output = client._structured_extraction(payload)
+    parsed = json.loads(output.content)
+
+    assert parsed["position"]["job_title"] == "Staff Engineer"
+    assert parsed["company"]["name"] == "Confirmed GmbH"
+    assert parsed["company"]["contact_email"] == "talent@confirmed.example"
+    assert parsed["requirements"]["soft_skills_required"] == ["Empathy"]
 
 
 def test_extract_json_skips_responses_when_api_mode_disabled(monkeypatch) -> None:

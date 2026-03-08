@@ -8,6 +8,13 @@ from models.need_analysis import NeedAnalysisProfile
 
 def _profile_payload_with_required_sections() -> dict:
     payload = NeedAnalysisProfile().model_dump()
+    payload.setdefault("position", {})["job_title"] = "Platform Engineer"
+    payload.setdefault("company", {})["name"] = "Example GmbH"
+    payload.setdefault("location", {})["primary_city"] = "Berlin"
+    payload.setdefault("company", {})["website"] = "https://example.com"
+    payload.setdefault("company", {})["contact_email"] = "jobs@example.com"
+    payload.setdefault("requirements", {})["hard_skills_required"] = ["Python"]
+    payload.setdefault("requirements", {})["soft_skills_required"] = ["Communication"]
     payload.setdefault("responsibilities", {})["items"] = [
         "Coach the team",
         "Align stakeholders",

@@ -14,6 +14,13 @@ from models.need_analysis import NeedAnalysisProfile
 
 def _base_payload() -> dict:
     payload = NeedAnalysisProfile().model_dump()
+    payload.setdefault("position", {})["job_title"] = "Platform Engineer"
+    payload.setdefault("company", {})["name"] = "Example GmbH"
+    payload.setdefault("location", {})["primary_city"] = "Berlin"
+    payload.setdefault("company", {})["website"] = "https://example.com"
+    payload.setdefault("company", {})["contact_email"] = "jobs@example.com"
+    payload.setdefault("requirements", {})["hard_skills_required"] = ["Python"]
+    payload.setdefault("requirements", {})["soft_skills_required"] = ["Communication"]
     payload.setdefault("responsibilities", {})["items"] = [
         "Own onboarding for new partners",
         "Coordinate milestones",
@@ -90,3 +97,30 @@ def test_parser_errors_when_critical_sections_missing() -> None:
 
     with pytest.raises(NeedAnalysisParserError):
         parser.parse(json.dumps(payload))
+
+
+def test_parser_errors_when_business_critical_sections_missing() -> None:
+    """Business-critical missing fields should trigger missing-section retries."""
+
+    parser = NeedAnalysisOutputParser()
+    payload = _base_payload()
+    payload["position"]["job_title"] = None
+    payload["company"]["name"] = None
+    payload["location"]["primary_city"] = ""
+    payload["company"]["website"] = None
+    payload["company"]["contact_email"] = None
+    payload["requirements"]["hard_skills_required"] = []
+    payload["requirements"]["soft_skills_required"] = []
+
+    with pytest.raises(NeedAnalysisParserError) as exc_info:
+        parser.parse(json.dumps(payload))
+
+    errors = exc_info.value.errors or []
+    locations = {tuple(error.get("loc", ())) for error in errors}
+    assert ("position", "job_title") in locations
+    assert ("company", "name") in locations
+    assert ("location", "primary_city") in locations
+    assert ("company", "website") in locations
+    assert ("company", "contact_email") in locations
+    assert ("requirements", "hard_skills_required") in locations
+    assert ("requirements", "soft_skills_required") in locations
