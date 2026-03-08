@@ -149,6 +149,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
   - `llm/` – response schemas, prompt assembly  
   - `pipelines/` – ingest → extraction → repair → exports  
   - Structured extraction enforces JSON-only outputs, performs a schema-guided repair retry, and records low-confidence recovery metadata for the wizard flow.
+  - Missing-section retries now prioritise business-critical fields (`position.job_title`, `company.name`, `location.primary_city`, `company.website`, `company.contact_email`, `requirements.hard_skills_required`, `requirements.soft_skills_required`) and only patch values when the original extraction left them empty.
   - ESCO lookups plus extraction/follow-up LLM results are cached per session (keyed by input hashes) to avoid re-running expensive steps on Streamlit reruns.
   - `ingest/`, `nlp/` – parsing + heuristics
 
