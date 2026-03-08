@@ -54,6 +54,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Job-ad extraction now surfaces a progress indicator that tracks structured extraction and follow-up generation.
 
 ### Changed
+- Landing step city persistence now reads/writes only `location.primary_city`, and the continue-gating no longer depends on non-canonical `location.state`.
 - Wizard threaded pipeline tasks now snapshot Streamlit session values before worker start and pass cache state via plain workflow context; worker threads no longer read `st.*`/`st.session_state`, and cache writes remain on the main thread to avoid ScriptRunContext warnings during regular runs.
 - Tightened dependency constraints for `requests`, `urllib3`, `chardet`, and `charset-normalizer` to enforce known-compatible resolver outcomes on Streamlit Cloud and reduce startup warning noise from incompatible HTTP stack combinations.
 - Structured extraction now short-circuits unrecoverable schema errors (`invalid_request_error` + `response_format` / `invalid_json_schema`) with `schema_unrecoverable_short_circuit=true` telemetry, skips additional model rotation/retries, and degrades immediately to non-strict plain-text fallback handling.
