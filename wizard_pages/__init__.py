@@ -8,6 +8,7 @@ from .base import WizardPage, page_from_step_definition
 
 
 # Deprecated: ``wizard_pages`` now proxies the step registry to avoid drift.
+# ``WIZARD_PAGES`` is intentionally fully derived from ``WIZARD_STEPS``.
 # TODO: Remove this module once downstream imports use ``wizard.step_registry`` directly.
 WIZARD_PAGES: tuple[WizardPage, ...] = tuple(page_from_step_definition(step) for step in WIZARD_STEPS)
 
