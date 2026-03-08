@@ -392,6 +392,9 @@ def validate_required(widget_key: str, msg: str) -> Callable[[Wizard], Tuple[boo
 
 # ---------- UI helpers ----------
 def render_stepper(wiz: Wizard) -> None:
+    if wiz.current_step().id == "landing":
+        return
+
     active = wiz.active_steps()
     cur_id = wiz.current_step().id
     visited = set(wiz.state.get("visited", []))
@@ -416,6 +419,9 @@ def render_context_bar(
     *,
     legend_right: str = "🔎 extrahiert · 🤖 vorgeschlagen",
 ) -> None:
+    if wiz.current_step().id == "landing":
+        return
+
     active = wiz.active_steps()
     idx = wiz.current_index() + 1
     total = len(active)
@@ -501,6 +507,9 @@ def render_progress_and_microcopy(
     est_seconds_per_step: int = 20,
     done_caption: str = "Fast geschafft 🚀",
 ) -> None:
+    if wiz.current_step().id == "landing":
+        return
+
     pct = wiz.progress_pct(mode=mode)
     st.progress(pct)
 
