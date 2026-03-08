@@ -11696,6 +11696,15 @@ def _render_followup_section(
             continue
         entry_specs.append((field_path, question_text))
 
+    deduplicated_specs: list[tuple[str, str]] = []
+    seen_field_paths: set[str] = set()
+    for field_path, question_text in entry_specs:
+        if field_path in seen_field_paths:
+            continue
+        seen_field_paths.add(field_path)
+        deduplicated_specs.append((field_path, question_text))
+    entry_specs = deduplicated_specs
+
     if not entry_specs:
         return
 

@@ -172,7 +172,7 @@ def _fallback_followups(
     """Return a minimal set of follow-up questions when the LLM fails."""
 
     lang = _normalize_locale(locale)
-    questions = list(_FALLBACK_FOLLOWUPS.get(lang, _FALLBACK_FOLLOWUPS["en"]))
+    questions = _dedupe_questions_by_field(list(_FALLBACK_FOLLOWUPS.get(lang, _FALLBACK_FOLLOWUPS["en"])))
     if role_context:
         role_question = {
             "field": "position.context",
@@ -227,6 +227,20 @@ def _normalize_question(item: Mapping[str, Any]) -> dict[str, Any] | None:
         result["rationale"] = rationale.strip()
 
     return result
+
+
+def _dedupe_questions_by_field(questions: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Deduplicate follow-up entries by field path while preserving order."""
+
+    deduplicated: list[dict[str, Any]] = []
+    seen_fields: set[str] = set()
+    for question in questions:
+        field = str(question.get("field") or "").strip()
+        if not field or field in seen_fields:
+            continue
+        seen_fields.add(field)
+        deduplicated.append(question)
+    return deduplicated
 
 
 _PII_EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", re.IGNORECASE)
@@ -371,7 +385,7 @@ def _parse_followup_response(response: Any) -> FollowupParseResult:
                     questions.append(normalised)
 
         return FollowupParseResult(
-            payload={"questions": questions},
+            payload={"questions": _dedupe_questions_by_field(questions)},
             raw_text=raw_text,
             validation_errors=[],
             repair_status=repair_status,

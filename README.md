@@ -138,6 +138,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
   - `role_field_map.json` – role-dependent field priorities
   - `wizard/services/followups.py` – canonical follow-up generation (LLM + fallback)
   - Follow-up responses are schema-validated with JSON repair heuristics, a schema-guided repair retry, and redacted logging before falling back to defaults.
+  - Summary follow-up inputs now deduplicate duplicate field paths before rendering to avoid Streamlit duplicate widget keys and keep answer mapping deterministic (`field_path -> latest value`).
   - `wizard/missing_fields.py` – pure helpers for missing-field detection
   - `wizard/services/` – canonical gap, validation, and job description services shared by UI and agent tools
   - `wizard/step_status.py` – step-level missing required/critical status helpers
