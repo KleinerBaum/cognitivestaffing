@@ -54,6 +54,12 @@ def _jobad_next_step_id(_context: WizardContext, _session_state: Mapping[str, ob
     return "company"
 
 
+def _render_landing_step(context: WizardContext) -> None:
+    from wizard.steps import landing_step
+
+    landing_step.step_landing(context)
+
+
 def _render_jobad_step(context: WizardContext) -> None:
     from wizard.steps import jobad_step
 
@@ -121,6 +127,26 @@ def _render_summary_step(context: WizardContext) -> None:
 
 
 WIZARD_STEPS: Final[tuple[StepDefinition, ...]] = (  # GREP:STEP_REGISTRY_V2
+    StepDefinition(
+        key="landing",
+        label=("Willkommen", "Welcome"),
+        panel_header=("Willkommen", "Welcome"),
+        panel_subheader=("Starten wir mit den wichtigsten Eckdaten", "Let's begin with the essentials"),
+        panel_intro_variants=(
+            (
+                "Trage die wichtigsten Eckdaten zur Position ein, damit wir gezielt durch die Analyse führen können.",
+                "Add the key role details so we can guide you through the analysis with focus.",
+            ),
+            (
+                "Mit diesen Angaben erstellen wir direkt eine belastbare Ausgangsbasis für alle nächsten Schritte.",
+                "These details create a solid foundation for every step that follows.",
+            ),
+        ),
+        required_fields=(),
+        summary_fields=(),
+        allow_skip=False,
+        renderer=_render_landing_step,
+    ),
     StepDefinition(
         key="jobad",
         label=("Onboarding", "Onboarding"),
