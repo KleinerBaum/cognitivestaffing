@@ -6,7 +6,10 @@ from collections.abc import Callable, Sequence
 
 import streamlit as st
 
+from constants.keys import StateKeys
 from utils.i18n import tr
+from wizard import metadata as wizard_metadata
+from wizard.field_metadata import get_field_metadata, set_field_confirmed
 from wizard.layout import render_missing_field_summary
 
 
@@ -54,8 +57,52 @@ def render_step_layout(
         missing_cb()
 
     st.subheader(tr("Validieren", "Validate", lang=lang))
+    _render_heuristic_review(lang=lang, step_key=st.session_state.get(StateKeys.WIZARD_LAST_STEP))
     if missing_paths:
         st.warning(tr("Kritische Felder sind noch offen.", "Some critical fields are still missing.", lang=lang))
         render_missing_field_summary(missing_paths, scope="step")
     else:
         st.success(tr("Keine kritischen Felder offen.", "No critical fields missing.", lang=lang))
+
+
+def _render_heuristic_review(*, lang: str, step_key: str | None) -> None:
+    if not step_key:
+        return
+    profile = st.session_state.get(StateKeys.PROFILE, {}) or {}
+    step_fields = wizard_metadata.PAGE_PROGRESS_FIELDS.get(step_key, ())
+    heuristic_fields: list[str] = []
+    for field_path in step_fields:
+        metadata = get_field_metadata(field_path, profile=profile if isinstance(profile, dict) else None)
+        if not isinstance(metadata, dict):
+            continue
+        if str(metadata.get("source") or "").lower() != "heuristic":
+            continue
+        heuristic_fields.append(field_path)
+
+    if not heuristic_fields:
+        return
+
+    st.caption(tr("⚡ Vorgeschlagene Werte prüfen", "⚡ Review suggested values", lang=lang))
+    for field_path in heuristic_fields:
+        metadata = get_field_metadata(field_path, profile=profile if isinstance(profile, dict) else None) or {}
+        confidence = float(metadata.get("confidence") or 0.0)
+        current_value = profile
+        for part in field_path.split("."):
+            if isinstance(current_value, dict):
+                current_value = current_value.get(part)
+            else:
+                current_value = None
+                break
+        badge = tr("Vorgeschlagen", "Suggested", lang=lang)
+        st.markdown(f"- **`{field_path}`** · 🏷️ {badge} · {tr('Konfidenz', 'Confidence', lang=lang)}: {confidence:.0%}")
+        confirmed = st.checkbox(
+            tr("Wert bestätigt", "Confirm value", lang=lang),
+            value=bool(metadata.get("confirmed", False)),
+            key=f"confirm.{step_key}.{field_path}",
+        )
+        if confirmed != bool(metadata.get("confirmed", False)):
+            set_field_confirmed(field_path, confirmed)
+        if metadata.get("evidence_snippet"):
+            st.caption(str(metadata["evidence_snippet"]))
+        if current_value not in (None, "", [], {}):
+            st.caption(f"{tr('Aktueller Wert', 'Current value', lang=lang)}: {current_value}")

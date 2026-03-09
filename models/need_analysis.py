@@ -514,6 +514,18 @@ class Meta(BaseModel):
     application_deadline: Optional[str] = None
     followups_answered: List[str] = Field(default_factory=list)
     extraction_fallback_active: bool = False
+    field_metadata: dict[str, "FieldMetadata"] = Field(default_factory=dict)
+
+
+class FieldMetadata(BaseModel):
+    """Provenance and confidence metadata for a profile field."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: Literal["llm", "heuristic", "user"] = "user"
+    confidence: float = Field(default=1.0, ge=0.0, le=1.0)
+    evidence_snippet: str | None = None
+    confirmed: bool = True
 
 
 class GeneratedContent(BaseModel):

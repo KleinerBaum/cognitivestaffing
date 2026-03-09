@@ -11,6 +11,8 @@ from docx.enum.text import WD_PARAGRAPH_ALIGNMENT
 from docx.shared import Inches
 import fitz  # PyMuPDF
 
+from exports import apply_field_metadata_to_payload
+
 
 PDF_FONT_MAP = {
     "Helvetica": "helv",
@@ -119,11 +121,24 @@ def text_to_json(text: str, *, key: str, title: str | None = None) -> bytes:
     return json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
 
 
-def prepare_clean_json(data: Any) -> Tuple[bytes, str, str]:
+def prepare_clean_json(
+    data: Any,
+    *,
+    mark_unconfirmed: bool = False,
+    exclude_unconfirmed: bool = False,
+) -> Tuple[bytes, str, str]:
     """Serialize ``data`` into UTF-8 encoded, human-readable JSON."""
 
+    prepared = data
+    if isinstance(data, dict):
+        prepared = apply_field_metadata_to_payload(
+            data,
+            mark_unconfirmed=mark_unconfirmed,
+            exclude_unconfirmed=exclude_unconfirmed,
+        )
+
     return (
-        json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8"),
+        json.dumps(prepared, ensure_ascii=False, indent=2).encode("utf-8"),
         "application/json",
         "json",
     )

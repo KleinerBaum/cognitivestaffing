@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from core.critical_fields import load_critical_fields
+from wizard.field_metadata import is_unconfirmed_low_confidence_heuristic
 from wizard.missing_fields import get_path_value, is_blank
 from wizard.types import LocalizedText
 
@@ -84,6 +85,9 @@ def detect_missing_critical_fields(
         if isinstance(value, str):
             value = value.strip()
         if is_blank(value):
+            missing.append(field)
+            continue
+        if is_unconfirmed_low_confidence_heuristic(field, profile=working_profile):
             missing.append(field)
 
     for question in followups or []:
