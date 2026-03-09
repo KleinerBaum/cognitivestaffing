@@ -8,6 +8,8 @@ A multi-step **Streamlit wizard** that turns unstructured job ads (PDF, DOCX, UR
 
 ---
 
+- Structured extraction now enforces a strict validation chain (primary output → model validation → focused retry prompts → JSON repair). If required skill lists stay empty despite source cues, the wizard flags low confidence and prompts for manual review in DE/EN.
+
 ## Table of Contents
 - [What it does](#what-it-does)
 - [Wizard flow (UX contract)](#wizard-flow-ux-contract)

@@ -198,11 +198,7 @@ def repair_json_payload(
         "You repair invalid JSON outputs to match the provided schema. "
         "Return JSON only with no markdown, code fences, or prose."
     )
-    user_prompt = (
-        "Invalid JSON (may include extra text):\n"
-        f"{raw}\n\n"
-        "Return corrected JSON only."
-    )
+    user_prompt = f"Invalid JSON (may include extra text):\n{raw}\n\nReturn corrected JSON only."
     messages = [
         {"role": "system", "content": system_prompt},
         {"role": "user", "content": user_prompt},
@@ -231,4 +227,75 @@ def repair_json_payload(
     return None
 
 
-__all__ = ["parse_profile_json", "repair_profile_payload", "repair_json_payload"]
+def retry_profile_payload(
+    payload: Mapping[str, Any],
+    *,
+    source_text: str,
+    focus_fields: Sequence[str],
+    reason: str,
+) -> Mapping[str, Any] | None:
+    """Request a focused extraction retry before generic JSON repair.
+
+    This helper is used when validation succeeds syntactically but semantically
+    critical fields are still empty although the source text contains cues.
+    """
+
+    if not is_llm_enabled():
+        return None
+
+    schema = _load_schema()
+    if not schema:
+        return None
+
+    model = get_model_for(ModelTask.EXTRACTION)
+    response_format = build_json_schema_format(name=_SCHEMA_NAME, schema=schema)
+    focused_fields = ", ".join(field.strip() for field in focus_fields if field.strip())
+    payload_text = json.dumps(_coerce_json_serializable(payload), ensure_ascii=False, indent=2, sort_keys=True)
+    system_prompt = (
+        "You are retrying structured profile extraction. "
+        "Return a single JSON object conforming to the schema. "
+        "Prioritise completeness for the requested focus fields when evidence exists. "
+        "If evidence is absent, keep fields as empty lists."
+    )
+    user_prompt = (
+        f"Retry reason: {reason}\n"
+        f"Focus fields: {focused_fields or '<none>'}\n\n"
+        "Current extracted JSON:\n"
+        f"{payload_text}\n\n"
+        "Source text:\n"
+        f"{source_text.strip()}\n\n"
+        "Return corrected JSON only."
+    )
+
+    response = call_responses_safe(
+        [
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": user_prompt},
+        ],
+        model=model,
+        response_format=response_format,
+        temperature=0.0,
+        max_completion_tokens=1000,
+        task=ModelTask.EXTRACTION,
+        logger_instance=logger,
+        context="extraction retry",
+    )
+    if response is None or not response.content:
+        return None
+    try:
+        candidate = json.loads(response.content)
+    except json.JSONDecodeError:
+        return None
+    if isinstance(candidate, Mapping):
+        result = dict(candidate)
+        normalize_interview_stages_field(result)
+        return result
+    return None
+
+
+__all__ = [
+    "parse_profile_json",
+    "repair_profile_payload",
+    "repair_json_payload",
+    "retry_profile_payload",
+]

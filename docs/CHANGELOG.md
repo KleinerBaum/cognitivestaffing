@@ -1,4 +1,11 @@
 
+## Unreleased
+
+- Enforced extraction sequence for profile parsing: primary response, schema/model validation, focused retry prompts, then JSON repair.
+- Added required-skills post-validation for `requirements.hard_skills_required` and `requirements.soft_skills_required` with forced retry when source cues exist.
+- Added bilingual low-confidence UI warning to prompt manual review/completion when required skills remain uncertain.
+
+
 ---
 
 ## `docs/CHANGELOG.md`

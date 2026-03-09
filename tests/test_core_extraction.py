@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from unittest.mock import patch
+
 from core.extraction import parse_structured_payload
 
 
@@ -61,3 +63,23 @@ def test_parse_structured_payload_fills_missing_lists_with_heuristics() -> None:
     requirements = payload["requirements"]
     assert requirements["hard_skills_required"] or requirements["soft_skills_required"]
     assert any("Vertrieb" in skill for skill in requirements["hard_skills_required"])
+
+
+def test_parse_structured_payload_forces_retry_for_required_skills() -> None:
+    raw = '{"position": {"job_title": "Developer"}, "requirements": {"hard_skills_required": [], "soft_skills_required": []}}'
+    source_text = "Requirements:\n- Python\n- Communication"
+    retried_payload = {
+        "position": {"job_title": "Developer"},
+        "requirements": {
+            "hard_skills_required": ["Python"],
+            "soft_skills_required": ["Communication"],
+        },
+    }
+
+    with patch("core.extraction.retry_profile_payload", return_value=retried_payload) as mocked_retry:
+        payload, recovered, issues = parse_structured_payload(raw, source_text=source_text)
+
+    assert mocked_retry.called
+    assert recovered is True
+    assert payload["position"]["job_title"] == "Developer"
+    assert any("forced retry completed" in issue or "manual review required" in issue for issue in issues)
