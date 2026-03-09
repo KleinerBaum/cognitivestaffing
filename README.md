@@ -8,6 +8,7 @@ A multi-step **Streamlit wizard** that turns unstructured job ads (PDF, DOCX, UR
 
 ---
 
+- Wizard step metadata now defines minimal per-step `required_fields` for Company, Team, Role Tasks, and Skills; Next gating combines these with step-owned critical follow-ups without double-counting global critical fields.
 - Structured extraction now enforces a strict validation chain (primary output → model validation → focused retry prompts → JSON repair). If required skill lists stay empty despite source cues, the wizard flags low confidence and prompts for manual review in DE/EN.
 - Extraction results now expose explicit repair metadata (`repair_applied`, `repair_confidence`) so downstream pipeline/UI code can surface degraded-state handling deterministically.
 - Missing-section recovery now includes a dedicated second pass for `requirements.hard_skills_required`, `requirements.soft_skills_required`, and `responsibilities.items`, guided by DE/EN cue snippets and list-focused normalization/merge rules.
