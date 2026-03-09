@@ -14,6 +14,9 @@ A multi-step **Streamlit wizard** that turns unstructured job ads (PDF, DOCX, UR
 - Field-level provenance metadata (`meta.field_metadata`) now tracks `source` (`llm|heuristic|user`), `confidence`, optional `evidence_snippet`, and confirmation status; low-confidence heuristic values are surfaced as “Vorgeschlagen / Suggested” with per-step confirmation and can block Next when critical.
 - Follow-up generation now prioritizes unconfirmed low-confidence heuristic critical fields, and Summary exports can mark or exclude unconfirmed heuristic estimates in JSON output.
 - Step confidence now uses field-level scoring (schema validity, extraction source, cue coverage, consistency checks) with reason codes (e.g. `REQ_LIST_MISSING`, `JSON_REPAIRED`, `HEURISTIC_ONLY`) to drive hints, forced follow-ups, and critical Next blocking.
+- `wizard.flow` now emits structured `flow_event` JSON logs for extraction/follow-up lifecycle events plus a compact `structured_extraction.summary` payload (`missing_required_count`, `repair_count`, `heuristic_critical_count`, `degraded`, `degraded_reasons`) to simplify Streamlit-Cloud filtering.
+- Extraction runs are marked `degraded` when alert criteria are hit (currently: more than one JSON repair attempt or required fields still missing after retry), and the wizard surfaces this state as a bilingual warning for manual review.
+- Normalization logs are deduplicated per run to reduce repeated identical `Normalized ...` entries while preserving field/rule context in structured log attributes.
 
 ## Table of Contents
 - [What it does](#what-it-does)
@@ -340,3 +343,17 @@ Extraction goldenset fixtures for deterministic core-field evaluation live under
   key (`ui.position.esco_occupation`).
 - Avoid committing binary screenshots in PRs; add any required images manually after review to
   keep diffs lightweight.
+
+
+## Quality metrics and degraded-run interpretation
+
+- `missing_required_count`: Number of critical/required profile paths that are still empty after structured extraction validation.
+- `repair_count`: Number of JSON repair passes applied during extraction parsing/validation.
+- `heuristic_critical_count`: Number of critical fields that were completed via heuristic rules (from `metadata.field_sources`).
+- `degraded`: Boolean health marker set when alert criteria indicate reduced extraction reliability.
+- `degraded_reasons`: Machine-readable reason codes used by support/operations for triage.
+
+Operational interpretation:
+- `degraded=false` with low missing counts usually indicates normal automated extraction quality.
+- `degraded=true` means support should prioritize manual verification in Summary step and inspect `degraded_reasons` in logs.
+- Repeated `missing_required_fields_after_retry` suggests prompt/schema drift or atypical source documents and should be tracked as a quality regression.

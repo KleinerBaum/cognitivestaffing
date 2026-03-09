@@ -20,6 +20,10 @@ class FakeLogger:
         formatted = message % args if args else message
         self.messages.append(formatted)
 
+    def info(self, *args: object, **kwargs: object) -> None:  # noqa: D401 - interface compatibility
+        """Ignore info calls during tests."""
+        _ = args, kwargs
+
     def debug(self, *args: object, **kwargs: object) -> None:  # noqa: D401 - interface compatibility
         """Ignore debug calls during tests."""
         _ = args, kwargs

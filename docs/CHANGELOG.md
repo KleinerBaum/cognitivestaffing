@@ -1,6 +1,10 @@
 
 ## Unreleased
 
+- Added structured `wizard.flow` JSON event logs (`flow_event`) for extraction/follow-up lifecycle observability and Streamlit-Cloud log filtering.
+- Added compact extraction quality summary logging with `missing_required_count`, `repair_count`, `heuristic_critical_count`, `degraded`, and `degraded_reasons`.
+- Added degraded-run alerting criteria (currently `repair_count > 1` and missing required fields after retry) and wizard warning surfacing for manual QA handoff.
+- Reduced normalization log spam by deduplicating identical normalization change logs within the same run context.
 - Added field-level provenance metadata (`meta.field_metadata`) with `source`, `confidence`, optional `evidence_snippet`, and `confirmed`; wizard steps now show bilingual “Vorgeschlagen / Suggested” review controls and block critical progression for unconfirmed low-confidence heuristic values.
 - Follow-up generation now prioritizes unconfirmed heuristic critical fields, and Summary exports can mark or exclude unconfirmed heuristic estimates.
 - Added field confidence scoring with threshold tiers (`high`/`medium`/`low`) and structured reason codes (`REQ_LIST_MISSING`, `JSON_REPAIRED`, `HEURISTIC_ONLY`) to control UI hinting, follow-up enforcement, and critical step blocking.

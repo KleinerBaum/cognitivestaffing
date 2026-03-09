@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from contextvars import ContextVar
 import re
 from collections.abc import Mapping, MutableMapping, Sequence
 from functools import lru_cache
@@ -22,6 +23,7 @@ if TYPE_CHECKING:
     from models.need_analysis import NeedAnalysisProfile
 
 logger = logging.getLogger("cognitive_needs.normalization")
+_NORMALIZATION_LOG_SIGNATURES: ContextVar[set[str] | None] = ContextVar("normalization_log_signatures", default=None)
 HEURISTICS_LOGGER = logging.getLogger("cognitive_needs.heuristics")
 _MISSING = object()
 
@@ -406,6 +408,13 @@ def _truncate_value(value: Any, limit: int = 160) -> str:
 def _log_change(path: str, before: Any, after: Any, rule: str) -> None:
     """Emit a heuristic log entry describing a normalisation change."""
 
+    signature = f"{path}|{rule}|{_truncate_value(before)}|{_truncate_value(after)}"
+    signatures = _NORMALIZATION_LOG_SIGNATURES.get()
+    if signatures is not None:
+        if signature in signatures:
+            return
+        signatures.add(signature)
+
     HEURISTICS_LOGGER.info(
         "Normalized %s via %s",
         path,
@@ -415,6 +424,7 @@ def _log_change(path: str, before: Any, after: Any, rule: str) -> None:
             "heuristic_rule": f"normalize.{rule}",
             "normalizer_before": _truncate_value(before),
             "normalizer_after": _truncate_value(after),
+            "normalizer_deduped": True,
         },
     )
 
@@ -563,45 +573,49 @@ def normalize_profile(
     else:  # pragma: no cover - defensive branch
         raise TypeError("profile must be a mapping or NeedAnalysisProfile instance")
 
-    normalized = _normalize_profile_mapping(data)
-    normalized = _ensure_required_profile_fields(normalized)
+    dedupe_token = _NORMALIZATION_LOG_SIGNATURES.set(set())
+    try:
+        normalized = _normalize_profile_mapping(data)
+        normalized = _ensure_required_profile_fields(normalized)
 
-    if is_model_input and normalized == data:
-        assert model_dump is not None
-        return model_dump
+        if is_model_input and normalized == data:
+            assert model_dump is not None
+            return model_dump
 
-    validated, error = _validate_profile_payload(normalized)
-    if validated is not None:
-        return validated
+        validated, error = _validate_profile_payload(normalized)
+        if validated is not None:
+            return validated
 
-    errors = error.errors() if error else None
-    repaired_payload = _attempt_llm_repair(normalized, errors=errors)
-    if repaired_payload is not None:
-        repaired_validated, repair_error = _validate_profile_payload(repaired_payload)
-        if repaired_validated is not None:
-            logger.info("Normalized profile repaired via JSON fallback.")
-            return repaired_validated
+        errors = error.errors() if error else None
+        repaired_payload = _attempt_llm_repair(normalized, errors=errors)
+        if repaired_payload is not None:
+            repaired_validated, repair_error = _validate_profile_payload(repaired_payload)
+            if repaired_validated is not None:
+                logger.info("Normalized profile repaired via JSON fallback.")
+                return repaired_validated
+            logger.warning(
+                "JSON repair fallback returned invalid payload: %s",
+                repair_error,
+            )
+
+        if is_model_input:
+            assert model_dump is not None
+            logger.warning(
+                "Normalization produced invalid payload; returning original model dump.",
+            )
+            return model_dump
+
         logger.warning(
-            "JSON repair fallback returned invalid payload: %s",
-            repair_error,
+            "Normalization could not validate payload; returning NeedAnalysisProfile defaults.",
         )
+        default_model, _ = _validate_profile_payload({})
+        if default_model is not None:
+            return default_model
+        from models.need_analysis import NeedAnalysisProfile as _Profile  # local import to avoid cycles
 
-    if is_model_input:
-        assert model_dump is not None
-        logger.warning(
-            "Normalization produced invalid payload; returning original model dump.",
-        )
-        return model_dump
-
-    logger.warning(
-        "Normalization could not validate payload; returning NeedAnalysisProfile defaults.",
-    )
-    default_model, _ = _validate_profile_payload({})
-    if default_model is not None:
-        return default_model
-    from models.need_analysis import NeedAnalysisProfile as _Profile  # local import to avoid cycles
-
-    return cast(NormalizedProfilePayload, _Profile().model_dump())
+        return cast(NormalizedProfilePayload, _Profile().model_dump())
+    finally:
+        _NORMALIZATION_LOG_SIGNATURES.reset(dedupe_token)
 
 
 __all__ = [
