@@ -61,3 +61,28 @@ def test_sync_with_query_params_sets_current_step() -> None:
     assert controller.get_current_step_key() == "beta"
     assert controller.state["current_step"] == "beta"
     assert query_params["step"] == "beta"
+
+
+def test_bootstrap_migrates_legacy_index_once() -> None:
+    pages = [_build_page("alpha"), _build_page("beta"), _build_page("gamma")]
+    renderers = _build_renderers([page.key for page in pages])
+    query_params = _QueryParams()
+    session_state: dict[str, object] = {"wizard": {"current_step": "unknown"}, "current_step": 2}
+    controller = NavigationController(
+        pages=pages,
+        renderers=renderers,
+        context=WizardContext(schema={}, critical_fields=()),
+        value_resolver=_noop_value_resolver,
+        required_field_validators={},
+        validated_fields=set(),
+        query_params=query_params,
+        session_state=session_state,
+    )
+
+    assert controller.get_current_step_key() == "gamma"
+    assert controller.state["current_step"] == "gamma"
+    assert query_params["step"] == "gamma"
+
+    session_state["wizard"] = {"current_step": "alpha"}
+    controller.ensure_state_defaults()
+    assert controller.get_current_step_key() == "gamma"

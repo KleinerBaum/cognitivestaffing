@@ -132,12 +132,20 @@ def persist_session_snapshot() -> AutosavePayload:
     """Capture the current session into ``StateKeys.AUTOSAVE``."""
 
     wizard_state = st.session_state.get("wizard")
+    from wizard.navigation.state import get_current_step_key
+
+    current_step_key = get_current_step_key(
+        session_state=st.session_state,
+        wizard_id="default",
+        default_step_key="jobad",
+    )
+    step_index = _coerce_int(st.session_state.get(StateKeys.STEP))
     snapshot = build_snapshot(
         st.session_state.get(StateKeys.PROFILE),
-        wizard_state=wizard_state if isinstance(wizard_state, Mapping) else None,
+        wizard_state=wizard_state if isinstance(wizard_state, Mapping) else {"current_step": current_step_key},
         lang=st.session_state.get("lang"),
         reasoning_mode=st.session_state.get(StateKeys.REASONING_MODE),
-        step_index=_coerce_int(st.session_state.get(StateKeys.STEP)),
+        step_index=step_index,
     )
     st.session_state[StateKeys.AUTOSAVE] = snapshot
     return snapshot
@@ -150,7 +158,16 @@ def apply_snapshot_to_session(snapshot: Mapping[str, Any]) -> AutosavePayload:
     st.session_state[StateKeys.PROFILE] = parsed["profile"]
     wizard_state = parsed.get("wizard")
     if isinstance(wizard_state, Mapping):
-        st.session_state["wizard"] = dict(wizard_state)
+        target_key = wizard_state.get("current_step")
+        if isinstance(target_key, str) and target_key.strip():
+            from wizard.navigation.state import set_current_step_key
+
+            set_current_step_key(
+                session_state=st.session_state,
+                query_params=st.query_params,
+                wizard_id="default",
+                target_key=target_key,
+            )
     meta = parsed.get("meta", {}) if isinstance(parsed.get("meta"), Mapping) else {}
     lang = _coerce_str(meta.get("lang"))
     if lang:

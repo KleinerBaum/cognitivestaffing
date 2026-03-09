@@ -13,6 +13,7 @@ from utils.i18n import tr
 import wizard.metadata as wizard_metadata
 from wizard import step_registry
 from wizard.navigation.keys import WizardSessionKeys
+from wizard.navigation.state import bootstrap_navigation_state
 from wizard.navigation_types import StepRenderer, WizardContext
 from wizard.types import LocalizedText
 from wizard.validation import (
@@ -111,8 +112,8 @@ class NavigationController:
         self._resolve_value = value_resolver
         self._required_field_validators = required_field_validators
         self._validated_fields = set(validated_fields)
-        self._query_params = cast(MutableMapping[str, object], query_params or st.query_params)
-        self._session_state = cast(MutableMapping[str, object], session_state or st.session_state)
+        self._query_params = cast(MutableMapping[str, object], st.query_params if query_params is None else query_params)
+        self._session_state = cast(MutableMapping[str, object], st.session_state if session_state is None else session_state)
         self._wizard_id = wizard_id
         self._session_keys = WizardSessionKeys(wizard_id=wizard_id)
         self._use_legacy_state = wizard_id == "default"
@@ -136,31 +137,18 @@ class NavigationController:
 
     @property
     def state(self) -> dict[str, object]:
-        try:
-            raw_state = self._session_state[self._session_keys.navigation_state]
-        except KeyError:
-            if self._use_legacy_state:
-                raw_state = self._session_state.get("wizard")
-                if isinstance(raw_state, dict):
-                    self._store_wizard_state(raw_state)
-                    return raw_state
-                if isinstance(raw_state, Mapping):
-                    legacy_coerced = dict(raw_state)
-                    self._store_wizard_state(legacy_coerced)
-                    return legacy_coerced
-            if self._local_state is None:
-                self._local_state = {}
-            return self._local_state
+        raw_state = self._session_state.get(self._session_keys.navigation_state)
         if isinstance(raw_state, dict):
             self._local_state = raw_state
             return raw_state
         if isinstance(raw_state, Mapping):
             coerced: dict[str, object] = dict(raw_state)
-            if not self._store_wizard_state(coerced):
-                self._local_state = coerced
+            if self._store_wizard_state(coerced):
                 return coerced
+            self._local_state = coerced
             return coerced
-        self._local_state = {}
+        if self._local_state is None:
+            self._local_state = self._bootstrap_navigation_state()
         return self._local_state
 
     def _store_wizard_state(self, state: dict[str, object]) -> bool:
@@ -184,18 +172,30 @@ class NavigationController:
 
     def ensure_state_defaults(self) -> None:
         self._refresh_active_pages()
-        state = self.state
-        if "current_step" not in state:
-            state["current_step"] = self._pages[0].key
-        if "history" not in state or not isinstance(state.get("history"), list):
-            state["history"] = []
+        self._bootstrap_navigation_state()
         self._prune_history()
 
+    def _legacy_index_to_key_map(self) -> dict[int, str]:
+        mapping: dict[int, str] = {}
+        for page in self._pages:
+            renderer = self._renderers.get(page.key)
+            if renderer is not None:
+                mapping[renderer.legacy_index] = page.key
+        return mapping
+
+    def _bootstrap_navigation_state(self) -> dict[str, object]:
+        active_keys = [page.key for page in self._pages]
+        return bootstrap_navigation_state(
+            session_state=self._session_state,
+            query_params=self._query_params,
+            wizard_id=self._wizard_id,
+            active_step_keys=active_keys,
+            default_step_key=self._pages[0].key,
+            legacy_index_to_key=self._legacy_index_to_key_map(),
+        )
+
     def bootstrap_session_state(self) -> None:
-        self._refresh_active_pages()
-        state = self.state
-        if "current_step" not in state or not isinstance(state.get("current_step"), str):
-            state["current_step"] = self._pages[0].key
+        self._bootstrap_navigation_state()
         already_ready = bool(self._session_state.get(StateKeys.WIZARD_SESSION_READY))
         if already_ready:
             return
@@ -229,6 +229,10 @@ class NavigationController:
             desired = current if isinstance(current, str) and current in self._page_map else self._pages[0].key
         self.state["current_step"] = desired
         self._query_params["step"] = desired
+        renderer = self._renderers.get(desired)
+        if renderer is not None:
+            # Legacy compatibility: keep index in sync for read-only consumers.
+            self._session_state[StateKeys.STEP] = renderer.legacy_index
 
     def ensure_current_is_valid(self) -> None:
         self._refresh_active_pages()
@@ -298,6 +302,10 @@ class NavigationController:
     def set_current_step(self, target_key: str) -> None:
         self.state["current_step"] = target_key
         self._query_params["step"] = target_key
+        renderer = self._renderers.get(target_key)
+        if renderer is not None:
+            # Legacy compatibility: index is derived from canonical current_step.
+            self._session_state[StateKeys.STEP] = renderer.legacy_index
         persist_session_snapshot()
 
     def mark_step_completed(self, step_key: str, *, skipped: bool) -> None:
@@ -546,7 +554,6 @@ class NavigationController:
             st.warning(tr("Schritt nicht verfügbar.", "Step not available."))
             return
 
-        st.session_state[StateKeys.STEP] = renderer.legacy_index
         try:
             renderer.callback(self._context)
         except Exception as error:  # pragma: no cover - guarded at router level

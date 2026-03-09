@@ -39,6 +39,7 @@ from ingest.branding import DEFAULT_BRAND_COLOR
 from wizard import _update_profile, logic
 from wizard.metadata import FIELD_SECTION_MAP, get_missing_critical_fields
 from wizard.step_registry import WIZARD_STEPS
+from wizard.navigation.state import get_current_step_key, set_current_step_key
 from wizard.step_status import compute_step_missing
 from wizard_pages import WIZARD_PAGES
 
@@ -415,8 +416,7 @@ def _render_sidebar_sections(
     with plan.body:
         active_step_key = _resolve_active_step_key()
         is_landing_step = active_step_key == "landing"
-        current_step = st.session_state.get(StateKeys.STEP, 0)
-        if current_step > 0 and not is_landing_step:
+        if not is_landing_step:
             _render_hero(context)
             st.divider()
         elif is_landing_step:
@@ -425,7 +425,7 @@ def _render_sidebar_sections(
         if _is_sidebar_stepper_enabled():  # GREP:SIDEBAR_STEPPER_V1
             _render_sidebar_stepper(context)
             st.divider()
-        if current_step > 0:
+        if not is_landing_step:
             _render_step_context(context)
         st.divider()
         _render_salary_expectation(context.profile)
@@ -708,23 +708,22 @@ def _is_sidebar_stepper_nav_enabled() -> bool:
 
 
 def _navigate_to_step(target_key: str) -> None:
-    """Navigate to the requested wizard step using existing state routing."""
+    """Navigate to the requested wizard step using canonical navigation state."""
 
     if not isinstance(target_key, str) or not target_key:
         return
-
-    wizard_state = st.session_state.get("wizard")
-    if not isinstance(wizard_state, dict):
-        wizard_state = {}
-        st.session_state["wizard"] = wizard_state
-
-    if wizard_state.get("current_step") == target_key:
+    current = _resolve_active_step_key()
+    if current == target_key:
         return
 
-    wizard_state["current_step"] = target_key
+    set_current_step_key(
+        session_state=st.session_state,
+        query_params=st.query_params,
+        wizard_id="default",
+        target_key=target_key,
+    )
     st.session_state.pop(StateKeys.PENDING_INCOMPLETE_JUMP, None)
     st.session_state["_wizard_scroll_to_top"] = True
-    st.query_params["step"] = target_key
     st.rerun()
 
 
@@ -746,10 +745,7 @@ def _render_sidebar_stepper(context: SidebarContext) -> None:
     st.markdown(f"### {tr('Schritte', 'Steps', lang=lang)}")
 
     page_lookup = {page.key: page for page in WIZARD_PAGES}
-    wizard_state = st.session_state.get("wizard")
-    current_key = wizard_state.get("current_step") if isinstance(wizard_state, dict) else None
-    if not isinstance(current_key, str):
-        current_key = WIZARD_STEPS[0].key if WIZARD_STEPS else ""
+    current_key = _resolve_active_step_key() or (WIZARD_STEPS[0].key if WIZARD_STEPS else "")
 
     step_keys = [step.key for step in WIZARD_STEPS]
     current_index = step_keys.index(current_key) if current_key in step_keys else 0
@@ -1052,27 +1048,15 @@ def _resolve_step_key_for_path(path: str) -> str | None:
 
 
 def _resolve_active_step_key() -> str | None:
-    """Resolve the active step key from router state with legacy fallbacks."""
+    """Resolve the active step key from canonical navigation state."""
 
-    wizard_state = st.session_state.get("wizard", {})
-    if isinstance(wizard_state, Mapping):
-        raw_step_key = wizard_state.get("current_step_key")
-        if isinstance(raw_step_key, str):
-            normalized_key = raw_step_key.strip().lower()
-            if normalized_key:
-                return normalized_key
-
-    summary_payload = _get_step_summary_payload()
-    if summary_payload is not None:
-        current_index = summary_payload[0]
-        if 0 <= current_index < len(WIZARD_PAGES):
-            return WIZARD_PAGES[current_index].key
-
-    fallback_index = st.session_state.get(StateKeys.STEP, 0)
-    if isinstance(fallback_index, int) and 0 <= fallback_index < len(WIZARD_PAGES):
-        return WIZARD_PAGES[fallback_index].key
-
-    return None
+    if not WIZARD_PAGES:
+        return None
+    return get_current_step_key(
+        session_state=st.session_state,
+        wizard_id="default",
+        default_step_key=WIZARD_PAGES[0].key,
+    )
 
 
 def _render_landing_next_steps_compact() -> None:
@@ -1138,24 +1122,26 @@ def _render_hero(context: SidebarContext) -> None:
 def _render_step_context(context: SidebarContext) -> None:
     """Render contextual guidance for the active wizard step."""
 
-    current = st.session_state.get(StateKeys.STEP, 0)
+    current_key = _resolve_active_step_key()
 
     renderers = {
-        0: _render_onboarding_context,
-        1: _render_company_context,
-        2: _render_basic_context,
-        3: _render_requirements_context,
-        4: _render_compensation_context,
-        5: _render_process_context,
-        6: _render_summary_context,
+        "landing": _render_onboarding_context,
+        "jobad": _render_onboarding_context,
+        "company": _render_company_context,
+        "team": _render_basic_context,
+        "role_tasks": _render_requirements_context,
+        "skills": _render_requirements_context,
+        "benefits": _render_compensation_context,
+        "interview": _render_process_context,
+        "summary": _render_summary_context,
     }
-    renderer = renderers.get(current)
+    renderer = renderers.get(current_key) if isinstance(current_key, str) else None
     if renderer is None:
         st.markdown(f"### 🧭 {tr('Kontext zum Schritt', 'Step context')}")
         st.caption(tr("Keine Kontextinformationen verfügbar.", "No context available."))
         return
 
-    if current != 0:
+    if current_key not in {"landing", "jobad"}:
         st.markdown(f"### 🧭 {tr('Kontext zum Schritt', 'Step context')}")
 
     renderer(context)
