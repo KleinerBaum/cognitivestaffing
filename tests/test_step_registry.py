@@ -47,10 +47,10 @@ def test_step_registry_integrity() -> None:
         "company": 1,
         "team": 2,
         "role_tasks": 3,
-        "skills": 3,
-        "benefits": 4,
-        "interview": 5,
-        "summary": 6,
+        "skills": 4,
+        "benefits": 5,
+        "interview": 6,
+        "summary": 7,
     }
 
     assert step_keys() == expected_step_order

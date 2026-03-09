@@ -14,6 +14,7 @@ def test_every_page_mapped_field_resolves_to_same_step() -> None:
 def test_prefix_based_fields_resolve_to_expected_steps() -> None:
     assert resolve_step_key_for_field_path("company.name") == "company"
     assert resolve_step_key_for_field_path("employment.work_policy") == "team"
+    assert resolve_step_key_for_field_path("responsibilities.items") == "role_tasks"
     assert resolve_step_key_for_field_path("requirements.hard_skills_required") == "skills"
     assert resolve_step_key_for_field_path("compensation.salary_min") == "benefits"
     assert resolve_step_key_for_field_path("process.interview_stages") == "interview"

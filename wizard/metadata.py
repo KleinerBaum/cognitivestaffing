@@ -28,10 +28,10 @@ PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
     "company": COMPANY_STEP_INDEX,
     "team": COMPANY_STEP_INDEX + 1,
     "role_tasks": COMPANY_STEP_INDEX + 2,
-    "skills": COMPANY_STEP_INDEX + 2,
-    "benefits": COMPANY_STEP_INDEX + 3,
-    "interview": COMPANY_STEP_INDEX + 4,
-    "summary": COMPANY_STEP_INDEX + 5,
+    "skills": COMPANY_STEP_INDEX + 3,
+    "benefits": COMPANY_STEP_INDEX + 4,
+    "interview": COMPANY_STEP_INDEX + 5,
+    "summary": COMPANY_STEP_INDEX + 6,
 }
 
 PAGE_FOLLOWUP_PREFIXES: Final[dict[str, tuple[str, ...]]] = {
@@ -44,7 +44,8 @@ PAGE_FOLLOWUP_PREFIXES: Final[dict[str, tuple[str, ...]]] = {
         "position.role_summary",
         "employment.",
     ),
-    "role_tasks": ("responsibilities.", "requirements."),
+    "role_tasks": ("responsibilities.",),
+    "skills": ("requirements.",),
     "benefits": ("compensation.",),
     "interview": ("process.",),
     "summary": ("summary.",),
@@ -56,6 +57,7 @@ _CRITICAL_SECTION_KEYS: Final[tuple[str, ...]] = (
     "company",
     "team",
     "role_tasks",
+    "skills",
     "benefits",
     "interview",
 )
