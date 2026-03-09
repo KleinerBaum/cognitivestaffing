@@ -163,11 +163,148 @@ from wizard.step_registry import WIZARD_STEPS, resolve_active_step_keys, step_ke
 REQUIRED_PREFIX = followup_sections.REQUIRED_PREFIX
 _render_followup_question = followup_sections._render_followup_question
 _render_followups_for_section = followup_sections._render_followups_for_section
-_render_followups_for_fields = followup_sections._render_followups_for_fields
-_render_followups_for_step = followup_sections._render_followups_for_step
+_render_followups_for_fields_raw = followup_sections._render_followups_for_fields
+_render_followups_for_step_raw = followup_sections._render_followups_for_step
 _coerce_followup_number = followup_sections._coerce_followup_number
 _apply_followup_updates = followup_sections._apply_followup_updates
 _missing_fields_for_section = followup_sections._missing_fields_for_section
+
+_FLOW_ERROR_SIGNATURE_COUNTS_KEY: Final[str] = "wizard.flow.error_signature_counts"
+_FLOW_ERROR_SUPPRESSED_LOGGED_KEY: Final[str] = "wizard.flow.error_signature_suppressed_logged"
+_FLOW_DEGRADATION_ACTIVE_KEY: Final[str] = "wizard.flow.degradation_active"
+_FLOW_DEGRADATION_NOTICE_KEY: Final[str] = "wizard.flow.degradation_notice"
+_FLOW_DEGRADATION_THRESHOLD: Final[int] = 2
+
+
+def _build_flow_error_signature(error: Exception, *, field_key: str | None = None) -> str:
+    """Build a stable error signature for per-session recoverable error throttling."""
+
+    step = str(st.session_state.get(StateKeys.WIZARD_LAST_STEP) or st.session_state.get(StateKeys.STEP) or "unknown")
+    normalized_field_key = (field_key or "unknown").strip() or "unknown"
+    return f"{type(error).__name__}::{normalized_field_key}::{step}"
+
+
+def _record_flow_error_signature(signature: str) -> int:
+    """Increment and return the number of times a signature was seen this session."""
+
+    raw_counts = st.session_state.get(_FLOW_ERROR_SIGNATURE_COUNTS_KEY)
+    counts: dict[str, int]
+    if isinstance(raw_counts, Mapping):
+        counts = {}
+        for key, value in raw_counts.items():
+            try:
+                counts[str(key)] = int(value)
+            except (TypeError, ValueError):
+                continue
+    else:
+        counts = {}
+    counts[signature] = counts.get(signature, 0) + 1
+    st.session_state[_FLOW_ERROR_SIGNATURE_COUNTS_KEY] = counts
+    return counts[signature]
+
+
+def _set_degradation_mode(*, signature: str, error: Exception) -> None:
+    """Activate temporary degradation mode with a bilingual notice."""
+
+    st.session_state[_FLOW_DEGRADATION_ACTIVE_KEY] = True
+    st.session_state[_FLOW_DEGRADATION_NOTICE_KEY] = {
+        "signature": signature,
+        "message_de": (
+            "Wir zeigen Follow-up-Hilfen vorübergehend reduziert an, damit der Wizard stabil bleibt. "
+            "Deine Eingaben bleiben gespeichert."
+        ),
+        "message_en": (
+            "We temporarily reduced follow-up helpers to keep the wizard stable. Your inputs are still saved."
+        ),
+        "error_type": type(error).__name__,
+    }
+
+
+def _log_recoverable_wizard_error(error: Exception, *, field_key: str | None = None) -> str:
+    """Log recoverable wizard errors with duplicate suppression semantics."""
+
+    signature = _build_flow_error_signature(error, field_key=field_key)
+    count = _record_flow_error_signature(signature)
+    raw_suppressed = st.session_state.get(_FLOW_ERROR_SUPPRESSED_LOGGED_KEY)
+    suppressed: set[str] = set(raw_suppressed) if isinstance(raw_suppressed, list | set | tuple) else set()
+
+    if count == 1:
+        logger.warning("Recoverable wizard error signature=%s", signature, exc_info=error)
+    elif signature not in suppressed:
+        logger.info("suppressed duplicate error signature=%s repeat=%s", signature, count)
+        suppressed.add(signature)
+        st.session_state[_FLOW_ERROR_SUPPRESSED_LOGGED_KEY] = sorted(suppressed)
+    else:
+        logger.debug("suppressed duplicate error signature=%s repeat=%s", signature, count)
+
+    if count >= _FLOW_DEGRADATION_THRESHOLD:
+        _set_degradation_mode(signature=signature, error=error)
+    return signature
+
+
+def _render_degradation_notice() -> None:
+    """Render a user-facing notice when degradation mode is active."""
+
+    payload = st.session_state.get(_FLOW_DEGRADATION_NOTICE_KEY)
+    if not isinstance(payload, Mapping):
+        return
+
+    notice_text = tr(
+        str(payload.get("message_de") or ""),
+        str(payload.get("message_en") or ""),
+    )
+    if notice_text.strip():
+        st.warning(notice_text)
+
+
+def _render_followups_for_fields(
+    fields: Sequence[str],
+    profile: dict[str, Any],
+    *,
+    container: DeltaGenerator | None = None,
+    container_factory: Callable[[], DeltaGenerator] | None = None,
+) -> None:
+    """Safely render follow-up cards; degrade after repeated recoverable failures."""
+
+    if bool(st.session_state.get(_FLOW_DEGRADATION_ACTIVE_KEY)):
+        _render_degradation_notice()
+        return
+
+    try:
+        _render_followups_for_fields_raw(
+            fields,
+            profile,
+            container=container,
+            container_factory=container_factory,
+        )
+    except _RECOVERABLE_FLOW_ERRORS as error:
+        field_key = fields[0] if fields else None
+        _log_recoverable_wizard_error(error, field_key=field_key)
+        st.info(
+            tr(
+                "Ein Follow-up konnte hier nicht dargestellt werden. Du kannst das Feld trotzdem normal ausfüllen.",
+                "A follow-up could not be shown here. You can still fill in the field normally.",
+            )
+        )
+
+
+def _render_followups_for_step(step_key: str, profile: dict[str, Any]) -> None:
+    """Safely render step-level follow-ups; degrade after repeated recoverable failures."""
+
+    if bool(st.session_state.get(_FLOW_DEGRADATION_ACTIVE_KEY)):
+        _render_degradation_notice()
+        return
+
+    try:
+        _render_followups_for_step_raw(step_key, profile)
+    except _RECOVERABLE_FLOW_ERRORS as error:
+        _log_recoverable_wizard_error(error, field_key=step_key)
+        st.info(
+            tr(
+                "Follow-up-Fragen sind für diesen Schritt vorübergehend ausgeblendet. Bitte fahre mit den Kernfeldern fort.",
+                "Follow-up questions are temporarily hidden for this step. Please continue with the core fields.",
+            )
+        )
 
 
 def _coerce_date_widget_value(widget_key: str, raw_value: Any) -> date:
@@ -11698,6 +11835,10 @@ def _render_followup_section(
 ) -> None:
     """Render follow-up question handling below the tabbed export tools."""
 
+    if bool(st.session_state.get(_FLOW_DEGRADATION_ACTIVE_KEY)):
+        _render_degradation_notice()
+        return
+
     manual_entries = list(st.session_state.get(StateKeys.JOB_AD_MANUAL_ENTRIES, job_context.manual_entries))
     followup_items = st.session_state.get(StateKeys.FOLLOWUPS) or []
     if not followup_items:
@@ -11725,10 +11866,10 @@ def _render_followup_section(
     deduplicated_specs: list[dict[str, str]] = []
     seen_signatures: set[str] = set()
     for entry in entry_specs:
-        dedup_signature = entry["dedup_signature"]
-        if dedup_signature in seen_signatures:
+        entry_signature = entry["dedup_signature"]
+        if entry_signature in seen_signatures:
             continue
-        seen_signatures.add(dedup_signature)
+        seen_signatures.add(entry_signature)
         deduplicated_specs.append(entry)
     entry_specs = deduplicated_specs
 
@@ -13106,10 +13247,16 @@ def run_wizard() -> None:
     except (RerunException, StopException):  # pragma: no cover - Streamlit control flow
         raise
     except _RECOVERABLE_FLOW_ERRORS as error:
-        logger.warning("Recoverable wizard error", exc_info=error)
+        _log_recoverable_wizard_error(error)
         _render_localized_error(
-            "Der Wizard konnte nicht vollständig geladen werden. Bitte prüfe deine Eingaben oder ergänze sie manuell – die Sitzung bleibt aktiv.",
-            "The wizard could not finish loading. Please review your answers or keep editing the profile manually – your session stays active.",
+            (
+                "Der Wizard konnte nicht vollständig geladen werden. Wir haben eine stabile Ansicht aktiviert: "
+                "problematische Follow-ups werden temporär übersprungen."
+            ),
+            (
+                "The wizard could not fully load. We switched to a stable view: "
+                "problematic follow-ups are temporarily skipped."
+            ),
             error,
         )
     except Exception as error:  # pragma: no cover - defensive guard
