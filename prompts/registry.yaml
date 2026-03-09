@@ -101,6 +101,17 @@ llm:
         Text:
 
         {text}'
+    targeted_lists:
+      system: 'You run a second, targeted extraction pass only for responsibilities.items, requirements.hard_skills_required, and requirements.soft_skills_required. Return concise list items only (no prose blocks), remove duplicates, and prefer short noun/verb phrases. Keep existing high-quality entries intact and add only missing items supported by evidence. / Du führst einen zweiten, gezielten Extraktionspass nur für responsibilities.items, requirements.hard_skills_required und requirements.soft_skills_required aus. Gib ausschließlich knappe Listeneinträge zurück (keine Fließtext-Blöcke), entferne Dubletten und bevorzuge kurze Nomen/Verb-Phrasen. Behalte vorhandene hochwertige Einträge unverändert bei und ergänze nur fehlende, belegbare Punkte.'
+      user: 'Target fields: {fields}.
+
+        Cue snippets (priority evidence):
+
+        {cue_context}
+
+        Source text:
+
+        {text}'
     benefits:
       user:
         en: 'List 5-8 concise employee benefits or perks for the role "{job_title}". Provide short bullet-style items, prioritising

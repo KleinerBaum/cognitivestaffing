@@ -47,6 +47,12 @@ from core.schema import NeedAnalysisProfile, canonicalize_profile_payload
 from core.schema_registry import load_need_analysis_schema
 from llm.json_repair import parse_profile_json
 from llm.json_repair import retry_profile_payload
+from wizard.services.targeted_list_extraction import (
+    TARGETED_FIELDS,
+    build_targeted_cue_context,
+    build_targeted_list_schema,
+    merge_targeted_lists,
+)
 from utils.json_parse import parse_extraction
 
 logger = logging.getLogger("cognitive_needs.llm")
@@ -173,6 +179,7 @@ def _merge_missing_section_payload(base: Mapping[str, Any] | None, patch: Mappin
     """Return a deep merge of ``base`` with ``patch`` limited to missing sections."""
 
     merged: dict[str, Any] = deepcopy(dict(base)) if isinstance(base, Mapping) else {}
+    merged = merge_targeted_lists(merged, patch)
 
     for key, value in patch.items():
         if isinstance(value, Mapping):
@@ -201,6 +208,64 @@ def _merge_missing_section_payload(base: Mapping[str, Any] | None, patch: Mappin
     return merged
 
 
+def _retry_targeted_list_sections(
+    text: str,
+    targeted_fields: Sequence[str],
+    *,
+    model: str,
+    retries: int,
+) -> Mapping[str, Any] | None:
+    """Request a dedicated second pass for list-centric requirement fields."""
+
+    active_fields = [field for field in targeted_fields if field in TARGETED_FIELDS]
+    if not active_fields or not text.strip():
+        return None
+
+    cue_context = build_targeted_cue_context(text, active_fields)
+    messages = [
+        {
+            "role": "system",
+            "content": prompt_registry.get("llm.extraction.targeted_lists.system"),
+        },
+        {
+            "role": "user",
+            "content": prompt_registry.format(
+                "llm.extraction.targeted_lists.user",
+                fields=", ".join(active_fields),
+                cue_context=cue_context or "(no explicit cue lines detected)",
+                text=text,
+            ),
+        },
+    ]
+
+    response_format = build_json_schema_format(
+        name="need_analysis_targeted_lists",
+        schema=build_targeted_list_schema(active_fields),
+    )
+    result = call_responses_safe(
+        messages,
+        model=model,
+        response_format=response_format,
+        temperature=0,
+        max_completion_tokens=600,
+        retries=retries,
+        reasoning_effort=_resolve_extraction_effort(),
+        verbosity=get_active_verbosity(),
+        task=ModelTask.EXTRACTION,
+        logger_instance=logger,
+        context="targeted_list_retry",
+    )
+    if result is None or not (result.content or "").strip():
+        return None
+    try:
+        parsed = json.loads(result.content)
+    except json.JSONDecodeError:
+        return None
+    if not isinstance(parsed, Mapping):
+        return None
+    return parsed
+
+
 def _retry_missing_sections(
     text: str,
     missing_sections: Sequence[str],
@@ -212,6 +277,14 @@ def _retry_missing_sections(
 
     if not missing_sections or not text.strip():
         return None
+
+    targeted_fields = [field for field in missing_sections if field in TARGETED_FIELDS]
+    targeted_patch = _retry_targeted_list_sections(
+        text,
+        targeted_fields,
+        model=model,
+        retries=retries,
+    )
 
     section_list = ", ".join(missing_sections)
     logger.info("Retrying missing sections with dedicated prompt: %s", section_list)
@@ -252,11 +325,11 @@ def _retry_missing_sections(
         context="missing_section_retry",
     )
     if result is None:
-        return None
+        return targeted_patch
 
     payload = (result.content or "").strip()
     if not payload:
-        return None
+        return targeted_patch
 
     try:
         parsed = json.loads(payload)
@@ -264,9 +337,12 @@ def _retry_missing_sections(
         return None
 
     if not isinstance(parsed, Mapping):
-        return None
+        return targeted_patch
 
-    return canonicalize_profile_payload(parsed)
+    generic_patch = canonicalize_profile_payload(parsed)
+    if targeted_patch:
+        return _merge_missing_section_payload(generic_patch, targeted_patch)
+    return generic_patch
 
 
 def _responses_api_enabled() -> bool:
