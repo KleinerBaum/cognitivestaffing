@@ -7,6 +7,7 @@ from wizard.step_status import (
     iter_step_missing_fields,
     load_critical_fields,
 )
+from wizard.validators.registry import REQUIRED_FIELD_VALIDATORS
 from wizard_pages.base import WizardPage
 
 
@@ -78,3 +79,8 @@ def test_iter_step_missing_fields_deduplicates_order() -> None:
 
 def test_step_status_uses_shared_critical_fields_source() -> None:
     assert load_critical_fields() == load_shared_critical_fields()
+
+
+def test_validator_registry_exposes_company_required_validators() -> None:
+    assert "company.contact_email" in REQUIRED_FIELD_VALIDATORS
+    assert "location.primary_city" in REQUIRED_FIELD_VALIDATORS

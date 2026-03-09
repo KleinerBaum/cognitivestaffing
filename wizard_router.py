@@ -2,13 +2,13 @@ from __future__ import annotations
 
 import logging
 from contextlib import contextmanager
-from typing import TYPE_CHECKING, Callable, Final, Iterator, Mapping, Sequence
+from typing import TYPE_CHECKING, Callable, Iterator, Mapping, Sequence
 
 from pydantic import ValidationError
 import streamlit as st
 from streamlit.errors import StreamlitAPIException
 
-from constants.keys import ProfilePaths, StateKeys
+from constants.keys import StateKeys
 import config as app_config
 from openai_utils.errors import (
     ExternalServiceError,
@@ -19,7 +19,7 @@ from openai_utils.errors import (
 from utils.i18n import tr
 from utils.logging_context import log_context, set_wizard_step
 from state import diff_wizard_ui_state, snapshot_wizard_ui_state
-from wizard.company_validators import persist_contact_email, persist_primary_city
+from wizard.validators.registry import PROFILE_VALIDATED_FIELDS, REQUIRED_FIELD_VALIDATORS
 from wizard.metadata import (
     PAGE_SECTION_INDEXES,
     field_belongs_to_page,
@@ -91,13 +91,6 @@ div[data-testid="stForm"].wizard-step-form {
 </style>
 """
 
-_REQUIRED_FIELD_VALIDATORS: Final[dict[str, Callable[[str | None], tuple[str | None, LocalizedText | None]]]] = {
-    str(ProfilePaths.COMPANY_CONTACT_EMAIL): persist_contact_email,
-    str(ProfilePaths.LOCATION_PRIMARY_CITY): persist_primary_city,
-}
-
-_PROFILE_VALIDATED_FIELDS: Final[set[str]] = set(_REQUIRED_FIELD_VALIDATORS)
-
 _STEP_RECOVERABLE_ERRORS: tuple[type[Exception], ...] = (
     StreamlitAPIException,
     ValidationError,
@@ -130,8 +123,8 @@ class WizardRouter:
             renderers=renderers,
             context=context,
             value_resolver=value_resolver,
-            required_field_validators=_REQUIRED_FIELD_VALIDATORS,
-            validated_fields=_PROFILE_VALIDATED_FIELDS,
+            required_field_validators=REQUIRED_FIELD_VALIDATORS,
+            validated_fields=PROFILE_VALIDATED_FIELDS,
             wizard_id=wizard_id,
         )
         active_pages = self._controller.pages
