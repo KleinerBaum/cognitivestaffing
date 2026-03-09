@@ -19,6 +19,7 @@ from prompts import prompt_registry
 from utils.json_repair import JsonRepairStatus, parse_json_with_repair
 from wizard._openai_bridge import get_build_file_search_tool, get_call_chat_api
 from wizard.field_metadata import is_unconfirmed_low_confidence_heuristic
+from wizard.step_status import compute_field_score
 from wizard.services.gaps import load_critical_fields
 
 logger = logging.getLogger(__name__)
@@ -164,24 +165,30 @@ def _prioritize_heuristic_followups(
     *,
     profile: Mapping[str, Any],
 ) -> list[dict[str, Any]]:
-    """Sort follow-up questions to front-load unconfirmed heuristic critical fields."""
+    """Sort follow-up questions to front-load lowest-confidence fields first."""
 
     critical_fields = set(load_critical_fields())
 
-    def _score(item: Mapping[str, Any]) -> tuple[int, int]:
+    def _score(item: Mapping[str, Any]) -> tuple[int, float, int]:
         field = str(item.get("field") or "").strip()
         if not field:
-            return (2, 2)
-        if field in critical_fields and is_unconfirmed_low_confidence_heuristic(field, profile=profile):
-            return (0, 0)
-        if is_unconfirmed_low_confidence_heuristic(field, profile=profile):
-            return (0, 1)
+            return (3, 1.0, 3)
+
+        field_score = compute_field_score(profile, field, is_critical=field in critical_fields)
+        if field_score.ui_behavior == "block_next":
+            band = 0
+        elif field_score.ui_behavior == "followup_required":
+            band = 1
+        else:
+            band = 2
+
         priority = str(item.get("priority") or "normal").strip().lower()
-        if priority == "critical":
-            return (1, 0)
-        if priority == "normal":
-            return (1, 1)
-        return (1, 2)
+        priority_rank = 0 if priority == "critical" else 1 if priority == "normal" else 2
+
+        if is_unconfirmed_low_confidence_heuristic(field, profile=profile):
+            priority_rank = min(priority_rank, 0)
+
+        return (band, field_score.score, priority_rank)
 
     normalized: list[dict[str, Any]] = []
     for question in questions:
@@ -513,11 +520,28 @@ def generate_followups(
         else "Return valid JSON only that matches the schema. No explanations, no Markdown, no code fences."
     )
     user_payload: dict[str, Any] = {"profile": profile}
+    critical_fields = load_critical_fields()
     heuristic_review = [
-        field for field in load_critical_fields() if is_unconfirmed_low_confidence_heuristic(field, profile=profile)
+        field for field in critical_fields if is_unconfirmed_low_confidence_heuristic(field, profile=profile)
     ]
+    low_confidence_fields: list[dict[str, Any]] = []
+    for field in critical_fields:
+        score = compute_field_score(profile, field, is_critical=True)
+        if score.tier == "low":
+            low_confidence_fields.append(
+                {
+                    "field": field,
+                    "score": score.score,
+                    "tier": score.tier,
+                    "ui_behavior": score.ui_behavior,
+                    "reasons": list(score.reasons),
+                }
+            )
+    low_confidence_fields.sort(key=lambda item: float(item.get("score", 1.0)))
     if heuristic_review:
         user_payload["heuristic_review_fields"] = heuristic_review
+    if low_confidence_fields:
+        user_payload["low_confidence_fields"] = low_confidence_fields
     if role_context:
         user_payload["role_context"] = role_context
 

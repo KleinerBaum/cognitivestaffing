@@ -13,6 +13,7 @@ A multi-step **Streamlit wizard** that turns unstructured job ads (PDF, DOCX, UR
 - Missing-section recovery now includes a dedicated second pass for `requirements.hard_skills_required`, `requirements.soft_skills_required`, and `responsibilities.items`, guided by DE/EN cue snippets and list-focused normalization/merge rules.
 - Field-level provenance metadata (`meta.field_metadata`) now tracks `source` (`llm|heuristic|user`), `confidence`, optional `evidence_snippet`, and confirmation status; low-confidence heuristic values are surfaced as “Vorgeschlagen / Suggested” with per-step confirmation and can block Next when critical.
 - Follow-up generation now prioritizes unconfirmed low-confidence heuristic critical fields, and Summary exports can mark or exclude unconfirmed heuristic estimates in JSON output.
+- Step confidence now uses field-level scoring (schema validity, extraction source, cue coverage, consistency checks) with reason codes (e.g. `REQ_LIST_MISSING`, `JSON_REPAIRED`, `HEURISTIC_ONLY`) to drive hints, forced follow-ups, and critical Next blocking.
 
 ## Table of Contents
 - [What it does](#what-it-does)
