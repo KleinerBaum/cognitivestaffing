@@ -101,6 +101,7 @@ from config import set_responses_allow_tools
 from i18n import t as translate_key
 from constants.flow_mode import FlowMode
 from constants.keys import ProfilePaths, StateKeys, UIKeys
+from core.critical_fields import load_critical_fields
 from core.errors import ExtractionError
 from state.progress_inbox import apply_inbox_update, get_tasks
 from openai_utils.errors import (
@@ -12711,11 +12712,7 @@ def _load_wizard_configuration() -> tuple[dict, list[str]]:
     if not schema:
         schema = load_need_analysis_schema()
     if not critical:
-        try:
-            with (ROOT / "critical_fields.json").open("r", encoding="utf-8") as file:
-                critical = json.load(file).get("critical", [])
-        except Exception:
-            critical = []
+        critical = list(load_critical_fields())
     return schema, critical
 
 

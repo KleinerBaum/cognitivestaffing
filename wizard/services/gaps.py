@@ -2,23 +2,12 @@
 
 from __future__ import annotations
 
-import json
 from collections.abc import Callable, Mapping, Sequence
-from pathlib import Path
+from core.critical_fields import load_critical_fields
 from wizard.missing_fields import get_path_value, is_blank
 from wizard.types import LocalizedText
 
 Validator = Callable[[str | None], tuple[str | None, LocalizedText | None]]
-
-
-def load_critical_fields() -> tuple[str, ...]:
-    """Load critical field paths from ``critical_fields.json``."""
-
-    root = Path(__file__).resolve().parents[2]
-    with (root / "critical_fields.json").open("r", encoding="utf-8") as file:
-        payload = json.load(file)
-    raw_fields = payload.get("critical", [])
-    return tuple(field for field in raw_fields if isinstance(field, str))
 
 
 def field_is_contextually_optional(field: str, profile_data: Mapping[str, object]) -> bool:

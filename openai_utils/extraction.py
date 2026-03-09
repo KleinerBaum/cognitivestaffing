@@ -602,9 +602,10 @@ def _set_missing_fields(fields: Iterable[str], *, append: bool = False) -> None:
         return
 
     try:
-        from question_logic import CRITICAL_FIELDS
+        from core.critical_fields import load_critical_fields
 
-        normalized = [field for field in fields if isinstance(field, str) and field in CRITICAL_FIELDS]
+        critical_fields = set(load_critical_fields())
+        normalized = [field for field in fields if isinstance(field, str) and field in critical_fields]
         if append:
             existing = st.session_state.get(StateKeys.EXTRACTION_MISSING) or []
             merged = list(dict.fromkeys([*existing, *normalized]))
