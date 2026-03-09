@@ -21,7 +21,6 @@ from openai_utils.api import (
     call_chat_api,
 )
 from llm.response_schemas import INTERVIEW_GUIDE_SCHEMA_NAME, validate_response_schema
-from utils.json_repair import JsonRepairStatus, parse_json_with_repair
 
 logger = logging.getLogger("cognitive_needs.llm.responses")
 
@@ -308,19 +307,16 @@ def call_responses_safe(
         format_type = str(response_format.get("type") or "").lower()
         expects_json = format_type == "json_schema" or bool(response_format.get("json_schema"))
     if expects_json and content:
-        repair_attempt = parse_json_with_repair(content)
-        if repair_attempt.payload is not None:
-            repaired_content = json.dumps(repair_attempt.payload, ensure_ascii=False)
-            result.content = repaired_content.strip()
-            if repair_attempt.status is JsonRepairStatus.REPAIRED:
-                active_logger.info(
-                    "Structured %s JSON was repaired before returning result.",
-                    context,
-                )
-            return result
-
-        active_logger.error("Structured %s call returned invalid JSON.", context)
-        return None
+        try:
+            parsed_content = json.loads(content)
+        except json.JSONDecodeError:
+            active_logger.error("Structured %s call returned invalid JSON.", context)
+            return None
+        if not isinstance(parsed_content, Mapping):
+            active_logger.error("Structured %s call returned non-object JSON.", context)
+            return None
+        result.content = json.dumps(parsed_content, ensure_ascii=False)
+        return result
     if not allow_empty and not content:
         active_logger.info("Structured %s call returned empty content", context)
         return None

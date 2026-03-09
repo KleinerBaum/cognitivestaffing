@@ -43,9 +43,10 @@ from .output_parsers import (
 )
 from .prompts import FIELDS_ORDER, PreExtractionInsights
 from core.errors import ExtractionError
-from core.schema import NeedAnalysisProfile, canonicalize_profile_payload, coerce_and_fill
+from core.schema import NeedAnalysisProfile, canonicalize_profile_payload
 from core.schema_registry import load_need_analysis_schema
 from llm.json_repair import parse_profile_json
+from llm.json_repair import retry_profile_payload
 from utils.json_parse import parse_extraction
 
 logger = logging.getLogger("cognitive_needs.llm")
@@ -60,10 +61,13 @@ class StructuredExtractionOutcome:
     source: str
     low_confidence: bool = False
     schema_unrecoverable_short_circuit: bool = False
+    repair_applied: bool = False
+    repair_confidence: float | None = None
 
 
 _STRUCTURED_EXTRACTION_CHAIN: Any | None = None
 _STRUCTURED_RESPONSE_RETRIES = 3
+_SCHEMA_REPAIR_MAX_RETRIES = 1
 _EXTRACTION_MAX_COMPLETION_TOKENS: Final[int] = 500
 
 
@@ -742,25 +746,52 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
     def _attempt_schema_repair(err: NeedAnalysisParserError) -> StructuredExtractionOutcome | None:
         if not err.raw_text:
             return None
-        repair_result = parse_profile_json(err.raw_text, errors=err.errors)
-        if repair_result.payload is None:
-            return None
-        canonical_payload = canonicalize_profile_payload(repair_result.payload)
-        try:
-            repaired_model = NeedAnalysisProfile.model_validate(canonical_payload)
-        except ValidationError as repair_error:
-            logger.warning(
-                "Structured extraction repair retry failed for %s: %s",
-                prompt_digest,
-                repair_error,
+        for _ in range(_SCHEMA_REPAIR_MAX_RETRIES):
+            retry_candidate: Mapping[str, Any] | None = None
+            if isinstance(err.data, Mapping) and isinstance(payload.get("source_text"), str):
+                focus_fields = _collect_missing_paths(err.errors)
+                retry_candidate = retry_profile_payload(
+                    dict(err.data),
+                    source_text=payload["source_text"],
+                    focus_fields=focus_fields,
+                    reason="schema_validation_failed",
+                )
+            if retry_candidate is not None:
+                try:
+                    retried_model = NeedAnalysisProfile.model_validate(canonicalize_profile_payload(retry_candidate))
+                except ValidationError as retry_error:
+                    logger.warning(
+                        "Controlled schema retry returned invalid payload for %s: %s", prompt_digest, retry_error
+                    )
+                else:
+                    return StructuredExtractionOutcome(
+                        content=retried_model.model_dump_json(),
+                        source="responses",
+                        low_confidence=True,
+                    )
+
+            repair_result = parse_profile_json(err.raw_text, errors=err.errors)
+            if repair_result.payload is None:
+                continue
+            canonical_payload = canonicalize_profile_payload(repair_result.payload)
+            try:
+                repaired_model = NeedAnalysisProfile.model_validate(canonical_payload)
+            except ValidationError as repair_error:
+                logger.warning(
+                    "Structured extraction repair retry failed for %s: %s",
+                    prompt_digest,
+                    repair_error,
+                )
+                continue
+            logger.info("Structured extraction repaired invalid JSON for %s.", prompt_digest)
+            return StructuredExtractionOutcome(
+                content=repaired_model.model_dump_json(),
+                source="chat" if low_confidence else source,
+                low_confidence=True,
+                repair_applied=True,
+                repair_confidence=repair_result.repair_confidence,
             )
-            return None
-        logger.info("Structured extraction repaired invalid JSON for %s.", prompt_digest)
-        return StructuredExtractionOutcome(
-            content=repaired_model.model_dump_json(),
-            source="chat" if low_confidence else source,
-            low_confidence=True,
-        )
+        return None
 
     try:
         profile, raw_data = parser.parse(content.content)
@@ -823,14 +854,14 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
                 prompt_digest,
             )
             raise ValueError("structured_extraction_empty_payload")
-        validated_payload = (
-            json.dumps(raw_data, ensure_ascii=False) if raw_data is not None else profile.model_dump_json()
-        )
+        validated_payload = profile.model_dump_json()
         return StructuredExtractionOutcome(
             content=validated_payload,
             source=source,
             low_confidence=low_confidence,
             schema_unrecoverable_short_circuit=schema_short_circuit,
+            repair_applied=content.repair_applied,
+            repair_confidence=content.repair_confidence,
         )
 
     if last_error is not None:
@@ -961,6 +992,8 @@ def _extract_json_outcome(
                 content=output,
                 source=outcome.source,
                 low_confidence=outcome.low_confidence,
+                repair_applied=outcome.repair_applied,
+                repair_confidence=outcome.repair_confidence,
             )
 
         span.set_attribute("llm.extract.fallback", True)
@@ -985,6 +1018,8 @@ def _extract_json_outcome(
         content = (result.content or "").strip()
         if content:
             profile: NeedAnalysisProfile | None = None
+            repair_applied = False
+            repair_confidence: float | None = None
             try:
                 profile = parse_extraction(content)
             except Exception as err3:  # pragma: no cover - defensive
@@ -996,7 +1031,10 @@ def _extract_json_outcome(
                 repair_result = parse_profile_json(content)
                 if repair_result.payload is not None:
                     try:
-                        profile = coerce_and_fill(repair_result.payload)
+                        repaired_payload = canonicalize_profile_payload(repair_result.payload)
+                        profile = NeedAnalysisProfile.model_validate(repaired_payload)
+                        repair_applied = bool(repair_result.low_confidence)
+                        repair_confidence = repair_result.repair_confidence
                         span.add_event(
                             "fallback_repair_succeeded",
                             {"repair.issues": len(repair_result.issues)},
@@ -1018,6 +1056,8 @@ def _extract_json_outcome(
                     content=profile.model_dump_json(),
                     source="chat",
                     low_confidence=True,
+                    repair_applied=repair_applied,
+                    repair_confidence=repair_confidence,
                 )
             span.set_status(Status(StatusCode.ERROR, "fallback_parse_failed"))
             logger.warning(

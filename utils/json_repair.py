@@ -29,6 +29,7 @@ class JsonRepairResult:
     payload: Mapping[str, Any] | None
     status: JsonRepairStatus
     issues: list[str]
+    repair_confidence: float | None = None
 
     @property
     def low_confidence(self) -> bool:
@@ -116,13 +117,17 @@ def parse_json_with_repair(
         issues.append(message)
         repaired: Mapping[str, Any] | None = _attempt_local_repair(raw)
         if repaired is not None:
-            return JsonRepairResult(payload=repaired, status=JsonRepairStatus.REPAIRED, issues=issues)
+            return JsonRepairResult(
+                payload=repaired, status=JsonRepairStatus.REPAIRED, issues=issues, repair_confidence=0.55
+            )
         if repair_func is not None:
             repaired = repair_func({}, errors or [{"loc": ("<root>",), "msg": message}])
             if isinstance(repaired, Mapping):
-                return JsonRepairResult(payload=dict(repaired), status=JsonRepairStatus.REPAIRED, issues=issues)
+                return JsonRepairResult(
+                    payload=dict(repaired), status=JsonRepairStatus.REPAIRED, issues=issues, repair_confidence=0.35
+                )
         logger.debug("JSON repair failed for payload: %s", message)
-        return JsonRepairResult(payload=None, status=JsonRepairStatus.FAILED, issues=issues)
+        return JsonRepairResult(payload=None, status=JsonRepairStatus.FAILED, issues=issues, repair_confidence=0.0)
 
     if not isinstance(parsed, Mapping):
         error_message = "Model returned JSON that is not an object."
@@ -130,10 +135,12 @@ def parse_json_with_repair(
         if repair_func is not None:
             repaired = repair_func({}, errors or [{"loc": ("<root>",), "msg": error_message}])
             if isinstance(repaired, Mapping):
-                return JsonRepairResult(payload=dict(repaired), status=JsonRepairStatus.REPAIRED, issues=issues)
-        return JsonRepairResult(payload=None, status=JsonRepairStatus.FAILED, issues=issues)
+                return JsonRepairResult(
+                    payload=dict(repaired), status=JsonRepairStatus.REPAIRED, issues=issues, repair_confidence=0.35
+                )
+        return JsonRepairResult(payload=None, status=JsonRepairStatus.FAILED, issues=issues, repair_confidence=0.0)
 
-    return JsonRepairResult(payload=dict(parsed), status=JsonRepairStatus.OK, issues=issues)
+    return JsonRepairResult(payload=dict(parsed), status=JsonRepairStatus.OK, issues=issues, repair_confidence=1.0)
 
 
 __all__ = ["JsonRepairResult", "JsonRepairStatus", "parse_json_with_repair"]
