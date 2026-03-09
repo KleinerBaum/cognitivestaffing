@@ -37,7 +37,7 @@ from ingest.branding import DEFAULT_BRAND_COLOR
 # triggering circular imports. Keep this block together to document the import
 # order assumptions for future contributors.
 from wizard import _update_profile, logic
-from wizard.metadata import FIELD_SECTION_MAP, get_missing_critical_fields
+from wizard.metadata import get_missing_critical_fields, resolve_step_key_for_field_path
 from wizard.step_registry import WIZARD_STEPS
 from wizard.navigation.state import get_current_step_key, set_current_step_key
 from wizard.step_status import compute_step_missing
@@ -95,35 +95,19 @@ def _coerce_flow_mode(value: object) -> FlowMode:
     return candidate
 
 
-STEP_KEY_ALIASES: dict[str, str] = {
-    "onboarding": "jobad",
-    "jobad": "jobad",
-    "company": "company",
-    "basic": "team",
-    "team": "team",
-    "role_tasks": "role_tasks",
-    "skills": "skills",
-    "requirements": "skills",
-    "compensation": "benefits",
-    "benefits": "benefits",
-    "process": "interview",
-    "interview": "interview",
-    "summary": "summary",
-}
-
-PATH_PREFIX_STEP_MAP: tuple[tuple[str, str], ...] = (
-    ("company.", "company"),
-    ("position.", "team"),
-    ("location.", "company"),
-    ("employment.", "team"),
-    ("responsibilities.", "role_tasks"),
-    ("requirements.", "skills"),
-    ("compensation.", "benefits"),
-    ("process.", "interview"),
-    ("summary.", "summary"),
-)
-
 MAX_STEP_PREVIEW_ITEMS = 5
+
+_STEP_CONTEXT_RENDERERS = {
+    "landing": "_render_onboarding_context",
+    "jobad": "_render_onboarding_context",
+    "company": "_render_company_context",
+    "team": "_render_basic_context",
+    "role_tasks": "_render_requirements_context",
+    "skills": "_render_requirements_context",
+    "benefits": "_render_compensation_context",
+    "interview": "_render_process_context",
+    "summary": "_render_summary_context",
+}
 
 
 @dataclass(slots=True)
@@ -134,7 +118,7 @@ class SidebarContext:
     extraction_summary: Mapping[str, Any]
     skill_buckets: Mapping[str, Iterable[str]]
     missing_fields: set[str]
-    missing_by_section: dict[int, list[str]]
+    missing_by_step: dict[str, list[str]]
     prefilled_sections: list[tuple[str, list[tuple[str, Any]]]]
 
 
@@ -680,12 +664,10 @@ def _build_context() -> SidebarContext:
     skill_buckets: Mapping[str, Iterable[str]] = st.session_state.get(StateKeys.SKILL_BUCKETS, {})
 
     missing = set(get_missing_critical_fields())
-    missing_by_section: dict[int, list[str]] = {}
+    missing_by_step: dict[str, list[str]] = {}
     for field in missing:
-        section = FIELD_SECTION_MAP.get(field)
-        if section is None:
-            continue
-        missing_by_section.setdefault(section, []).append(field)
+        step_key = resolve_step_key_for_field_path(field)
+        missing_by_step.setdefault(step_key, []).append(field)
 
     prefilled_sections = build_prefilled_sections()
 
@@ -694,7 +676,7 @@ def _build_context() -> SidebarContext:
         extraction_summary=summary,
         skill_buckets=skill_buckets,
         missing_fields=missing,
-        missing_by_section=missing_by_section,
+        missing_by_step=missing_by_step,
         prefilled_sections=prefilled_sections,
     )
 
@@ -1033,20 +1015,6 @@ def _get_step_summary_payload() -> tuple[int, list[str]] | None:
     return None
 
 
-def _map_summary_key(raw_key: str | None) -> str | None:
-    if not raw_key:
-        return None
-    normalized = raw_key.strip().lower()
-    return STEP_KEY_ALIASES.get(normalized)
-
-
-def _resolve_step_key_for_path(path: str) -> str | None:
-    for prefix, step_key in PATH_PREFIX_STEP_MAP:
-        if path.startswith(prefix):
-            return step_key
-    return None
-
-
 def _resolve_active_step_key() -> str | None:
     """Resolve the active step key from canonical navigation state."""
 
@@ -1124,18 +1092,8 @@ def _render_step_context(context: SidebarContext) -> None:
 
     current_key = _resolve_active_step_key()
 
-    renderers = {
-        "landing": _render_onboarding_context,
-        "jobad": _render_onboarding_context,
-        "company": _render_company_context,
-        "team": _render_basic_context,
-        "role_tasks": _render_requirements_context,
-        "skills": _render_requirements_context,
-        "benefits": _render_compensation_context,
-        "interview": _render_process_context,
-        "summary": _render_summary_context,
-    }
-    renderer = renderers.get(current_key) if isinstance(current_key, str) else None
+    renderer_name = _STEP_CONTEXT_RENDERERS.get(current_key) if isinstance(current_key, str) else None
+    renderer = globals().get(renderer_name) if isinstance(renderer_name, str) else None
     if renderer is None:
         st.markdown(f"### 🧭 {tr('Kontext zum Schritt', 'Step context')}")
         st.caption(tr("Keine Kontextinformationen verfügbar.", "No context available."))
@@ -1176,12 +1134,11 @@ def _build_initial_extraction_entries(
     known_step_keys = set(step_order)
     if isinstance(summary, Mapping):
         is_step_grouped = summary and all(
-            isinstance(value, Mapping) and _map_summary_key(str(key)) in known_step_keys
-            for key, value in summary.items()
+            isinstance(value, Mapping) and str(key) in known_step_keys for key, value in summary.items()
         )
         if is_step_grouped:
             for step_key, values in summary.items():
-                mapped_key = _map_summary_key(str(step_key))
+                mapped_key = str(step_key)
                 if mapped_key not in step_entries or not isinstance(values, Mapping):
                     continue
                 entries = step_entries[mapped_key]
@@ -1194,7 +1151,7 @@ def _build_initial_extraction_entries(
 
     for _, items in context.prefilled_sections:
         for path, value in items:
-            resolved_step = _resolve_step_key_for_path(str(path))
+            resolved_step = resolve_step_key_for_field_path(str(path))
             if resolved_step is None or resolved_step not in step_entries:
                 continue
             entries = step_entries[resolved_step]
@@ -1252,7 +1209,7 @@ def _render_company_context(context: SidebarContext) -> None:
         st.caption(tr("Noch keine Firmendaten hinterlegt.", "No company details yet."))
         return
 
-    _render_missing_hint(context, section=1)
+    _render_missing_hint(context, step_key="company")
 
 
 def _render_basic_context(context: SidebarContext) -> None:
@@ -1274,7 +1231,7 @@ def _render_basic_context(context: SidebarContext) -> None:
     if employment.get("work_policy"):
         policy = employment["work_policy"]
         st.caption(tr("Aktuelle Arbeitsform:", "Current work policy:") + f" {policy}")
-    _render_missing_hint(context, section=2)
+    _render_missing_hint(context, step_key="team")
 
 
 def _render_requirements_context(context: SidebarContext) -> None:
@@ -1305,7 +1262,7 @@ def _render_requirements_context(context: SidebarContext) -> None:
                 "ESCO still flags missing essentials: {skills}",
             ).format(skills=outstanding)
         )
-    _render_missing_hint(context, section=3)
+    _render_missing_hint(context, step_key="role_tasks")
 
 
 def _render_compensation_context(context: SidebarContext) -> None:
@@ -1378,8 +1335,8 @@ def _render_summary_context(context: SidebarContext) -> None:
             st.caption(summary)
 
 
-def _render_missing_hint(context: SidebarContext, *, section: int) -> None:
-    missing = context.missing_by_section.get(section, [])
+def _render_missing_hint(context: SidebarContext, *, step_key: str) -> None:
+    missing = context.missing_by_step.get(step_key, [])
     if not missing:
         return
     fields = ", ".join(_format_field_name(field) for field in missing[:6])

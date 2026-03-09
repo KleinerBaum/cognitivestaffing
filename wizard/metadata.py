@@ -125,6 +125,13 @@ FIELD_SECTION_MAP: dict[str, int] = _build_field_section_map()
 PAGE_FIELD_MAP: dict[str, str] = {
     field: page_key for page_key, fields in PAGE_PROGRESS_FIELDS.items() for field in fields
 }
+SECTION_TO_STEP_KEY: Final[dict[int, str]] = {}
+for page in WIZARD_PAGES:
+    section_index = PAGE_SECTION_INDEXES.get(page.key)
+    if section_index is None:
+        continue
+    SECTION_TO_STEP_KEY.setdefault(section_index, page.key)
+
 CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(
     PAGE_SECTION_INDEXES[key] for key in _CRITICAL_SECTION_KEYS if key in PAGE_SECTION_INDEXES
 )
@@ -156,6 +163,21 @@ def resolve_section_for_field(field: str) -> int:
     if CRITICAL_SECTION_ORDER:
         return CRITICAL_SECTION_ORDER[0]
     return COMPANY_STEP_INDEX
+
+
+def resolve_step_key_for_field_path(field: str) -> str:
+    """Return the owning wizard step key for a field path."""
+
+    mapped_page = PAGE_FIELD_MAP.get(field)
+    if mapped_page:
+        return mapped_page
+
+    for page_key, prefixes in PAGE_FOLLOWUP_PREFIXES.items():
+        if any(field.startswith(prefix) for prefix in prefixes):
+            return page_key
+
+    section_index = resolve_section_for_field(field)
+    return SECTION_TO_STEP_KEY.get(section_index, WIZARD_PAGES[0].key)
 
 
 def field_belongs_to_page(field: str, page_key: str) -> bool:
@@ -348,5 +370,6 @@ __all__ = [
     "get_missing_critical_fields",
     "field_belongs_to_page",
     "resolve_section_for_field",
+    "resolve_step_key_for_field_path",
     "validate_required_fields_by_page",
 ]
