@@ -36,7 +36,6 @@ from llm.json_repair import repair_profile_payload
 from llm.profile_normalization import normalize_interview_stages_field
 from utils.logging_context import configure_logging, set_model, set_session_id
 
-
 import config as app_config
 
 
@@ -129,7 +128,7 @@ _DEFAULT_STATE_FACTORIES: Mapping[str, Callable[[], Any]] = MappingProxyType(
         "dark_mode": lambda: True,
         "feature.sidebar_stepper_nav_v1": lambda: False,
         "skip_intro": lambda: False,
-        "wizard": lambda: {"current_step": "jobad"},
+        "wizard": dict,
     }
 )
 
@@ -478,11 +477,25 @@ def ensure_state() -> None:
         usage_state.setdefault("by_task", {})
     if StateKeys.USAGE_BUDGET_EXCEEDED not in st.session_state:
         st.session_state[StateKeys.USAGE_BUDGET_EXCEEDED] = False
-    wizard_state = st.session_state.get("wizard")
-    if not isinstance(wizard_state, dict):
-        st.session_state["wizard"] = {"current_step": "jobad"}
-    else:
-        wizard_state.setdefault("current_step", "jobad")
+    from wizard.navigation.state import bootstrap_navigation_state
+
+    bootstrap_navigation_state(
+        session_state=st.session_state,
+        query_params=st.query_params,
+        wizard_id="default",
+        active_step_keys=("jobad", "company", "team", "role_tasks", "skills", "benefits", "interview", "summary"),
+        default_step_key="jobad",
+        legacy_index_to_key={
+            0: "jobad",
+            1: "company",
+            2: "team",
+            3: "role_tasks",
+            4: "skills",
+            5: "benefits",
+            6: "interview",
+            7: "summary",
+        },
+    )
 
     _rehydrate_control_preferences()
 

@@ -2,6 +2,7 @@ import streamlit as st
 
 from constants.keys import StateKeys, UIKeys
 from utils.session import bootstrap_session, migrate_legacy_keys
+from wizard.navigation.state import bootstrap_navigation_state, get_current_step_key
 
 
 def test_migrate_legacy_profile_text() -> None:
@@ -44,3 +45,38 @@ def test_migrate_legacy_ui_keys() -> None:
     assert "ui.jd_text_input" not in st.session_state
     assert "ui.jd_file_uploader" not in st.session_state
     assert "ui.jd_url_input" not in st.session_state
+
+
+def test_bootstrap_navigation_state_migrates_legacy_payload_once() -> None:
+    st.session_state.clear()
+    st.session_state["wizard"] = {"current_step": "company", "history": ["jobad", "company"]}
+    st.session_state[StateKeys.STEP] = 5
+    query_params: dict[str, object] = {}
+
+    bootstrap_navigation_state(
+        session_state=st.session_state,
+        query_params=query_params,
+        wizard_id="default",
+        active_step_keys=("jobad", "company", "skills"),
+        default_step_key="jobad",
+        legacy_index_to_key={0: "jobad", 1: "company", 5: "skills"},
+    )
+
+    assert (
+        get_current_step_key(session_state=st.session_state, wizard_id="default", default_step_key="jobad") == "company"
+    )
+    assert query_params["step"] == "company"
+
+    st.session_state["wizard"] = {"current_step": "skills"}
+    bootstrap_navigation_state(
+        session_state=st.session_state,
+        query_params=query_params,
+        wizard_id="default",
+        active_step_keys=("jobad", "company", "skills"),
+        default_step_key="jobad",
+        legacy_index_to_key={0: "jobad", 1: "company", 5: "skills"},
+    )
+
+    assert (
+        get_current_step_key(session_state=st.session_state, wizard_id="default", default_step_key="jobad") == "company"
+    )

@@ -240,8 +240,6 @@ def _make_router(
     return router, render_log
 
 
-
-
 def test_initial_route_defaults_to_landing(monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]) -> None:
     """Router should start on the landing step when no query param is provided."""
 
@@ -277,6 +275,18 @@ def test_invalid_query_param_defaults_to_first_step(
     first_step = _STEP_DEFINITIONS[0][0]
     assert router._state["current_step"] == first_step
     assert query_params["step"] == [first_step]
+
+
+def test_query_sync_keeps_legacy_step_index_in_sync(
+    monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
+) -> None:
+    missing_ref: Dict[str, List[str] | None] = {"value": []}
+    query_params["step"] = ["team"]
+
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+
+    assert router._state["current_step"] == "team"
+    assert st.session_state[StateKeys.STEP] == 3
 
 
 def test_active_steps_filter_inactive_team(monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]) -> None:
