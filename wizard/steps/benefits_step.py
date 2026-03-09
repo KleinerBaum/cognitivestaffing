@@ -45,7 +45,7 @@ def _bind_flow_dependencies(flow: ModuleType) -> None:
 def _step_benefits() -> None:
     profile = _get_profile_state()
     compensation = profile.setdefault("compensation", {})
-    missing_here = _missing_fields_for_section(4)
+    missing_here = _missing_fields_for_section(5)
 
     def _render_known() -> None:
         salary_min = compensation.get("salary_min")

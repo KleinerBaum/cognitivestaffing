@@ -16,13 +16,13 @@ _FLOW_DEPENDENCIES: tuple[str, ...] = (
     "_get_profile_state",
     "_missing_fields_for_section",
     "_render_followups_for_step",
-    "_render_review_requirements_tab",
+    "_render_review_role_tasks_tab",
 )
 
 _get_profile_state: Any = cast(Any, None)
 _missing_fields_for_section: Any = cast(Any, None)
 _render_followups_for_step: Any = cast(Any, None)
-_render_review_requirements_tab: Any = cast(Any, None)
+_render_review_role_tasks_tab: Any = cast(Any, None)
 
 for _name in _FLOW_DEPENDENCIES:
     globals()[_name] = cast(Any, None)
@@ -40,18 +40,11 @@ def _bind_flow_dependencies(flow: ModuleType) -> None:
 
 
 def _render_known(profile: Mapping[str, Any]) -> None:
-    responsibilities = profile.get("responsibilities") if isinstance(profile.get("responsibilities"), Mapping) else {}
-    requirements = profile.get("requirements") if isinstance(profile.get("requirements"), Mapping) else {}
-    items = [
-        (tr("Aufgaben", "Responsibilities"), len(list(responsibilities.get("items") or []))),
-        (tr("Pflicht-Hard-Skills", "Required hard skills"), len(list(requirements.get("hard_skills_required") or []))),
-        (tr("Pflicht-Soft-Skills", "Required soft skills"), len(list(requirements.get("soft_skills_required") or []))),
-        (
-            tr("Tools & Technologien", "Tools & technologies"),
-            len(list(requirements.get("tools_and_technologies") or [])),
-        ),
-    ]
-    st.markdown("\n".join(f"- **{label}**: {count}" for label, count in items))
+    responsibilities_raw = profile.get("responsibilities")
+    responsibilities: Mapping[str, object] = responsibilities_raw if isinstance(responsibilities_raw, Mapping) else {}
+    items_raw = responsibilities.get("items")
+    item_count = len(items_raw) if isinstance(items_raw, list) else 0
+    st.markdown(f"- **{tr('Aufgaben', 'Responsibilities')}**: {item_count}")
 
 
 def _step_role_tasks() -> None:
@@ -59,14 +52,14 @@ def _step_role_tasks() -> None:
     missing_here = _missing_fields_for_section(3)
 
     def _render_missing() -> None:
-        _render_review_requirements_tab(profile)
+        _render_review_role_tasks_tab(profile)
         _render_followups_for_step("role_tasks", profile)
 
     render_step_layout(
-        ("Aufgaben & Skills", "Tasks & Skills"),
+        ("Aufgaben", "Tasks"),
         (
-            "Ergänze die Kernaufgaben sowie Muss-/Kann-Skills in strukturierter Form.",
-            "Complete core responsibilities and must-/nice-to-have skills in a structured format.",
+            "Ergänze die Kernaufgaben in strukturierter Form.",
+            "Complete core responsibilities in a structured format.",
         ),
         known_cb=lambda: _render_known(profile),
         missing_cb=_render_missing,

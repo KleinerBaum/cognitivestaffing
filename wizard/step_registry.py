@@ -102,10 +102,9 @@ def _render_role_tasks_step(context: WizardContext) -> None:
 
 
 def _render_skills_step(context: WizardContext) -> None:
-    from wizard import flow as wizard_flow
+    from wizard.steps import skills_step
 
-    _ = context
-    wizard_flow._render_skills_review_step()
+    skills_step.step_skills(context)
 
 
 def _render_benefits_step(context: WizardContext) -> None:
@@ -226,17 +225,17 @@ WIZARD_STEPS: Final[tuple[StepDefinition, ...]] = (  # GREP:STEP_REGISTRY_V2
     ),
     StepDefinition(
         key="role_tasks",
-        label=("Aufgaben & Skills", "Tasks & Skills"),
-        panel_header=("Aufgaben & Skills", "Tasks & Skills"),
-        panel_subheader=("Kernaufgaben & Skillbedarf", "Core tasks & skill needs"),
+        label=("Aufgaben", "Tasks"),
+        panel_header=("Aufgaben", "Tasks"),
+        panel_subheader=("Kernaufgaben der Rolle", "Core responsibilities"),
         panel_intro_variants=(
             (
-                "Fasse zusammen, welche Aufgaben und Skills für die Rolle zentral sind.",
-                "Summarise the core tasks and skills for this role.",
+                "Fasse zusammen, welche Aufgaben für die Rolle zentral sind.",
+                "Summarise the core responsibilities for this role.",
             ),
             (
-                "Klare Aufgaben und Skills verbessern Anzeigen, Scorecards und Suchstrings.",
-                "Clear tasks and skills improve job ads, scorecards, and searches.",
+                "Klare Aufgaben verbessern Anzeigen, Scorecards und Suchstrings.",
+                "Clear responsibilities improve job ads, scorecards, and searches.",
             ),
             (
                 "Schreibe locker runter, woran die Person in den ersten Monaten wirklich arbeitet.",
@@ -244,29 +243,19 @@ WIZARD_STEPS: Final[tuple[StepDefinition, ...]] = (  # GREP:STEP_REGISTRY_V2
             ),
         ),
         required_fields=(),
-        summary_fields=(
-            "responsibilities.items",
-            "requirements.hard_skills_required",
-            "requirements.soft_skills_required",
-            "requirements.hard_skills_optional",
-            "requirements.soft_skills_optional",
-            "requirements.tools_and_technologies",
-            "requirements.languages_required",
-            "requirements.languages_optional",
-            "requirements.certifications",
-        ),
+        summary_fields=("responsibilities.items",),
         allow_skip=False,
         renderer=_render_role_tasks_step,
     ),
     StepDefinition(
         key="skills",
-        label=("Skills-Überblick", "Skills recap"),
-        panel_header=("Skills-Überblick", "Skills recap"),
-        panel_subheader=("Check & Feinschliff", "Review & refine"),
+        label=("Skills & Anforderungen", "Skills & requirements"),
+        panel_header=("Skills & Anforderungen", "Skills & requirements"),
+        panel_subheader=("Muss-/Kann-Skills und Kriterien", "Must-have/nice-to-have criteria"),
         panel_intro_variants=(
             (
-                "Überprüfe die gesammelten Skills und korrigiere bei Bedarf.",
-                "Review the captured skills and fine-tune as needed.",
+                "Überprüfe die gesammelten Anforderungen und korrigiere bei Bedarf.",
+                "Review captured requirements and fine-tune as needed.",
             ),
             (
                 "Ein kurzer Check sorgt für konsistente Exporte und Matching.",

@@ -5888,17 +5888,13 @@ def _render_review_logistics_tab(profile: dict[str, Any]) -> None:
     st.markdown("</div>", unsafe_allow_html=True)
 
 
-def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
-    """Render responsibility and requirement fields for review."""
+def _render_review_role_tasks_tab(profile: dict[str, Any]) -> None:
+    """Render responsibility fields for the role/tasks step."""
 
     responsibilities = profile.setdefault("responsibilities", {})
-    requirements = profile.setdefault("requirements", {})
 
     st.markdown("<div class='extraction-review-card'>", unsafe_allow_html=True)
-    st.markdown(
-        f"<h5>{html.escape(tr('Anforderungen & Aufgaben', 'Requirements & responsibilities'))}</h5>",
-        unsafe_allow_html=True,
-    )
+    st.markdown(f"<h5>{html.escape(tr('Aufgaben', 'Responsibilities'))}</h5>", unsafe_allow_html=True)
 
     resp_container = st.container()
     with resp_container:
@@ -5916,6 +5912,16 @@ def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
         sync_widget_state=False,
     )
     _render_inline_followups((ProfilePaths.RESPONSIBILITIES_ITEMS,), profile, container=resp_container)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_review_skills_tab(profile: dict[str, Any]) -> None:
+    """Render requirement fields for the skills step."""
+
+    requirements = profile.setdefault("requirements", {})
+
+    st.markdown("<div class='extraction-review-card'>", unsafe_allow_html=True)
+    st.markdown(f"<h5>{html.escape(tr('Anforderungen', 'Requirements'))}</h5>", unsafe_allow_html=True)
 
     hard_container = st.container()
     with hard_container:
@@ -5986,6 +5992,13 @@ def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
     _render_inline_followups((ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED,), profile, container=languages_container)
 
     st.markdown("</div>", unsafe_allow_html=True)
+
+
+def _render_review_requirements_tab(profile: dict[str, Any]) -> None:
+    """Backward-compatible wrapper rendering role tasks and skills fields."""
+
+    _render_review_role_tasks_tab(profile)
+    _render_review_skills_tab(profile)
 
 
 def _render_review_process_tab(profile: dict[str, Any]) -> None:

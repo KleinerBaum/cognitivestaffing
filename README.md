@@ -59,8 +59,8 @@ On this landing view, the sidebar also suppresses the numbered step-overview acc
 1. Onboarding / Job Ad
 2. Company details
 3. Department & Team
-4. Tasks & Skills
-5. Skills recap
+4. Tasks
+5. Skills & requirements
 6. Benefits
 7. Recruitment process
 8. Summary (Final Review + Exports)

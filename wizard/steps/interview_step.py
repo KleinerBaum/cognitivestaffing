@@ -47,7 +47,7 @@ def _bind_flow_dependencies(flow: ModuleType) -> None:
 def _step_interview() -> None:
     profile = _get_profile_state()
     process = profile.setdefault("process", {})
-    missing_here = _missing_fields_for_section(5)
+    missing_here = _missing_fields_for_section(6)
     lang = st.session_state.get("lang", "de")
 
     def _render_known() -> None:
