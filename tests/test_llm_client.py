@@ -281,8 +281,33 @@ def test_merge_missing_section_payload_does_not_override_confirmed_values() -> N
     assert merged["company"]["name"] == "Acme GmbH"
     assert merged["company"]["website"] == "https://acme.example"
     assert merged["company"]["contact_email"] == "jobs@acme.example"
-    assert merged["requirements"]["hard_skills_required"] == ["Python"]
+    assert merged["requirements"]["hard_skills_required"] == ["Python", "Kubernetes"]
     assert merged["requirements"]["soft_skills_required"] == ["Communication"]
+
+
+def test_merge_missing_section_payload_appends_only_missing_targeted_list_items() -> None:
+    """Targeted list merge should keep existing entries and only add missing ones."""
+
+    base = {
+        "requirements": {
+            "hard_skills_required": ["Python"],
+            "soft_skills_required": ["Kommunikation"],
+        },
+        "responsibilities": {"items": ["Build APIs"]},
+    }
+    patch = {
+        "requirements": {
+            "hard_skills_required": ["python", "SQL"],
+            "soft_skills_required": ["Kommunikation", "Teamfähigkeit"],
+        },
+        "responsibilities": {"items": ["Build APIs", "Mentor teammates"]},
+    }
+
+    merged = client._merge_missing_section_payload(base, patch)
+
+    assert merged["requirements"]["hard_skills_required"] == ["Python", "SQL"]
+    assert merged["requirements"]["soft_skills_required"] == ["Kommunikation", "Teamfähigkeit"]
+    assert merged["responsibilities"]["items"] == ["Build APIs", "Mentor teammates"]
 
 
 def test_structured_extraction_business_critical_retry_patches_missing_only(monkeypatch) -> None:
@@ -663,7 +688,7 @@ def test_structured_extraction_returns_validated_payload(monkeypatch: pytest.Mon
 
     result = client._structured_extraction(payload)
 
-    assert json.loads(result) == sample_data
+    assert json.loads(result.content) == sample_data
 
 
 def test_structured_extraction_repairs_invalid_json(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -689,7 +714,7 @@ def test_structured_extraction_repairs_invalid_json(monkeypatch: pytest.MonkeyPa
             raw_response={},
         )
 
-    def _fake_parse_profile_json(raw: str, *, errors=None):  # type: ignore[unused-argument]
+    def _fake_parse_profile_json(raw: str, *, errors: Any = None):
         captured["errors"] = errors
         payload = NeedAnalysisProfile().model_dump()
         payload["company"]["name"] = "Recovered"
