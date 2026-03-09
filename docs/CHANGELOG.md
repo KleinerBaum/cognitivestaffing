@@ -56,6 +56,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Job-ad extraction now surfaces a progress indicator that tracks structured extraction and follow-up generation.
 
 ### Changed
+- Recoverable wizard rendering errors now use a session-scoped signature counter (`error_type + field_key + step`) with duplicate-log suppression and an automatic follow-up degradation mode after repeated failures, including bilingual user-facing warnings.
 - Sidebar step context and extracted-field grouping now resolve ownership via canonical step keys from `WIZARD_STEPS`/`WIZARD_PAGES`; hard-coded alias/prefix tables were removed in favor of `wizard.metadata.resolve_step_key_for_field_path`, with regression tests to guard registry/sidebar drift.
 - Centralized critical-field loading via `core/critical_fields.py` with process cache, and migrated follow-up logic, wizard configuration, and extraction required-path checks to the shared API to avoid import-time file I/O drift.
 - Missing-section extraction retries now include business-critical keys (`position.job_title`, `company.name`, `location.primary_city`, `company.website`, `company.contact_email`, `requirements.hard_skills_required`, `requirements.soft_skills_required`) in parser detection and prompt prioritisation, while merge logic only patches fields that are actually missing to preserve confirmed data.

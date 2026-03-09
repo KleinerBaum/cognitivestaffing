@@ -325,6 +325,7 @@ Extraction goldenset fixtures for deterministic core-field evaluation live under
 - Dependency constraints for `requests`, `urllib3`, `chardet`, and `charset-normalizer` are intentionally pinned to compatible ranges in `pyproject.toml` to prevent Streamlit Cloud startup warnings caused by resolver drift. Regenerate `poetry.lock` after changing these constraints and commit both files together for reproducible deploys.
 - Recoverable wizard failures now surface a retry button and a UI-only reset option; prefer UI
   resets before clearing the full profile to avoid losing captured data.
+- Repeated recoverable errors now trigger a session-local degradation mode: follow-up helpers are temporarily hidden and a bilingual warning is shown so users can continue with core fields without rerun loops.
 - ESCO occupation selector state is split between widget and profile keys to avoid Streamlit
   session-state mutation errors; initialize namespaced widget keys before render (for example
   `ui.position.esco_occupation_widget.<suffix>`) and sync selections back into the shared profile
