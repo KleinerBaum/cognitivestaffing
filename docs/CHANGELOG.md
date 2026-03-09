@@ -55,6 +55,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - Job-ad extraction now surfaces a progress indicator that tracks structured extraction and follow-up generation.
 
 ### Changed
+- Centralized critical-field loading via `core/critical_fields.py` with process cache, and migrated follow-up logic, wizard configuration, and extraction required-path checks to the shared API to avoid import-time file I/O drift.
 - Missing-section extraction retries now include business-critical keys (`position.job_title`, `company.name`, `location.primary_city`, `company.website`, `company.contact_email`, `requirements.hard_skills_required`, `requirements.soft_skills_required`) in parser detection and prompt prioritisation, while merge logic only patches fields that are actually missing to preserve confirmed data.
 - Landing step city persistence now reads/writes only `location.primary_city`, and the continue-gating no longer depends on non-canonical `location.state`.
 - Wizard threaded pipeline tasks now snapshot Streamlit session values before worker start and pass cache state via plain workflow context; worker threads no longer read `st.*`/`st.session_state`, and cache writes remain on the main thread to avoid ScriptRunContext warnings during regular runs.

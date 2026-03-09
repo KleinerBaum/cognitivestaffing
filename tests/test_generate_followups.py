@@ -4,6 +4,7 @@ import sys
 sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 from models.need_analysis import NeedAnalysisProfile  # noqa: E402
+import question_logic  # noqa: E402
 from questions.generate import generate_followup_questions  # noqa: E402
 
 
@@ -43,3 +44,16 @@ def test_generate_followups_wrapper_empty(monkeypatch):
 
     profile = NeedAnalysisProfile()
     assert generate_followup_questions(profile) == []
+
+
+def test_followups_use_shared_critical_fields_loader(monkeypatch):
+    calls = {"count": 0}
+
+    def fake_load() -> tuple[str, ...]:
+        calls["count"] += 1
+        return ("company.name",)
+
+    monkeypatch.setattr(question_logic, "load_critical_fields", fake_load)
+
+    assert question_logic._critical_fields() == frozenset({"company.name"})
+    assert calls["count"] == 1

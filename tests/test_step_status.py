@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from core.critical_fields import load_critical_fields as load_shared_critical_fields
 from wizard.step_status import (
     compute_step_missing,
     is_step_complete,
@@ -73,3 +74,7 @@ def test_iter_step_missing_fields_deduplicates_order() -> None:
     all_missing = list(iter_step_missing_fields(missing))
 
     assert all_missing[:2] == ["business_context.domain", "company.name"]
+
+
+def test_step_status_uses_shared_critical_fields_source() -> None:
+    assert load_critical_fields() == load_shared_critical_fields()

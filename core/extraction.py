@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import json
 import logging
 import re
 from collections.abc import Iterable, Mapping, MutableMapping, Sequence
-from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
 
+from core.critical_fields import load_critical_fields
 from core.confidence import DEFAULT_AI_TIER
 from core.schema import canonicalize_profile_payload, coerce_and_fill, merge_profile_with_defaults
 from llm.json_repair import parse_profile_json, repair_profile_payload
@@ -25,16 +24,7 @@ def _load_required_paths() -> set[str]:
     """Return critical schema paths that must exist after validation."""
 
     required: set[str] = set(NeedAnalysisProfile.model_fields)
-    critical_file = Path(__file__).resolve().parent.parent / "critical_fields.json"
-    try:
-        with critical_file.open("r", encoding="utf-8") as handle:
-            payload = json.load(handle)
-    except Exception:  # pragma: no cover - defensive fallback
-        return required
-
-    critical = payload.get("critical")
-    if isinstance(critical, list):
-        required.update({str(entry).strip() for entry in critical if str(entry).strip()})
+    required.update({entry.strip() for entry in load_critical_fields() if entry.strip()})
     return required
 
 

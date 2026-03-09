@@ -49,6 +49,7 @@ def build_file_search_tool(*args: Any, **kwargs: Any) -> dict[str, Any]:
 
 # ESCO helpers (core utils + offline-aware wrapper)
 from constants.keys import StateKeys
+from core.critical_fields import load_critical_fields
 from core.esco_utils import (
     classify_occupation,
     get_essential_skills,
@@ -74,11 +75,44 @@ RAG_VECTOR_STORE_ID = VECTOR_STORE_ID
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 
-_ROOT = Path(__file__).resolve().parent
-with open(_ROOT / "critical_fields.json", "r", encoding="utf-8") as _f:
-    CRITICAL_FIELDS: Set[str] = set(json.load(_f).get("critical", []))
-with open(_ROOT / "role_field_map.json", "r", encoding="utf-8") as _f:
-    ROLE_FIELD_MAP: Dict[str, List[str]] = {k.lower(): v for k, v in json.load(_f).items()}
+
+def _critical_fields() -> frozenset[str]:
+    """Return critical field paths for follow-up prioritization."""
+
+    current = CRITICAL_FIELDS
+    if isinstance(current, _LazyCriticalFields):
+        return current._values()
+    return frozenset(current)
+
+
+class _LazyCriticalFields(Set[str]):
+    """Set-like lazy view over shared critical fields."""
+
+    def _values(self) -> frozenset[str]:
+        return frozenset(load_critical_fields())
+
+    def __contains__(self, value: object) -> bool:
+        return value in self._values()
+
+    def __iter__(self):
+        return iter(self._values())
+
+    def __len__(self) -> int:
+        return len(self._values())
+
+
+CRITICAL_FIELDS: Set[str] = _LazyCriticalFields()
+
+
+@st.cache_data(show_spinner=False)
+def _load_role_field_map() -> dict[str, list[str]]:
+    """Load role-to-field mappings lazily from disk."""
+
+    root = Path(__file__).resolve().parent
+    with (root / "role_field_map.json").open("r", encoding="utf-8") as file:
+        payload = json.load(file)
+    return {key.lower(): value for key, value in payload.items() if isinstance(value, list)}
+
 
 # Predefined role-specific follow-up questions keyed by ESCO group (lowercased)
 ROLE_QUESTION_MAP: Dict[str, List[Dict[str, str]]] = {
@@ -469,7 +503,7 @@ def _priority_for(
         return "critical"
     if is_missing_esco_skill:
         return "critical"
-    if field in CRITICAL_FIELDS:
+    if field in _critical_fields():
         return "critical"
     return "normal"
 
@@ -724,7 +758,7 @@ def generate_followup_questions(
     if occupation:
         group_key = str(occupation.get("group") or "").casefold()
         if group_key:
-            role_fields = list(ROLE_FIELD_MAP.get(group_key, []))
+            role_fields = list(_load_role_field_map().get(group_key, []))
             role_questions_cfg = _resolve_role_questions(group_key, lang)
         source_had_skills = bool(st.session_state.get(StateKeys.ESCO_SKILLS))
         esco_skills = st.session_state.get(StateKeys.ESCO_SKILLS, [])
@@ -740,7 +774,7 @@ def generate_followup_questions(
                     esco_skills = merged
                     st.session_state[StateKeys.ESCO_SKILLS] = esco_skills
     answered_fields = set(_get_followups_answered(extracted))
-    fields_to_check = list(CRITICAL_FIELDS)
+    fields_to_check = list(_critical_fields())
     for extra in role_fields:
         if extra not in fields_to_check:
             fields_to_check.append(extra)
