@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from typing import Any, Callable, Sequence, TypeVar, cast
 
 import streamlit as st
@@ -17,6 +18,26 @@ from wizard._logic import (
 from wizard._widget_state import _build_on_change, _ensure_widget_state
 
 T = TypeVar("T")
+
+
+def _normalize_key_part(part: object) -> str:
+    """Normalize a key segment into a Streamlit-friendly token."""
+
+    text = str(part).strip().lower()
+    if not text:
+        return "_"
+    normalized = re.sub(r"[^a-z0-9_.-]+", "_", text)
+    return normalized.strip("_") or "_"
+
+
+def build_widget_key(prefix: str, *parts: object, index: int | None = None) -> str:
+    """Build a stable, namespaced widget key from structured key parts."""
+
+    key_parts = [_normalize_key_part(prefix)]
+    key_parts.extend(_normalize_key_part(part) for part in parts if part is not None)
+    if index is not None:
+        key_parts.append(str(index))
+    return "_".join(part for part in key_parts if part)
 
 
 def _normalize_origin(origin: str | None) -> Origin | None:
@@ -235,4 +256,4 @@ def multiselect(
     return list(selection)
 
 
-__all__ = ["text_input", "select", "multiselect"]
+__all__ = ["build_widget_key", "text_input", "select", "multiselect"]
