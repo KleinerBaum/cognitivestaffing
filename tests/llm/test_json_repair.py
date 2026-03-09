@@ -132,3 +132,13 @@ def test_repair_profile_payload_retries_alternate_model(monkeypatch: pytest.Monk
     assert result == {"status": "ok"}
     assert attempts == ["primary-model", "secondary-model"]
     assert marked == ["primary-model"]
+
+
+def test_parse_json_with_repair_sets_repair_confidence() -> None:
+    from utils.json_repair import JsonRepairStatus, parse_json_with_repair
+
+    result = parse_json_with_repair('{"position": {"job_title": "Engineer",}}')
+
+    assert result.status is JsonRepairStatus.REPAIRED
+    assert result.repair_confidence is not None
+    assert 0.0 < result.repair_confidence < 1.0

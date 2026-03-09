@@ -9,6 +9,7 @@ A multi-step **Streamlit wizard** that turns unstructured job ads (PDF, DOCX, UR
 ---
 
 - Structured extraction now enforces a strict validation chain (primary output → model validation → focused retry prompts → JSON repair). If required skill lists stay empty despite source cues, the wizard flags low confidence and prompts for manual review in DE/EN.
+- Extraction results now expose explicit repair metadata (`repair_applied`, `repair_confidence`) so downstream pipeline/UI code can surface degraded-state handling deterministically.
 
 ## Table of Contents
 - [What it does](#what-it-does)

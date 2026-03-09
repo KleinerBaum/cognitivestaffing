@@ -22,6 +22,7 @@ from utils.json_repair import JsonRepairResult, parse_json_with_repair
 logger = logging.getLogger(__name__)
 
 _SCHEMA_NAME = "need_analysis_profile"
+_JSON_REPAIR_MAX_RETRIES = 2
 
 
 def _coerce_json_serializable(value: Any) -> Any:
@@ -143,21 +144,28 @@ def repair_profile_payload(
             logger.warning("JSON repair call failed: %s", exc)
             return None
 
-    response = _invoke_repair(model)
+    response: ResponsesCallResult | None = None
+    attempted_models: list[str] = []
+    target_model = model
+    for _ in range(_JSON_REPAIR_MAX_RETRIES):
+        attempted_models.append(target_model)
+        response = _invoke_repair(target_model)
+        if response is not None and (response.content or "").strip():
+            break
+        mark_model_unavailable(target_model)
+        alternate_model = get_model_for(ModelTask.JSON_REPAIR)
+        if alternate_model == target_model:
+            break
+        logger.warning("Retrying JSON repair with alternate model: %s", alternate_model)
+        target_model = alternate_model
 
     if response is None or not (response.content or "").strip():
-        logger.info("Primary JSON repair attempt returned no content; searching for alternate model.")
-        mark_model_unavailable(model)
-        alternate_model = get_model_for(ModelTask.JSON_REPAIR)
-        if alternate_model != model:
-            logger.warning("Retrying JSON repair with alternate model: %s", alternate_model)
-            response = _invoke_repair(alternate_model)
-            if response is None or not (response.content or "").strip():
-                logger.error("All API attempts failed for JSON repair task.")
-                return None
-        else:
-            logger.error("All API attempts failed for JSON repair task; no alternate model available.")
-            return None
+        logger.error(
+            "All API attempts failed for JSON repair task after %d tries (%s).",
+            len(attempted_models),
+            ", ".join(attempted_models),
+        )
+        return None
 
     if response.used_chat_fallback:
         logger.info("JSON repair succeeded via classic chat fallback")
@@ -204,16 +212,27 @@ def repair_json_payload(
         {"role": "user", "content": user_prompt},
     ]
 
-    response = call_responses_safe(
-        messages,
-        model=get_model_for(ModelTask.JSON_REPAIR),
-        response_format=response_format,
-        temperature=0.0,
-        max_completion_tokens=600,
-        task=ModelTask.JSON_REPAIR,
-        logger_instance=logger,
-        context=f"{schema_name} json repair",
-    )
+    response: ResponsesCallResult | None = None
+    target_model = get_model_for(ModelTask.JSON_REPAIR)
+    for _ in range(_JSON_REPAIR_MAX_RETRIES):
+        response = call_responses_safe(
+            messages,
+            model=target_model,
+            response_format=response_format,
+            temperature=0.0,
+            max_completion_tokens=600,
+            task=ModelTask.JSON_REPAIR,
+            logger_instance=logger,
+            context=f"{schema_name} json repair",
+        )
+        if response is not None and response.content:
+            break
+        mark_model_unavailable(target_model)
+        alternate_model = get_model_for(ModelTask.JSON_REPAIR)
+        if alternate_model == target_model:
+            break
+        target_model = alternate_model
+
     if response is None or not response.content:
         return None
 

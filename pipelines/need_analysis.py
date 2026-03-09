@@ -20,6 +20,8 @@ class ExtractionResult:
     recovered: bool
     issues: list[str]
     low_confidence: bool = False
+    repair_applied: bool = False
+    repair_confidence: float | None = None
 
 
 def extract_need_analysis_profile(
@@ -68,4 +70,6 @@ def extract_need_analysis_profile(
         recovered=recovered,
         issues=issues,
         low_confidence=outcome.low_confidence,
+        repair_applied=outcome.repair_applied,
+        repair_confidence=outcome.repair_confidence,
     )

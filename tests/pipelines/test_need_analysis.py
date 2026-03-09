@@ -22,7 +22,9 @@ class _Recorder:
         url: str | None = None,
         locked_fields: Mapping[str, str] | None = None,
         minimal: bool = False,
-    ) -> str:
+    ):
+        from llm.client import StructuredExtractionOutcome
+
         self.calls.append(
             {
                 "text": text,
@@ -33,12 +35,20 @@ class _Recorder:
                 "minimal": minimal,
             }
         )
-        return json.dumps(NeedAnalysisProfile().model_dump())
+        return StructuredExtractionOutcome(
+            content=json.dumps(NeedAnalysisProfile().model_dump()),
+            source="responses",
+        )
 
 
 def test_extract_need_analysis_profile_uses_llm_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
     recorder = _Recorder()
-    monkeypatch.setattr("pipelines.need_analysis.extract_json", recorder)
+    monkeypatch.setattr("pipelines.need_analysis._extract_json_outcome", recorder)
+
+    monkeypatch.setattr(
+        "pipelines.need_analysis.parse_structured_payload",
+        lambda raw, *, source_text=None: (json.loads(raw), False, []),
+    )
 
     result = extract_need_analysis_profile(
         "Senior Engineer role",
@@ -62,3 +72,26 @@ def test_extract_need_analysis_profile_uses_llm_pipeline(monkeypatch: pytest.Mon
     assert result.issues == []
     assert result.data == NeedAnalysisProfile().model_dump()
     assert json.loads(result.raw_json) == NeedAnalysisProfile().model_dump()
+
+
+def test_extract_need_analysis_profile_exposes_repair_metadata(monkeypatch: pytest.MonkeyPatch) -> None:
+    from llm.client import StructuredExtractionOutcome
+
+    sample_profile = NeedAnalysisProfile().model_dump()
+
+    monkeypatch.setattr(
+        "pipelines.need_analysis._extract_json_outcome",
+        lambda *_args, **_kwargs: StructuredExtractionOutcome(
+            content=json.dumps(sample_profile),
+            source="responses",
+            low_confidence=True,
+            repair_applied=True,
+            repair_confidence=0.35,
+        ),
+    )
+
+    result = extract_need_analysis_profile("Job ad")
+
+    assert result.low_confidence is True
+    assert result.repair_applied is True
+    assert result.repair_confidence == pytest.approx(0.35)
