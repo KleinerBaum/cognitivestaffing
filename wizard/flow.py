@@ -575,6 +575,7 @@ from wizard.services.followups import generate_followups
 from components import widget_factory
 from components.stepper import render_stepper as _render_stepper
 from wizard.wizard import profile_text_input
+from components.widget_factory import build_widget_key
 from components.chip_multiselect import (
     CHIP_INLINE_VALUE_LIMIT,
     chip_multiselect,
@@ -11704,24 +11705,67 @@ def _render_followup_section(
 
     st.markdown(tr("**Vorgeschlagene Fragen:**", "**Suggested questions:**"))
 
-    entry_specs: list[tuple[str, str]] = []
+    entry_specs: list[dict[str, str]] = []
     for item in followup_items:
-        field_path = item.get("field") or item.get("key") or ""
-        question_text = item.get("question") or ""
+        field_path = str(item.get("field") or item.get("key") or "").strip()
+        question_text = str(item.get("question") or "").strip()
+        question_type = str(item.get("question_type") or "").strip()
+        source_step = str(item.get("source_step") or "").strip()
         if not field_path or not question_text:
             continue
-        entry_specs.append((field_path, question_text))
+        dedup_signature = (field_path, question_type, source_step)
+        entry_specs.append(
+            {
+                "field_path": field_path,
+                "question_text": question_text,
+                "dedup_signature": "::".join(dedup_signature),
+            }
+        )
 
-    deduplicated_specs: list[tuple[str, str]] = []
-    seen_field_paths: set[str] = set()
-    for field_path, question_text in entry_specs:
-        if field_path in seen_field_paths:
+    deduplicated_specs: list[dict[str, str]] = []
+    seen_signatures: set[str] = set()
+    for entry in entry_specs:
+        dedup_signature = entry["dedup_signature"]
+        if dedup_signature in seen_signatures:
             continue
-        seen_field_paths.add(field_path)
-        deduplicated_specs.append((field_path, question_text))
+        seen_signatures.add(dedup_signature)
+        deduplicated_specs.append(entry)
     entry_specs = deduplicated_specs
 
     if not entry_specs:
+        return
+
+    keyed_entries: list[dict[str, str]] = []
+    render_key_collisions: set[str] = set()
+    used_widget_keys: set[str] = set()
+    for index, entry in enumerate(entry_specs):
+        field_path = entry["field_path"]
+        widget_key = build_widget_key(
+            "fu",
+            "summary",
+            "followup",
+            field_path,
+            index=index,
+        )
+        if widget_key in used_widget_keys:
+            render_key_collisions.add(widget_key)
+            continue
+        used_widget_keys.add(widget_key)
+        keyed_entries.append(
+            {
+                "field_path": field_path,
+                "question_text": entry["question_text"],
+                "widget_key": widget_key,
+            }
+        )
+
+    if render_key_collisions:
+        logger.debug(
+            "Follow-up widget key collision detected for summary render: %s",
+            sorted(render_key_collisions),
+        )
+
+    if not keyed_entries:
         return
 
     stored_snapshot = dict(st.session_state.get(StateKeys.SUMMARY_FOLLOWUP_SNAPSHOT, {}))
@@ -11731,24 +11775,24 @@ def _render_followup_section(
         "Apply follow-up answers",
     )
     if use_form_mode:
-        for field_path, question_text in entry_specs:
-            st.markdown(f"**{question_text}**")
+        for entry in keyed_entries:
+            st.markdown(f"**{entry['question_text']}**")
             profile_text_input(
-                field_path,
-                question_text,
-                key=f"fu_{field_path}",
+                entry["field_path"],
+                entry["question_text"],
+                key=entry["widget_key"],
                 label_visibility="collapsed",
                 allow_callbacks=False,
             )
         submitted = st.form_submit_button(submit_label, type="primary")
     else:
         with st.form("summary_followups_form"):
-            for field_path, question_text in entry_specs:
-                st.markdown(f"**{question_text}**")
+            for entry in keyed_entries:
+                st.markdown(f"**{entry['question_text']}**")
                 profile_text_input(
-                    field_path,
-                    question_text,
-                    key=f"fu_{field_path}",
+                    entry["field_path"],
+                    entry["question_text"],
+                    key=entry["widget_key"],
                     label_visibility="collapsed",
                     allow_callbacks=False,
                 )
@@ -11757,7 +11801,12 @@ def _render_followup_section(
     if not submitted:
         return
 
-    answers = {field_path: st.session_state.get(f"fu_{field_path}", "") for field_path, _question in entry_specs}
+    answers: dict[str, str] = {}
+    for entry in keyed_entries:
+        field_path = entry["field_path"]
+        widget_value = st.session_state.get(entry["widget_key"], "")
+        answers[field_path] = str(widget_value)
+
     trimmed_answers = {field: value.strip() for field, value in answers.items()}
     for field_path, value in trimmed_answers.items():
         if value:
