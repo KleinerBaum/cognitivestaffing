@@ -18,6 +18,8 @@ from openai_utils.errors import LLMResponseFormatError
 from prompts import prompt_registry
 from utils.json_repair import JsonRepairStatus, parse_json_with_repair
 from wizard._openai_bridge import get_build_file_search_tool, get_call_chat_api
+from wizard.field_metadata import is_unconfirmed_low_confidence_heuristic
+from wizard.services.gaps import load_critical_fields
 
 logger = logging.getLogger(__name__)
 
@@ -155,6 +157,37 @@ _FALLBACK_FOLLOWUPS: dict[str, list[dict[str, Any]]] = {
         },
     ],
 }
+
+
+def _prioritize_heuristic_followups(
+    questions: Sequence[Mapping[str, Any]],
+    *,
+    profile: Mapping[str, Any],
+) -> list[dict[str, Any]]:
+    """Sort follow-up questions to front-load unconfirmed heuristic critical fields."""
+
+    critical_fields = set(load_critical_fields())
+
+    def _score(item: Mapping[str, Any]) -> tuple[int, int]:
+        field = str(item.get("field") or "").strip()
+        if not field:
+            return (2, 2)
+        if field in critical_fields and is_unconfirmed_low_confidence_heuristic(field, profile=profile):
+            return (0, 0)
+        if is_unconfirmed_low_confidence_heuristic(field, profile=profile):
+            return (0, 1)
+        priority = str(item.get("priority") or "normal").strip().lower()
+        if priority == "critical":
+            return (1, 0)
+        if priority == "normal":
+            return (1, 1)
+        return (1, 2)
+
+    normalized: list[dict[str, Any]] = []
+    for question in questions:
+        if isinstance(question, Mapping):
+            normalized.append(dict(question))
+    return sorted(normalized, key=_score)
 
 
 def _normalize_locale(locale: str) -> str:
@@ -480,6 +513,11 @@ def generate_followups(
         else "Return valid JSON only that matches the schema. No explanations, no Markdown, no code fences."
     )
     user_payload: dict[str, Any] = {"profile": profile}
+    heuristic_review = [
+        field for field in load_critical_fields() if is_unconfirmed_low_confidence_heuristic(field, profile=profile)
+    ]
+    if heuristic_review:
+        user_payload["heuristic_review_fields"] = heuristic_review
     if role_context:
         user_payload["role_context"] = role_context
 
@@ -565,6 +603,10 @@ def generate_followups(
             if response_id:
                 parsed["response_id"] = response_id
         if parsed.get("questions"):
+            parsed["questions"] = _prioritize_heuristic_followups(
+                parsed.get("questions", []),
+                profile=profile,
+            )
             parsed.setdefault("source", "llm")
             return parsed
         fallback_reason = parsed_result.fallback_reason or "empty_result"

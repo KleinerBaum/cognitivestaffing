@@ -798,9 +798,7 @@ def _render_company_summary(profile: Mapping[str, Any]) -> None:
     lang = st.session_state.get("lang", "de")
     company = profile.get("company") if isinstance(profile.get("company"), Mapping) else {}
     location = profile.get("location") if isinstance(profile.get("location"), Mapping) else {}
-    business_context = (
-        profile.get("business_context") if isinstance(profile.get("business_context"), Mapping) else {}
-    )
+    business_context = profile.get("business_context") if isinstance(profile.get("business_context"), Mapping) else {}
     items = [
         (tr("Business-Domain", "Business domain", lang=lang), business_context.get("domain")),
         (tr("Industrie-Codes", "Industry codes", lang=lang), business_context.get("industry_codes")),
@@ -841,9 +839,9 @@ def _step_company() -> None:
     profile = _get_profile_state()
     profile_context = _build_profile_context(profile)
     raw_source = st.session_state.get(UIKeys.SOURCE_CONTEXT)
-    is_client_view = (
-        isinstance(raw_source, str) and raw_source.strip().lower() == "agency"
-    ) or st.session_state.get(StateKeys.WIZARD_LAST_STEP) == "client"
+    is_client_view = (isinstance(raw_source, str) and raw_source.strip().lower() == "agency") or st.session_state.get(
+        StateKeys.WIZARD_LAST_STEP
+    ) == "client"
     default_header = (
         ("Kundendetails", "Client details") if is_client_view else ("Unternehmensdetails", "Company details")
     )
@@ -1000,6 +998,7 @@ def _step_company() -> None:
                 st.caption(tr("Vorschläge", "Suggestions"))
                 chip_cols = st.columns(len(suggestions))
                 for idx, suggestion in enumerate(suggestions):
+
                     def _apply_domain_suggestion(value: str = suggestion) -> None:
                         st.session_state[str(ProfilePaths.BUSINESS_CONTEXT_DOMAIN)] = value
                         business_context["domain"] = value

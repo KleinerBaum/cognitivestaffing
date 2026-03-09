@@ -1154,13 +1154,53 @@
                 },
                 "extraction_fallback_active": {
                     "type": "boolean"
+                },
+                "field_metadata": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "patternProperties": {
+                        "^.+$": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "properties": {
+                                "source": {
+                                    "type": "string",
+                                    "enum": [
+                                        "llm",
+                                        "heuristic",
+                                        "user"
+                                    ]
+                                },
+                                "confidence": {
+                                    "type": "number",
+                                    "minimum": 0,
+                                    "maximum": 1
+                                },
+                                "evidence_snippet": {
+                                    "type": [
+                                        "string",
+                                        "null"
+                                    ]
+                                },
+                                "confirmed": {
+                                    "type": "boolean"
+                                }
+                            },
+                            "required": [
+                                "source",
+                                "confidence",
+                                "confirmed"
+                            ]
+                        }
+                    }
                 }
             },
             "required": [
                 "target_start_date",
                 "application_deadline",
                 "followups_answered",
-                "extraction_fallback_active"
+                "extraction_fallback_active",
+                "field_metadata"
             ]
         },
         "generated": {

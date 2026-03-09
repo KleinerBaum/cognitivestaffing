@@ -1,6 +1,8 @@
 
 ## Unreleased
 
+- Added field-level provenance metadata (`meta.field_metadata`) with `source`, `confidence`, optional `evidence_snippet`, and `confirmed`; wizard steps now show bilingual “Vorgeschlagen / Suggested” review controls and block critical progression for unconfirmed low-confidence heuristic values.
+- Follow-up generation now prioritizes unconfirmed heuristic critical fields, and Summary exports can mark or exclude unconfirmed heuristic estimates.
 - Extraction results now expose explicit repair metadata (`repair_applied`, `repair_confidence`) and use a bounded JSON-repair fallback with controlled schema-retry flow.
 - Enforced extraction sequence for profile parsing: primary response, schema/model validation, focused retry prompts, then JSON repair.
 - Added required-skills post-validation for `requirements.hard_skills_required` and `requirements.soft_skills_required` with forced retry when source cues exist.

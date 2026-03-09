@@ -112,8 +112,12 @@ class NavigationController:
         self._resolve_value = value_resolver
         self._required_field_validators = required_field_validators
         self._validated_fields = set(validated_fields)
-        self._query_params = cast(MutableMapping[str, object], st.query_params if query_params is None else query_params)
-        self._session_state = cast(MutableMapping[str, object], st.session_state if session_state is None else session_state)
+        self._query_params = cast(
+            MutableMapping[str, object], st.query_params if query_params is None else query_params
+        )
+        self._session_state = cast(
+            MutableMapping[str, object], st.session_state if session_state is None else session_state
+        )
         self._wizard_id = wizard_id
         self._session_keys = WizardSessionKeys(wizard_id=wizard_id)
         self._use_legacy_state = wizard_id == "default"

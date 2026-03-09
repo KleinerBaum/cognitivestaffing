@@ -7171,6 +7171,8 @@ def _render_esco_occupation_selector(
 
 BOOLEAN_WIDGET_KEYS = "ui.summary.boolean_widget_keys"
 BOOLEAN_PROFILE_SIGNATURE = "ui.summary.boolean_profile_signature"
+SUMMARY_EXPORT_MARK_UNCONFIRMED = "ui.summary.export.mark_unconfirmed"
+SUMMARY_EXPORT_EXCLUDE_UNCONFIRMED = "ui.summary.export.exclude_unconfirmed"
 
 
 def _boolean_skill_terms(profile: NeedAnalysisProfile) -> list[str]:
@@ -12045,6 +12047,8 @@ def _collect_summary_export_artifacts(
     profile_bytes: bytes,
     profile_mime: str,
     profile_filename: str,
+    mark_unconfirmed: bool = False,
+    exclude_unconfirmed: bool = False,
 ) -> list[ExportArtifact]:
     """Gather export artifacts for the Summary export list."""
 
@@ -12093,6 +12097,10 @@ def _collect_summary_export_artifacts(
 
     saved_job_ad = str(st.session_state.get(StateKeys.JOB_AD_MD) or getattr(profile.generated, "job_ad", "") or "")
     saved_job_ad = saved_job_ad.strip()
+    if mark_unconfirmed:
+        marker_label = tr("[UNBESTÄTIGTE SCHÄTZUNG]", "[UNCONFIRMED ESTIMATE]")
+        if saved_job_ad:
+            saved_job_ad = f"{marker_label}\n\n{saved_job_ad}"
     format_choice = st.session_state.get(UIKeys.JOB_AD_FORMAT, "docx")
     font_choice = st.session_state.get(StateKeys.JOB_AD_FONT_CHOICE)
     logo_bytes = _get_company_logo_bytes()
@@ -12143,6 +12151,9 @@ def _collect_summary_export_artifacts(
     saved_guide = str(
         st.session_state.get(StateKeys.INTERVIEW_GUIDE_MD) or getattr(profile.generated, "interview_guide", "") or ""
     ).strip()
+    if mark_unconfirmed and saved_guide:
+        marker_label = tr("[UNBESTÄTIGTE SCHÄTZUNG]", "[UNCONFIRMED ESTIMATE]")
+        saved_guide = f"{marker_label}\n\n{saved_guide}"
     guide_format = st.session_state.get(UIKeys.JOB_AD_FORMAT, "docx")
     guide_title = profile.position.job_title or "interview-guide"
     guide_stem = _safe_export_stem(guide_title, fallback="interview-guide")
@@ -12236,6 +12247,19 @@ def _render_summary_export_section(
             "All available information is automatically included in the final output.",
         )
     )
+    mark_unconfirmed = st.checkbox(
+        tr("Unbestätigte Schätzwerte markieren", "Mark unconfirmed estimates"),
+        value=bool(st.session_state.get(SUMMARY_EXPORT_MARK_UNCONFIRMED, True)),
+        key=SUMMARY_EXPORT_MARK_UNCONFIRMED,
+    )
+    exclude_unconfirmed = st.checkbox(
+        tr(
+            "Unbestätigte Schätzwerte im JSON-Export ausschließen",
+            "Exclude unconfirmed estimates from JSON export",
+        ),
+        value=bool(st.session_state.get(SUMMARY_EXPORT_EXCLUDE_UNCONFIRMED, False)),
+        key=SUMMARY_EXPORT_EXCLUDE_UNCONFIRMED,
+    )
     st.divider()
 
     default_boolean_query = build_boolean_search(profile)
@@ -12292,12 +12316,21 @@ def _render_summary_export_section(
     )
 
     st.divider()
+    profile_bytes, profile_mime, profile_ext = prepare_clean_json(
+        profile_payload,
+        mark_unconfirmed=mark_unconfirmed,
+        exclude_unconfirmed=exclude_unconfirmed,
+    )
+    safe_stem = _safe_export_stem((profile.position.job_title or "").strip(), fallback="need-analysis-profile")
+    profile_filename = f"{safe_stem}.{profile_ext}"
     artifacts = _collect_summary_export_artifacts(
         profile=profile,
         profile_payload=profile_payload,
         profile_bytes=profile_bytes,
         profile_mime=profile_mime,
         profile_filename=profile_filename,
+        mark_unconfirmed=mark_unconfirmed,
+        exclude_unconfirmed=exclude_unconfirmed,
     )
     _render_artifact_list(artifacts, lang=lang)
 
