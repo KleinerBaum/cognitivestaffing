@@ -123,6 +123,7 @@ The repo is organized so schema, domain logic, LLM integration, and UI are separ
   - `wizard_tools/experimental/` – opt-in stage graph tooling for agent workflows (`ENABLE_AGENT_GRAPH=1`)  
   - `ui/` – shared Streamlit wizard UX kit modules (including compatibility shims)  
   - `wizard/step_registry.py` – canonical step definitions (metadata + renderers + ordering)  
+  - `wizard/metadata.py` – canonical field ownership (`resolve_step_key_for_field_path`) and section resolution used by wizard, follow-ups, and sidebar  
   - `docs/dev/wizard-steps.md` – developer guide for adding new steps safely  
   - `sidebar/`, `ui_views/`, `components/` – shared UI components  
   - `styles/`, `images/` – styling and assets (including onboarding hero CTA/timeline styles, sidebar hero/stepper theme CSS instead of inline `app.py`, `.onboarding-source-inputs` layout rules, and text-based previews for key UX elements such as steppers, origin markers, and validation areas)  

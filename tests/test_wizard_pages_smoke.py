@@ -1,38 +1,20 @@
 from __future__ import annotations
 
-from importlib import import_module
-from pathlib import Path
-
-import pytest
-
-from wizard_pages.base import WizardPage
+from wizard.step_registry import WIZARD_STEPS
+from wizard_pages import WIZARD_PAGES
 
 
-PAGES_DIR = Path(__file__).resolve().parents[1] / "wizard_pages"
+def test_wizard_pages_have_registry_order() -> None:
+    assert tuple(page.key for page in WIZARD_PAGES) == tuple(step.key for step in WIZARD_STEPS)
 
 
-def _iter_page_modules() -> list[str]:
-    modules: list[str] = []
-    for path in sorted(PAGES_DIR.glob("[0-9][0-9]_*.py")):
-        modules.append(f"wizard_pages.{path.stem}")
-    return modules
-
-
-@pytest.mark.parametrize("module_name", _iter_page_modules())
-def test_wizard_pages_expose_metadata(module_name: str) -> None:
-    module = import_module(module_name)
-
-    assert hasattr(module, "PAGE"), f"{module_name} does not expose PAGE"
-    page = module.PAGE
-    assert isinstance(page, WizardPage)
-
-    for lang in ("de", "en"):
-        label = page.label_for(lang)
-        assert isinstance(label, str) and label
-        header = page.header_for(lang)
-        assert isinstance(header, str) and header
-        subheader = page.subheader_for(lang)
-        assert isinstance(subheader, str) and subheader
-        variants = list(page.intro_variants_for(lang))
-        assert variants, f"{module_name} should expose intro variants"
-        assert all(isinstance(text, str) and text for text in variants)
+def test_wizard_pages_expose_bilingual_metadata() -> None:
+    assert WIZARD_PAGES
+    for page in WIZARD_PAGES:
+        for lang in ("de", "en"):
+            assert page.label_for(lang)
+            assert page.header_for(lang)
+            assert page.subheader_for(lang)
+            variants = tuple(page.intro_variants_for(lang))
+            assert variants
+            assert all(isinstance(item, str) and item for item in variants)
