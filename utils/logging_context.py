@@ -27,6 +27,22 @@ def _apply_context(record: logging.LogRecord) -> None:
     record.model = _model_var.get("-")
 
 
+class _ExpectedBareModeFilter(logging.Filter):
+    """Suppress known Streamlit bare-mode warnings to reduce log noise."""
+
+    _SUPPRESSED_MESSAGES: tuple[str, ...] = (
+        "missing ScriptRunContext",
+        "can be ignored when running in bare mode",
+    )
+
+    def filter(self, record: logging.LogRecord) -> bool:  # noqa: D401 - logging protocol
+        if record.levelno < logging.WARNING:
+            return True
+        message = record.getMessage()
+        lowered = message.lower()
+        return not all(token in lowered for token in self._SUPPRESSED_MESSAGES)
+
+
 class _ContextFilter(logging.Filter):
     """Inject contextual fields into log records for consistent formatting."""
 
@@ -55,6 +71,10 @@ def configure_logging(*, level: int = logging.INFO) -> None:
     has_filter = any(isinstance(flt, _ContextFilter) for flt in root.filters)
     if not has_filter:
         root.addFilter(_ContextFilter())
+    streamlit_logger = logging.getLogger("streamlit.runtime.scriptrunner_utils.script_run_context")
+    if not any(isinstance(flt, _ExpectedBareModeFilter) for flt in streamlit_logger.filters):
+        streamlit_logger.addFilter(_ExpectedBareModeFilter())
+
     global _RECORD_FACTORY_INSTALLED
     if not _RECORD_FACTORY_INSTALLED:
         default_factory = _DEFAULT_RECORD_FACTORY

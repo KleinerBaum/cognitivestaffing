@@ -3384,8 +3384,25 @@ def _candidate_company_page_urls(base_url: str, slugs: Sequence[str]) -> list[st
     return urls
 
 
+def _fetch_company_page_uncached(base_url: str, slugs: Sequence[str]) -> tuple[str, str] | None:
+    """Fetch the first available company sub-page from ``slugs`` without Streamlit APIs."""
+
+    for candidate in _candidate_company_page_urls(base_url, slugs):
+        cache_url = _normalise_company_page_url(candidate)
+        if not cache_url:
+            continue
+        try:
+            document = extract_text_from_url(cache_url)
+        except ValueError:
+            continue
+        content = str(document.text or "").strip()
+        if content:
+            return cache_url, content
+    return None
+
+
 def _fetch_company_page(base_url: str, slugs: Sequence[str]) -> tuple[str, str] | None:
-    """Fetch the first available company sub-page from ``slugs``."""
+    """Fetch a company sub-page while keeping Streamlit cache access on the main thread."""
 
     for candidate in _candidate_company_page_urls(base_url, slugs):
         cache_url = _normalise_company_page_url(candidate)
@@ -3395,9 +3412,9 @@ def _fetch_company_page(base_url: str, slugs: Sequence[str]) -> tuple[str, str] 
             content = _cached_fetch_company_page_text(cache_url)
         except ValueError:
             continue
-        content = content.strip()
-        if content:
-            return cache_url, content
+        normalized = content.strip()
+        if normalized:
+            return cache_url, normalized
     return None
 
 
@@ -3699,7 +3716,9 @@ def _bulk_fetch_company_sections(
     max_workers = min(4, len(sections)) or 1
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         future_to_section = {
-            executor.submit(wrap_with_current_context(_fetch_company_page, base_url, section["slugs"])): section
+            executor.submit(
+                wrap_with_current_context(_fetch_company_page_uncached, base_url, section["slugs"])
+            ): section
             for section in sections
         }
         for future in as_completed(future_to_section):
