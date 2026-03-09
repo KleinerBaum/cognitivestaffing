@@ -84,3 +84,56 @@ def test_step_status_uses_shared_critical_fields_source() -> None:
 def test_validator_registry_exposes_company_required_validators() -> None:
     assert "company.contact_email" in REQUIRED_FIELD_VALIDATORS
     assert "location.primary_city" in REQUIRED_FIELD_VALIDATORS
+
+
+def test_compute_step_missing_blocks_low_confidence_critical_fields() -> None:
+    profile = {
+        "business_context": {"domain": "FinTech"},
+        "company": {
+            "name": "Acme",
+            "contact_name": "Ada",
+            "contact_email": "hi@acme.test",
+            "contact_phone": "+491234",
+        },
+        "department": {"name": "Data Platform"},
+        "location": {"primary_city": "Berlin", "country": "DE"},
+        "meta": {
+            "field_metadata": {
+                "location.country": {
+                    "source": "heuristic",
+                    "confidence": 0.2,
+                    "confirmed": False,
+                }
+            },
+            "llm_recovery": {
+                "invalid_json": True,
+                "low_confidence_fields": ["location.country"],
+            },
+        },
+    }
+
+    missing = compute_step_missing(profile, _company_step())
+
+    assert "location.country" in missing.low_confidence
+    assert "location.country" in missing.blocked_by_confidence
+    assert is_step_complete(profile, _company_step()) is False
+
+
+def test_compute_field_score_marks_json_repaired_and_missing_list() -> None:
+    from wizard.step_status import compute_field_score
+
+    profile = {
+        "requirements": {"hard_skills_required": []},
+        "meta": {
+            "llm_recovery": {
+                "invalid_json": True,
+                "low_confidence_fields": ["requirements.hard_skills_required"],
+            }
+        },
+    }
+
+    score = compute_field_score(profile, "requirements.hard_skills_required", is_critical=True)
+
+    assert score.tier == "low"
+    assert "REQ_LIST_MISSING" in score.reasons
+    assert "JSON_REPAIRED" in score.reasons

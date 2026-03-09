@@ -90,3 +90,43 @@ def test_parse_followups_deduplicates_fields() -> None:
     assert len(questions) == 1
     assert questions[0]["field"] == "company.name"
     assert questions[0]["question"] == "What is the company name?"
+
+
+def test_prioritize_followups_prefers_low_confidence_critical_fields() -> None:
+    profile = {
+        "company": {"name": "ACME"},
+        "location": {"country": "DE"},
+        "meta": {
+            "field_metadata": {
+                "location.country": {
+                    "source": "heuristic",
+                    "confidence": 0.2,
+                    "confirmed": False,
+                },
+                "company.name": {
+                    "source": "user",
+                    "confidence": 1.0,
+                    "confirmed": True,
+                    "evidence_snippet": "ACME",
+                },
+            }
+        },
+    }
+    questions = [
+        {
+            "field": "company.name",
+            "question": "Confirm company name",
+            "priority": "critical",
+            "suggestions": ["ACME"],
+        },
+        {
+            "field": "location.country",
+            "question": "Confirm country",
+            "priority": "normal",
+            "suggestions": ["DE"],
+        },
+    ]
+
+    result = followups_mod._prioritize_heuristic_followups(questions, profile=profile)
+
+    assert result[0]["field"] == "location.country"
