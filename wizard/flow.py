@@ -4720,6 +4720,7 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
     }
     st.session_state[StateKeys.EXTRACTION_MISSING] = missing
     st.session_state[StateKeys.PROFILE_METADATA] = metadata
+    _render_low_confidence_extraction_hint(metadata)
     existing_followups = st.session_state.get(StateKeys.FOLLOWUPS) or []
     if st.session_state.get("auto_reask"):
         if not missing:
@@ -4761,6 +4762,27 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
 
     first_incomplete, _completed = _update_section_progress()
     st.session_state[StateKeys.PENDING_INCOMPLETE_JUMP] = bool(first_incomplete)
+
+
+def _render_low_confidence_extraction_hint(metadata: Mapping[str, Any]) -> None:
+    """Show bilingual hint when extraction confidence is low for critical skill lists."""
+
+    recovery_meta = metadata.get("llm_recovery") if isinstance(metadata, Mapping) else None
+    if not isinstance(recovery_meta, Mapping):
+        return
+    low_conf_fields = set(recovery_meta.get("low_confidence_fields") or [])
+    required_fields = {
+        "requirements.hard_skills_required",
+        "requirements.soft_skills_required",
+    }
+    if not (required_fields & low_conf_fields):
+        return
+    st.warning(
+        tr(
+            "⚠️ Niedrige Konfidenz bei Pflicht-Skills erkannt – bitte manuell prüfen/ergänzen.",
+            "⚠️ Low confidence detected for required skills – please review/complete manually.",
+        )
+    )
 
 
 def _format_timeout_message() -> str:

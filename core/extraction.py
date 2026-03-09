@@ -12,7 +12,7 @@ from pydantic import ValidationError
 from core.critical_fields import load_critical_fields
 from core.confidence import DEFAULT_AI_TIER
 from core.schema import canonicalize_profile_payload, coerce_and_fill, merge_profile_with_defaults
-from llm.json_repair import parse_profile_json, repair_profile_payload
+from llm.json_repair import parse_profile_json, repair_profile_payload, retry_profile_payload
 from models.need_analysis import NeedAnalysisProfile
 from utils.json_repair import JsonRepairStatus
 from ingest.heuristics import extract_responsibilities, refine_requirements
@@ -386,6 +386,21 @@ def _clean_validated_payload(
     return cleaned
 
 
+def _requirements_retry_needed(profile: NeedAnalysisProfile, source_text: str | None) -> bool:
+    """Return ``True`` when required skill lists are empty despite source cues."""
+
+    if not source_text or not source_text.strip():
+        return False
+    requirements_text_has_cues = _text_contains_bullets(source_text) or _contains_keywords(
+        source_text, _REQUIREMENT_PATTERNS
+    )
+    if not requirements_text_has_cues:
+        return False
+    hard_required = list(profile.requirements.hard_skills_required or [])
+    soft_required = list(profile.requirements.soft_skills_required or [])
+    return not hard_required and not soft_required
+
+
 def _apply_heuristic_fallbacks(
     profile: NeedAnalysisProfile,
     *,
@@ -459,6 +474,31 @@ def parse_structured_payload(raw: str, *, source_text: str | None = None) -> tup
     merged_payload = merge_profile_with_defaults(filled_profile.model_dump(mode="python"))
 
     heuristic_profile = NeedAnalysisProfile.model_validate(merged_payload)
+
+    if _requirements_retry_needed(heuristic_profile, source_text):
+        retry_payload = retry_profile_payload(
+            merged_payload,
+            source_text=source_text or "",
+            focus_fields=(
+                "requirements.hard_skills_required",
+                "requirements.soft_skills_required",
+            ),
+            reason="required_skill_lists_empty_despite_source_cues",
+        )
+        if retry_payload:
+            try:
+                cleaned_payload, _validated_model, repaired_in_validation = _validate_with_repair(
+                    retry_payload,
+                    issues=issues,
+                )
+                used_repair = used_repair or repaired_in_validation
+                filled_profile = coerce_and_fill(cleaned_payload)
+                merged_payload = merge_profile_with_defaults(filled_profile.model_dump(mode="python"))
+                heuristic_profile = NeedAnalysisProfile.model_validate(merged_payload)
+                issues.append("requirements.required_skills: forced retry completed")
+            except (InvalidExtractionPayload, ValidationError):
+                issues.append("requirements.required_skills: forced retry failed")
+
     heuristic_profile, heuristics_used = _apply_heuristic_fallbacks(
         heuristic_profile,
         source_text=source_text,
@@ -493,6 +533,11 @@ def parse_structured_payload(raw: str, *, source_text: str | None = None) -> tup
     for path in sorted(added_paths):
         if path in _REQUIRED_PATHS:
             issues.append(f"{path}: added missing default")
+
+    final_profile = NeedAnalysisProfile.model_validate(merged_payload)
+    if _requirements_retry_needed(final_profile, source_text):
+        issues.append("requirements.required_skills: low confidence - manual review required")
+        used_repair = True
 
     _log_schema_omissions(merged_payload, source_text=source_text)
 
@@ -532,7 +577,14 @@ def mark_low_confidence(
     recovery_payload["confidence"] = confidence
     recovery_payload["repaired"] = repaired
     if issues:
-        recovery_payload["errors"] = _deduplicate_issues(list(issues))
+        deduped_errors = _deduplicate_issues(list(issues))
+        recovery_payload["errors"] = deduped_errors
+        low_conf_fields: set[str] = set(recovery_payload.get("low_confidence_fields") or [])
+        for item in deduped_errors:
+            if item.startswith("requirements.required_skills"):
+                low_conf_fields.update({"requirements.hard_skills_required", "requirements.soft_skills_required"})
+        if low_conf_fields:
+            recovery_payload["low_confidence_fields"] = sorted(low_conf_fields)
     metadata["llm_recovery"] = recovery_payload
 
     logger.warning("Structured extraction returned invalid JSON; coerced result with low confidence.")
