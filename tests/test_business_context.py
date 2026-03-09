@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import streamlit as st
 
-from constants.keys import ProfilePaths, StateKeys
+from constants.keys import StateKeys
 from core.schema import coerce_and_fill
 from models.need_analysis import NeedAnalysisProfile
 from state.ensure_state import migrate_business_context_state
@@ -30,7 +30,7 @@ def test_migrate_business_context_state_backfills_org_fields() -> None:
 def test_business_context_domain_is_only_required_field() -> None:
     step = get_step("company")
     assert step is not None
-    assert step.required_fields == ()
+    assert step.required_fields == ("business_context.domain",)
 
 
 def test_business_context_round_trip_persists_values() -> None:

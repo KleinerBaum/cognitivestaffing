@@ -266,10 +266,11 @@ class WizardRouter:
         if section_index is None:
             return missing
 
+        required_lookup = set(page.required_fields)
         critical_missing = [
             field
             for field in get_missing_critical_fields(max_section=section_index)
-            if resolve_section_for_field(field) == section_index
+            if resolve_section_for_field(field) == section_index and field not in required_lookup
         ]
         combined = list(dict.fromkeys((*missing, *critical_missing)))
         if not combined:

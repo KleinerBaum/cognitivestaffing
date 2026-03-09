@@ -216,6 +216,7 @@ def validate_required_fields_by_page(
 
     errors: list[str] = []
     for page in pages or WIZARD_PAGES:
+        section_index = PAGE_SECTION_INDEXES.get(page.key)
         for field in page.required_fields:
             if not field_belongs_to_page(field, page.key):
                 errors.append(f"{page.key}: required field '{field}' is not mapped to this page.")
@@ -224,7 +225,22 @@ def validate_required_fields_by_page(
                 errors.append(
                     f"{page.key}: required field '{field}' matches follow-up prefixes for {', '.join(matching_pages)}."
                 )
+            if section_index is not None:
+                resolved_section = resolve_section_for_field(field)
+                if resolved_section != section_index:
+                    errors.append(
+                        f"{page.key}: required field '{field}' resolves to section {resolved_section} instead of {section_index}."
+                    )
     return errors
+
+
+def validate_step_metadata_consistency(
+    pages: Sequence[WizardPage] | None = None,
+) -> list[str]:
+    """Validate consistency between required fields, ownership prefixes and section mapping."""
+
+    selected_pages = tuple(pages or WIZARD_PAGES)
+    return validate_required_fields_by_page(selected_pages)
 
 
 def _field_is_contextually_optional(field: str, profile_data: Mapping[str, object]) -> bool:
@@ -374,4 +390,5 @@ __all__ = [
     "resolve_section_for_field",
     "resolve_step_key_for_field_path",
     "validate_required_fields_by_page",
+    "validate_step_metadata_consistency",
 ]

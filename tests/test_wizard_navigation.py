@@ -160,9 +160,9 @@ _STEP_DEFINITIONS: tuple[tuple[str, int, bool, tuple[str, ...]], ...] = (
             "location.primary_city",
         ),
     ),
-    ("team", 3, False, ()),
-    ("role_tasks", 4, False, ()),
-    ("skills", 5, False, ()),
+    ("team", 3, False, ("department.name",)),
+    ("role_tasks", 4, False, ("responsibilities.items",)),
+    ("skills", 5, False, ("requirements.hard_skills_required",)),
     ("benefits", 6, True, ()),
     ("interview", 7, False, ()),
     ("summary", 8, False, ()),
@@ -1025,12 +1025,54 @@ def test_company_required_validators_use_profile_when_widget_state_missing(
     assert str(ProfilePaths.LOCATION_PRIMARY_CITY) not in missing
 
 
+def test_team_required_field_blocks_next_until_answered(
+    monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
+) -> None:
+    """Missing required fields should disable Next independent from critical follow-ups."""
+
+    st.session_state[StateKeys.PROFILE] = {"department": {}, "meta": {}}
+    st.session_state[StateKeys.FOLLOWUPS] = []
+
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    router._state["current_step"] = "team"
+    query_params["step"] = ["team"]
+
+    columns = [DummyColumn(), DummyColumn(), DummyColumn()]
+    monkeypatch.setattr(st, "columns", lambda *_, **__: columns)
+    monkeypatch.setattr(st, "container", lambda: DummyContainer())
+    monkeypatch.setattr(st, "markdown", lambda *_, **__: None)
+    monkeypatch.setattr(st, "caption", lambda *_, **__: None)
+    monkeypatch.setattr(st, "warning", lambda *_, **__: None)
+
+    button_calls: list[dict[str, Any]] = []
+
+    def fake_button(*args: object, **kwargs: object) -> bool:
+        button_calls.append({"args": args, "kwargs": kwargs})
+        return False
+
+    monkeypatch.setattr(st, "button", fake_button)
+
+    router.run()
+
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_team_bottom"]
+    assert next_calls
+    assert next_calls[-1]["kwargs"].get("disabled", False) is True
+
+    st.session_state[StateKeys.PROFILE]["department"]["name"] = "Engineering"
+    button_calls.clear()
+    router.run()
+
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_team_bottom"]
+    assert next_calls[-1]["kwargs"].get("disabled", False) is False
+
+
 def test_critical_followup_blocks_until_answered(
     monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
 ) -> None:
     """Critical follow-ups scoped to the page should gate the Next button."""
 
-    st.session_state[StateKeys.PROFILE] = {"position": {}, "meta": {}}
+    st.session_state[StateKeys.PROFILE] = {"position": {}, "department": {"name": "Engineering"}, "meta": {}}
     st.session_state[StateKeys.FOLLOWUPS] = [{"field": "team.reporting_line", "priority": "critical"}]
 
     missing_ref = {"value": []}
@@ -1083,20 +1125,20 @@ def test_critical_followup_blocks_until_answered(
     assert wizard_state["current_step"] == "role_tasks"
 
 
-def test_requirements_followup_blocks_role_tasks(
+def test_requirements_followup_blocks_skills(
     monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
 ) -> None:
-    """Critical requirements follow-ups should disable Next until answered."""
+    """Critical requirements follow-ups should disable Next on the skills step."""
 
-    st.session_state[StateKeys.PROFILE] = {"requirements": {}}
+    st.session_state[StateKeys.PROFILE] = {"requirements": {"hard_skills_required": ["Python"]}, "responsibilities": {"items": ["Build services"]}}
     st.session_state[StateKeys.FOLLOWUPS] = [
         {"field": "requirements.background_check_required", "priority": "critical"}
     ]
 
     missing_ref = {"value": []}
     router, _ = _make_router(monkeypatch, query_params, missing_ref)
-    router._state["current_step"] = "role_tasks"
-    query_params["step"] = ["role_tasks"]
+    router._state["current_step"] = "skills"
+    query_params["step"] = ["skills"]
 
     columns = [DummyColumn(), DummyColumn(), DummyColumn()]
     monkeypatch.setattr(st, "columns", lambda *_, **__: columns)
@@ -1109,7 +1151,7 @@ def test_requirements_followup_blocks_role_tasks(
         pass
 
     button_calls: list[dict[str, Any]] = []
-    responses = {"wizard_next_role_tasks_bottom": iter([False, True])}
+    responses = {"wizard_next_skills_bottom": iter([False, False, True])}
 
     def fake_button(*args: object, **kwargs: object) -> bool:
         button_calls.append({"args": args, "kwargs": kwargs})
@@ -1127,19 +1169,16 @@ def test_requirements_followup_blocks_role_tasks(
 
     router.run()
 
-    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_role_tasks_bottom"]
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_skills_bottom"]
     assert next_calls[-1]["kwargs"].get("disabled", False) is True
 
     requirements = st.session_state[StateKeys.PROFILE].setdefault("requirements", {})
     requirements["background_check_required"] = True
 
-    with pytest.raises(RerunTriggered):
-        router.run()
+    router.run()
 
-    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_role_tasks_bottom"]
+    next_calls = [call for call in button_calls if call["kwargs"].get("key") == "wizard_next_skills_bottom"]
     assert next_calls[-1]["kwargs"].get("disabled", False) is False
-    wizard_state = router._state
-    assert wizard_state["current_step"] == "skills"
 
 
 def test_summary_followup_counts_as_missing(
