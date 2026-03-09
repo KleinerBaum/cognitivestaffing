@@ -286,7 +286,7 @@ def test_bulk_fetch_company_sections_returns_success_and_miss(monkeypatch) -> No
             return (f"{base_url}unternehmen", "Über uns")
         return None
 
-    monkeypatch.setattr("wizard._fetch_company_page", fake_fetch)
+    monkeypatch.setattr("wizard.flow._fetch_company_page_uncached", fake_fetch)
 
     sections = [
         cast(
