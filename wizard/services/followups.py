@@ -25,6 +25,20 @@ from wizard.services.gaps import load_critical_fields
 logger = logging.getLogger(__name__)
 
 
+LEGACY_TO_CANONICAL_FIELD_MAP: dict[str, str] = {
+    "position.location": "location.primary_city",
+    "position.context": "position.role_summary",
+    "compensation.salary_range": "compensation.salary_min",
+}
+
+
+def _canonicalize_field_path(field: str) -> str:
+    """Map legacy follow-up field paths to canonical schema paths."""
+
+    normalized = str(field or "").strip()
+    return LEGACY_TO_CANONICAL_FIELD_MAP.get(normalized, normalized)
+
+
 class LLMCallable(Protocol):
     """Callable signature for follow-up generation LLM calls."""
 
@@ -119,8 +133,8 @@ _FALLBACK_FOLLOWUPS: dict[str, list[dict[str, Any]]] = {
             ],
         },
         {
-            "field": "position.location",
-            "question": "Where will the role be based?",
+            "field": "location.primary_city",
+            "question": "Which city is the role based in?",
             "priority": "optional",
             "suggestions": [
                 "Berlin (onsite)",
@@ -148,8 +162,8 @@ _FALLBACK_FOLLOWUPS: dict[str, list[dict[str, Any]]] = {
             ],
         },
         {
-            "field": "position.location",
-            "question": "Wo ist die Stelle angesiedelt?",
+            "field": "location.primary_city",
+            "question": "In welcher Stadt ist die Stelle angesiedelt?",
             "priority": "optional",
             "suggestions": [
                 "Berlin (vor Ort)",
@@ -170,7 +184,7 @@ def _prioritize_heuristic_followups(
     critical_fields = set(load_critical_fields())
 
     def _score(item: Mapping[str, Any]) -> tuple[int, float, int]:
-        field = str(item.get("field") or "").strip()
+        field = _canonicalize_field_path(str(item.get("field") or "").strip())
         if not field:
             return (3, 1.0, 3)
 
@@ -215,7 +229,7 @@ def _fallback_followups(
     questions = _dedupe_questions_by_field(list(_FALLBACK_FOLLOWUPS.get(lang, _FALLBACK_FOLLOWUPS["en"])))
     if role_context:
         role_question = {
-            "field": "position.context",
+            "field": "position.role_summary",
             "question": (
                 f"Anything else we should know about the role context: {role_context}?"
                 if lang == "en"
@@ -236,7 +250,7 @@ def _fallback_followups(
 def _normalize_question(item: Mapping[str, Any]) -> dict[str, Any] | None:
     """Return a schema-compliant question entry or ``None`` when invalid."""
 
-    field = str(item.get("field") or "").strip()
+    field = _canonicalize_field_path(str(item.get("field") or "").strip())
     question = str(item.get("question") or "").strip()
     if not field or not question:
         return None

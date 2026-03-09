@@ -315,7 +315,7 @@ def test_generate_followups_salary_implausible(monkeypatch) -> None:
 
     out = generate_followup_questions(data, use_rag=False)
 
-    assert out[0]["field"] == "compensation.salary_range"
+    assert out[0]["field"] in {"compensation.salary_min", "compensation.salary_max"}
     assert "salary" in out[0]["question"].lower()
     assert "unusual" in out[0]["question"].lower()
 

@@ -1,6 +1,8 @@
 
 ## Unreleased
 
+- Follow-up field keys are now normalized to canonical schema paths across `question_logic` and `wizard/services/followups`; legacy keys (`position.location`, `position.context`, `compensation.salary_range`) are mapped to `location.primary_city`, `position.role_summary`, and `compensation.salary_min`.
+- Role-based follow-up field mapping (`role_field_map.json`) now uses canonical namespaced schema paths only.
 - Added structured `wizard.flow` JSON event logs (`flow_event`) for extraction/follow-up lifecycle observability and Streamlit-Cloud log filtering.
 - Added compact extraction quality summary logging with `missing_required_count`, `repair_count`, `heuristic_critical_count`, `degraded`, and `degraded_reasons`.
 - Added degraded-run alerting criteria (currently `repair_count > 1` and missing required fields after retry) and wizard warning surfacing for manual QA handoff.
