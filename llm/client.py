@@ -68,6 +68,7 @@ class StructuredExtractionOutcome:
     low_confidence: bool = False
     schema_unrecoverable_short_circuit: bool = False
     repair_applied: bool = False
+    repair_count: int = 0
     repair_confidence: float | None = None
 
 
@@ -865,6 +866,7 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
                 source="chat" if low_confidence else source,
                 low_confidence=True,
                 repair_applied=True,
+                repair_count=1,
                 repair_confidence=repair_result.repair_confidence,
             )
         return None
@@ -937,6 +939,7 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
             low_confidence=low_confidence,
             schema_unrecoverable_short_circuit=schema_short_circuit,
             repair_applied=content.repair_applied,
+            repair_count=content.repair_count,
             repair_confidence=content.repair_confidence,
         )
 
@@ -1069,6 +1072,7 @@ def _extract_json_outcome(
                 source=outcome.source,
                 low_confidence=outcome.low_confidence,
                 repair_applied=outcome.repair_applied,
+                repair_count=outcome.repair_count,
                 repair_confidence=outcome.repair_confidence,
             )
 
@@ -1133,6 +1137,7 @@ def _extract_json_outcome(
                     source="chat",
                     low_confidence=True,
                     repair_applied=repair_applied,
+                    repair_count=1 if repair_applied else 0,
                     repair_confidence=repair_confidence,
                 )
             span.set_status(Status(StatusCode.ERROR, "fallback_parse_failed"))

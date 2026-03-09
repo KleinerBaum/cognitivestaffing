@@ -482,6 +482,14 @@ StopException = StreamlitStopException
 logger = logging.getLogger(__name__)
 _BRAND_URL_VALIDATOR = TypeAdapter(HttpUrl)
 
+
+def _log_flow_event(event: str, **payload: Any) -> None:
+    """Emit a structured wizard.flow event as a JSON log line."""
+
+    event_payload: dict[str, Any] = {"event": event, "component": "wizard.flow", **payload}
+    logger.info("flow_event %s", json.dumps(event_payload, ensure_ascii=False, sort_keys=True, default=str))
+
+
 _RECOVERABLE_FLOW_ERRORS: tuple[type[Exception], ...] = (
     StreamlitAPIException,
     ValidationError,
@@ -4379,7 +4387,7 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
         if cached_key == extraction_cache_key and isinstance(cached_result, ExtractionResult):
             return cached_result
         start_time = time.perf_counter()
-        logger.info("structured_extraction start cache_key=%s", extraction_cache_key)
+        _log_flow_event("structured_extraction.start", cache_key=extraction_cache_key)
         result = _cached_extract_profile(
             text,
             title_hint=title_hint,
@@ -4389,7 +4397,16 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
             reasoning_effort=effort_value,
         )
         duration = time.perf_counter() - start_time
-        logger.info("structured_extraction end cache_key=%s duration=%.2fs", extraction_cache_key, duration)
+        _log_flow_event(
+            "structured_extraction.end",
+            cache_key=extraction_cache_key,
+            duration_s=round(duration, 3),
+            missing_required_count=result.missing_required_count,
+            repair_count=result.repair_count,
+            heuristic_critical_count=result.heuristic_critical_count,
+            degraded=result.degraded,
+            degraded_reasons=result.degraded_reasons or [],
+        )
         return result
 
     if progress:
@@ -4408,11 +4425,15 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
     st.session_state[StateKeys.WORKFLOW_STATUS] = workflow_status
 
     extraction_result = extraction_run.get("structured_extraction")
+    extraction_degraded = False
+    extraction_degraded_reasons: list[str] = []
     if extraction_result and extraction_result.status is TaskStatus.SUCCESS and extraction_result.result is not None:
         extracted_payload = extraction_result.result
         extracted_data = extracted_payload.data
         recovered = extracted_payload.recovered
         extraction_issues = extracted_payload.issues
+        extraction_degraded = bool(extracted_payload.degraded)
+        extraction_degraded_reasons = list(extracted_payload.degraded_reasons or [])
         st.session_state[StateKeys.EXTRACTION_CACHE_KEY] = extraction_cache_key
         st.session_state[StateKeys.EXTRACTION_CACHE_RESULT] = extracted_payload
     else:
@@ -4448,18 +4469,28 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
         st.session_state[StateKeys.EXTRACTION_SUMMARY] = warning_summary
         st.session_state[StateKeys.STEPPER_WARNING] = extraction_warning
     else:
-        if recovered or extraction_issues:
+        if recovered or extraction_issues or extraction_degraded:
             extraction_warning = tr(
-                "⚠️ KI-Extraktion wurde automatisch repariert – bitte Felder prüfen.",
-                "⚠️ AI extraction was auto-repaired – please double-check the affected fields.",
+                "⚠️ KI-Extraktion wurde automatisch repariert oder ist eingeschränkt – bitte Felder prüfen.",
+                "⚠️ AI extraction was auto-repaired or is degraded – please double-check the affected fields.",
             )
             warning_summary = {tr("Status", "Status"): extraction_warning}
-            details = extraction_issues or [
-                tr(
-                    "Antwort enthielt beschädigtes JSON und wurde automatisch bereinigt.",
-                    "Response contained malformed JSON and was automatically trimmed.",
+            details = list(extraction_issues)
+            if extraction_degraded and extraction_degraded_reasons:
+                details.append(
+                    tr(
+                        "Extraktionslauf als eingeschränkt markiert: ",
+                        "Extraction run marked as degraded: ",
+                    )
+                    + ", ".join(extraction_degraded_reasons)
                 )
-            ]
+            if not details:
+                details = [
+                    tr(
+                        "Antwort enthielt beschädigtes JSON und wurde automatisch bereinigt.",
+                        "Response contained malformed JSON and was automatically trimmed.",
+                    )
+                ]
             warning_summary[tr("Fehlerdetails", "Error details")] = "\n".join(f"• {entry}" for entry in details)
             st.session_state[StateKeys.EXTRACTION_SUMMARY] = warning_summary
             st.session_state[StateKeys.STEPPER_WARNING] = extraction_warning
@@ -4489,6 +4520,30 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
     profile = coerce_and_fill(extracted_data)
     _apply_branding_to_profile(profile)
     profile = apply_basic_fallbacks(profile, text, metadata=metadata)
+
+    critical_fields = {field.strip() for field in load_critical_fields() if field.strip()}
+    field_sources = metadata.get("field_sources") if isinstance(metadata, Mapping) else None
+    heuristic_critical_count = 0
+    if critical_fields and isinstance(field_sources, Mapping):
+        heuristic_critical_count = sum(
+            1
+            for field in critical_fields
+            if isinstance(field_sources.get(field), Mapping)
+            and str(cast(Mapping[str, Any], field_sources.get(field)).get("source") or "").lower() == "heuristic"
+        )
+
+    _log_flow_event(
+        "structured_extraction.summary",
+        cache_key=extraction_cache_key,
+        missing_required_count=(
+            extraction_result.result.missing_required_count if extraction_result and extraction_result.result else 0
+        ),
+        repair_count=(extraction_result.result.repair_count if extraction_result and extraction_result.result else 0),
+        heuristic_critical_count=heuristic_critical_count,
+        degraded=extraction_degraded,
+        degraded_reasons=extraction_degraded_reasons,
+    )
+
     _enrich_company_profile_via_web(profile, metadata, vector_store_id=vector_store_id or None)
     lang = getattr(st.session_state, "lang", "en") or "en"
     job_title_value = (profile.position.job_title or "").strip()
@@ -4645,7 +4700,7 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
         store_value = context.get("vector_store_id")
         vector_store_value = str(store_value) if store_value else None
         start_time = time.perf_counter()
-        logger.info("followup_generation start cache_key=%s", followup_cache_key)
+        _log_flow_event("followup_generation.start", cache_key=followup_cache_key)
         result = generate_followups(
             dict(payload),
             mode=followup_mode,
@@ -4653,7 +4708,7 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
             vector_store_id=vector_store_value,
         )
         duration = time.perf_counter() - start_time
-        logger.info("followup_generation end cache_key=%s duration=%.2fs", followup_cache_key, duration)
+        _log_flow_event("followup_generation.end", cache_key=followup_cache_key, duration_s=round(duration, 3))
         return result
 
     if progress:
