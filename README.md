@@ -226,6 +226,7 @@ MODEL_ROUTING__interview_guide = "gpt-4o-mini"
 ### “I want to change which fields are required/critical”
 - Required fields (UI gating):
   - Step definitions in `wizard_pages/` and/or step modules
+  - Register required-field input validators only in `wizard/validators/registry.py` (single extension point shared by router + metadata)
   - Ensure `PAGE_FOLLOWUP_PREFIXES` + `validate_required_fields_by_page` stay aligned (`wizard/metadata.py`, `tests/test_required_fields_mapping.py`)
 - Critical fields (follow-up prompts + missing badges):
   - `critical_fields.json`

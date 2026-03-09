@@ -8,14 +8,14 @@ explicit also makes type-checking and unit tests straightforward.
 
 from __future__ import annotations
 
-from typing import Callable, Final, Mapping, Sequence, cast
+from typing import Final, Mapping, Sequence, cast
 
 import streamlit as st
 
-from constants.keys import ProfilePaths, StateKeys
+from constants.keys import StateKeys
 from wizard._logic import get_in
 from wizard_pages import WIZARD_PAGES, WizardPage
-from wizard.company_validators import persist_contact_email, persist_primary_city
+from wizard.validators.registry import REQUIRED_FIELD_VALIDATORS
 from wizard.services.gaps import detect_missing_critical_fields, field_is_contextually_optional, load_critical_fields
 
 # Critical fields loaded from ``critical_fields.json`` for reuse across UI/service layers.
@@ -138,11 +138,6 @@ SECTION_FILTER_OVERRIDES: dict[str, int] = {
     "position.seniority_level": PAGE_SECTION_INDEXES.get("team", COMPANY_STEP_INDEX),
     "employment.remote_percentage": PAGE_SECTION_INDEXES.get("team", COMPANY_STEP_INDEX),
     "process.interview_stages": PAGE_SECTION_INDEXES.get("interview", COMPANY_STEP_INDEX),
-}
-
-_VALIDATED_CRITICAL_FIELDS: Final[dict[str, Callable[[str | None], tuple[str | None, tuple[str, str] | None]]]] = {
-    str(ProfilePaths.COMPANY_CONTACT_EMAIL): persist_contact_email,
-    str(ProfilePaths.LOCATION_PRIMARY_CITY): persist_primary_city,
 }
 
 
@@ -334,7 +329,7 @@ def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
         followups=st.session_state.get(StateKeys.FOLLOWUPS, []),
         max_section=max_section,
         section_resolver=resolve_section_for_field,
-        field_validators=_VALIDATED_CRITICAL_FIELDS,
+        field_validators=REQUIRED_FIELD_VALIDATORS,
         profile_refresher=_refresh_profile,
     )
 
