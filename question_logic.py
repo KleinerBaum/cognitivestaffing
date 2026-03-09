@@ -8,7 +8,7 @@
 Outputs (for UI sorting and chips):
 [
   {
-    "field": "salary_range",
+    "field": "compensation.salary_min",
     "question": "...",
     "priority": "critical" | "normal" | "optional",
     "suggestions": ["…", "…"]         # optional
@@ -118,121 +118,121 @@ def _load_role_field_map() -> dict[str, list[str]]:
 ROLE_QUESTION_MAP: Dict[str, List[Dict[str, str]]] = {
     "software developers": [
         {
-            "field": "programming_languages",
+            "field": "requirements.hard_skills_required",
             "text_key": "role_questions.software_developers.programming_languages",
         },
         {
-            "field": "development_methodology",
+            "field": "responsibilities.items",
             "text_key": "role_questions.software_developers.development_methodology",
         },
     ],
     "sales, marketing and public relations professionals": [
         {
-            "field": "target_markets",
+            "field": "business_context.domain",
             "text_key": "role_questions.sales_professionals.target_markets",
         },
         {
-            "field": "sales_quota",
+            "field": "position.performance_indicators",
             "text_key": "role_questions.sales_professionals.sales_quota",
         },
         {
-            "field": "campaign_types",
+            "field": "responsibilities.items",
             "text_key": "role_questions.sales_professionals.campaign_types",
         },
         {
-            "field": "digital_marketing_platforms",
+            "field": "requirements.tools_and_technologies",
             "text_key": "role_questions.sales_professionals.digital_marketing_platforms",
         },
     ],
     "nursing and midwifery professionals": [
         {
-            "field": "shift_schedule",
+            "field": "employment.work_schedule",
             "text_key": "role_questions.nursing.shift_schedule",
         },
     ],
     "medical doctors": [
         {
-            "field": "board_certification",
+            "field": "requirements.certifications",
             "text_key": "role_questions.medical_doctors.board_certification",
         },
         {
-            "field": "on_call_requirements",
+            "field": "employment.overtime_expected",
             "text_key": "role_questions.medical_doctors.on_call_requirements",
         },
     ],
     "teaching professionals": [
         {
-            "field": "grade_level",
+            "field": "position.role_summary",
             "text_key": "role_questions.teachers.grade_level",
         },
         {
-            "field": "teaching_license",
+            "field": "requirements.certifications",
             "text_key": "role_questions.teachers.teaching_license",
         },
     ],
     "graphic and multimedia designers": [
         {
-            "field": "design_software_tools",
+            "field": "requirements.tools_and_technologies",
             "text_key": "role_questions.designers.design_software_tools",
         },
         {
-            "field": "portfolio_url",
+            "field": "requirements.portfolio_required",
             "text_key": "role_questions.designers.portfolio_url",
         },
     ],
     "business services and administration managers not elsewhere classified": [
         {
-            "field": "project_management_methodologies",
+            "field": "requirements.tools_and_technologies",
             "text_key": "role_questions.business_managers.project_management_methodologies",
         },
         {
-            "field": "budget_responsibility",
+            "field": "position.decision_authority",
             "text_key": "role_questions.business_managers.budget_responsibility",
         },
     ],
     "systems analysts": [
         {
-            "field": "machine_learning_frameworks",
+            "field": "requirements.tools_and_technologies",
             "text_key": "role_questions.systems_analysts.machine_learning_frameworks",
         },
         {
-            "field": "data_analysis_tools",
+            "field": "requirements.tools_and_technologies",
             "text_key": "role_questions.systems_analysts.data_analysis_tools",
         },
     ],
     "accountants": [
         {
-            "field": "accounting_software",
+            "field": "requirements.tools_and_technologies",
             "text_key": "role_questions.accountants.accounting_software",
         },
         {
-            "field": "professional_certifications",
+            "field": "requirements.certifications",
             "text_key": "role_questions.accountants.professional_certifications",
         },
     ],
     "human resource professionals": [
         {
-            "field": "hr_software_tools",
+            "field": "requirements.tools_and_technologies",
             "text_key": "role_questions.hr.hr_software_tools",
         },
         {
-            "field": "recruitment_channels",
+            "field": "company.brand_keywords",
             "text_key": "role_questions.hr.recruitment_channels",
         },
     ],
     "civil engineers": [
         {
-            "field": "civil_project_types",
+            "field": "position.key_projects",
             "text_key": "role_questions.civil_engineers.civil_project_types",
         },
         {
-            "field": "engineering_software_tools",
+            "field": "requirements.tools_and_technologies",
             "text_key": "role_questions.civil_engineers.engineering_software_tools",
         },
     ],
     "chefs": [
         {
-            "field": "cuisine_specialties",
+            "field": "requirements.hard_skills_required",
             "text_key": "role_questions.chefs.cuisine_specialties",
         },
     ],
@@ -392,7 +392,7 @@ def _detect_implausible(field: str, value: Any) -> Optional[Tuple[str, Any]]:
 
 def _question_text_for_field(field: str, lang: str, reason: Optional[Tuple[str, Any]]) -> str:
     label = field.split(".")[-1].replace("_", " ")
-    if field == "compensation.salary_range":
+    if field in {"compensation.salary_min", "compensation.salary_max"}:
         if reason and reason[0] == "salary_unrealistic":
             base = tr(
                 "Die bisherige Gehaltsangabe wirkt ungewöhnlich. Wie lautet die realistische Gehaltsspanne (Min/Max) inklusive Währung?",
@@ -465,7 +465,7 @@ def _question_text_for_field(field: str, lang: str, reason: Optional[Tuple[str, 
             "Please provide the {label}.",
             lang=lang,
         ).format(label=label)
-    if reason and reason[0] == "placeholder" and field != "compensation.salary_range":
+    if reason and reason[0] == "placeholder" and field not in {"compensation.salary_min", "compensation.salary_max"}:
         base = tr(
             "Die aktuelle Angabe wirkt wie ein Platzhalter. Bitte ergänzen Sie {label}.",
             "The current entry looks like a placeholder. Please provide the {label}.",
@@ -779,15 +779,6 @@ def generate_followup_questions(
         if extra not in fields_to_check:
             fields_to_check.append(extra)
     missing_fields, implausible_map = _collect_missing_fields(extracted, fields_to_check, answered=answered_fields)
-
-    if "compensation.salary_min" in missing_fields and "compensation.salary_max" in missing_fields:
-        missing_fields = [f for f in missing_fields if not f.startswith("compensation.salary_")]
-        combined_reason = implausible_map.pop("compensation.salary_min", None) or implausible_map.pop(
-            "compensation.salary_max", None
-        )
-        missing_fields.append("compensation.salary_range")
-        if combined_reason:
-            implausible_map["compensation.salary_range"] = combined_reason
 
     suggestions_map: Dict[str, List[str]] = {}
     if use_rag and is_llm_enabled() and missing_fields:

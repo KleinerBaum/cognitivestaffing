@@ -1,13 +1,17 @@
 {
-    "Information and communications technology professionals": [
-        "requirements.tools_and_technologies",
-        "requirements.hard_skills_required"
-    ],
-    "Sales, marketing and public relations professionals": [
-        "requirements.soft_skills_required"
-    ],
-    "Health professionals": [
-        "requirements.certifications",
-        "requirements.certificates"
-    ]
+  "Information and communications technology professionals": [
+    "requirements.tools_and_technologies",
+    "requirements.hard_skills_required",
+    "responsibilities.items"
+  ],
+  "Sales, marketing and public relations professionals": [
+    "business_context.domain",
+    "position.performance_indicators",
+    "requirements.tools_and_technologies"
+  ],
+  "Health professionals": [
+    "requirements.certifications",
+    "requirements.certificates",
+    "employment.work_schedule"
+  ]
 }

@@ -357,3 +357,16 @@ Operational interpretation:
 - `degraded=false` with low missing counts usually indicates normal automated extraction quality.
 - `degraded=true` means support should prioritize manual verification in Summary step and inspect `degraded_reasons` in logs.
 - Repeated `missing_required_fields_after_retry` suggests prompt/schema drift or atypical source documents and should be tracked as a quality regression.
+
+
+### Canonical follow-up field mapping
+
+Legacy follow-up keys must be normalized to canonical schema paths:
+
+| Legacy key | Canonical key(s) |
+|---|---|
+| `position.location` | `location.primary_city` (and optionally `location.country` when needed) |
+| `position.context` | `position.role_summary` |
+| `compensation.salary_range` | `compensation.salary_min` + `compensation.salary_max` |
+
+`question_logic.py`, `wizard/services/followups.py`, and `role_field_map.json` should only emit canonical schema-compatible keys.
