@@ -27,6 +27,7 @@ SKILL_ENTRY_SCHEMA = {
         "name": {"type": "string"},
         "normalized_name": {"type": "string"},
         "esco_uri": {"type": "string"},
+        "skill_type": {"type": "string"},
         "weight": {"type": "number", "minimum": 0, "maximum": 1},
     },
 }
@@ -174,6 +175,7 @@ _VACANCY_PROPERTIES.update(
                 "occupation_label": {"type": "string"},
                 "occupation_uri": {"type": "string"},
                 "essential_skills": {"type": "array", "items": {"type": "string"}},
+                "essential_skill_refs": SKILL_ARRAY_SCHEMA,
             },
         },
         "links": {

@@ -262,7 +262,15 @@ def _normalize_question(item: Mapping[str, Any]) -> dict[str, Any] | None:
     suggestions_raw = item.get("suggestions")
     suggestions: list[str] = []
     if isinstance(suggestions_raw, list):
-        suggestions = [str(s).strip() for s in suggestions_raw if str(s).strip()]
+        cleaned_suggestions: list[str] = []
+        for suggestion in suggestions_raw:
+            if isinstance(suggestion, Mapping):
+                text = str(suggestion.get("label") or suggestion.get("name") or "").strip()
+            else:
+                text = str(suggestion).strip()
+            if text:
+                cleaned_suggestions.append(text)
+        suggestions = cleaned_suggestions
     if not suggestions:
         suggestions = [question]
 

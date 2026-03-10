@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import re
-from typing import Iterable, Mapping
+from typing import Any, Iterable, Mapping
+
+from core.esco_utils import lookup_esco_skill
 
 # Common synonyms and aliases mapped to their canonical skill labels.
 _SKILL_SYNONYMS: dict[str, str] = {
@@ -82,7 +84,7 @@ def _resolve_esco_uri(normalized_name: str) -> str | None:
     return None
 
 
-def map_skill(name: str) -> dict[str, str | None] | None:
+def map_skill(name: str, *, lang: str = "en") -> dict[str, Any] | None:
     """Map a raw skill ``name`` to a serialisable dict with ESCO metadata."""
 
     cleaned = _clean_skill_text(name)
@@ -90,35 +92,56 @@ def map_skill(name: str) -> dict[str, str | None] | None:
         return None
     normalized_name = normalize_skill_label(cleaned)
     esco_uri = _resolve_esco_uri(normalized_name)
+    skill_type: str | None = None
+
+    try:
+        meta = lookup_esco_skill(cleaned, lang=lang)
+    except Exception:
+        meta = {}
+
+    if isinstance(meta, Mapping):
+        preferred = str(meta.get("preferredLabel") or "").strip()
+        if preferred:
+            normalized_name = normalize_skill_label(preferred)
+        lookup_uri = str(meta.get("uri") or "").strip()
+        if lookup_uri:
+            esco_uri = lookup_uri
+        lookup_skill_type = str(meta.get("skillType") or "").strip()
+        if lookup_skill_type:
+            skill_type = lookup_skill_type
+
     return {
         "name": cleaned,
         "normalized_name": normalized_name or None,
         "esco_uri": esco_uri,
+        "skill_type": skill_type,
         "weight": None,
     }
 
 
-def _as_skill_entries(values: Iterable[str] | None) -> list[dict[str, str | None]]:
+def _as_skill_entries(values: Iterable[str] | None, *, lang: str = "en") -> list[dict[str, Any]]:
     mapped: list[dict[str, str | None]] = []
     if not values:
         return mapped
     for value in values:
-        entry = map_skill(value)
+        entry = map_skill(value, lang=lang)
         if entry is not None:
             mapped.append(entry)
     return mapped
 
 
-def build_skill_mappings(requirements: Mapping[str, Iterable[str]] | None) -> dict[str, list[dict[str, str | None]]]:
+def build_skill_mappings(
+    requirements: Mapping[str, Iterable[str]] | None, *, lang: str = "en"
+) -> dict[str, list[dict[str, Any]]]:
     """Return skill mappings for the common requirements buckets."""
 
     data = requirements or {}
     return {
-        "hard_skills_required": _as_skill_entries(data.get("hard_skills_required")),
-        "hard_skills_optional": _as_skill_entries(data.get("hard_skills_optional")),
-        "soft_skills_required": _as_skill_entries(data.get("soft_skills_required")),
-        "soft_skills_optional": _as_skill_entries(data.get("soft_skills_optional")),
-        "tools_and_technologies": _as_skill_entries(data.get("tools_and_technologies")),
+        "hard_skills_required": _as_skill_entries(data.get("hard_skills_required"), lang=lang),
+        "hard_skills_optional": _as_skill_entries(data.get("hard_skills_optional"), lang=lang),
+        "soft_skills_required": _as_skill_entries(data.get("soft_skills_required"), lang=lang),
+        "soft_skills_optional": _as_skill_entries(data.get("soft_skills_optional"), lang=lang),
+        "tools_and_technologies": _as_skill_entries(data.get("tools_and_technologies"), lang=lang),
     }
 
 

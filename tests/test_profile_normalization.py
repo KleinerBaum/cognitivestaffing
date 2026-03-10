@@ -246,6 +246,7 @@ def test_normalize_profile_enriches_skill_mappings() -> None:
     hard_skill = skill_mappings["hard_skills_required"][0]
     assert hard_skill["normalized_name"] == "Microsoft Excel"
     assert hard_skill["esco_uri"]
+    assert "skill_type" in hard_skill
 
     soft_skill = skill_mappings["soft_skills_optional"][0]
     assert soft_skill["normalized_name"] == "Teamwork"

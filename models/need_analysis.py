@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 import re
 from collections.abc import Sequence
-from typing import Any, ClassVar, List, Literal, Optional
+from typing import Any, ClassVar, Dict, List, Literal, Optional
 
 from pydantic import (
     BaseModel,
@@ -197,6 +197,7 @@ class Position(BaseModel):
     occupation_label: Optional[str] = None
     occupation_uri: Optional[str] = None
     occupation_group: Optional[str] = None
+    occupation_reference: Optional[Dict[str, Optional[str]]] = None
     supervises: Optional[int] = None
     performance_indicators: Optional[str] = None
     decision_authority: Optional[str] = None
@@ -282,6 +283,7 @@ class SkillEntry(BaseModel):
     name: str
     normalized_name: Optional[str] = None
     esco_uri: Optional[str] = None
+    skill_type: Optional[str] = None
     weight: Optional[float] = Field(default=None, ge=0, le=1)
 
 

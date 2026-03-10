@@ -23,6 +23,7 @@ This repository is designed around:
 - bilingual **DE/EN** UI and generation behavior
 - an **OpenAI Responses API** pipeline optimized for **GPT-5-nano**
 - deterministic downstream outputs and exports
+- optional machine-readable ESCO references for occupations and skills in profile/export payloads
 
 ---
 

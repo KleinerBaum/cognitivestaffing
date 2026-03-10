@@ -44,4 +44,5 @@ def test_missing_skill_mapping_fields_receive_defaults() -> None:
     assert entry["name"] == "Python"
     assert "normalized_name" in entry
     assert "esco_uri" in entry
+    assert "skill_type" in entry
     assert "weight" in entry

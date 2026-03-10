@@ -57,6 +57,7 @@ from core.esco_utils import (
     normalize_skill_map,
     normalize_skills,
     skill_casefold_key,
+    lookup_esco_skill,
 )
 from core.validation import is_placeholder
 from core.suggestions import get_benefit_suggestions
@@ -352,6 +353,45 @@ def _existing_value_keys(extracted: Dict[str, Any], path: str) -> Set[str]:
         if text:
             normalized.add(skill_casefold_key(text))
     return normalized
+
+
+def _existing_esco_uris_for_field(extracted: Dict[str, Any], field_path: str) -> Set[str]:
+    """Return ESCO URIs already bound to ``field_path`` skill mappings."""
+
+    requirements = extracted.get("requirements") if isinstance(extracted, dict) else None
+    if not isinstance(requirements, dict):
+        return set()
+    mappings = requirements.get("skill_mappings")
+    if not isinstance(mappings, dict):
+        return set()
+    key = field_path.replace("requirements.", "", 1)
+    entries = mappings.get(key)
+    if not isinstance(entries, list):
+        return set()
+    uris: Set[str] = set()
+    for entry in entries:
+        if not isinstance(entry, dict):
+            continue
+        uri = str(entry.get("esco_uri") or "").strip()
+        if uri:
+            uris.add(uri)
+    return uris
+
+
+def _build_esco_skill_entry(skill: str, lang: str) -> Dict[str, str]:
+    """Build a structured ESCO skill entry for follow-up state."""
+
+    normalized_label = normalize_skills([skill], lang=lang)
+    label = normalized_label[0] if normalized_label else str(skill).strip()
+    meta = lookup_esco_skill(label, lang=lang)
+    uri = str(meta.get("uri") or "").strip()
+    skill_type = str(meta.get("skillType") or "").strip()
+    entry: Dict[str, str] = {"label": label}
+    if uri:
+        entry["uri"] = uri
+    if skill_type:
+        entry["skill_type"] = skill_type
+    return entry
 
 
 def _merge_suggestions(*iterables: Iterable[str], existing: Optional[Set[str]] = None) -> List[str]:
@@ -809,15 +849,27 @@ def generate_followup_questions(
         normalized_esco = list(normalized_lookup.values())
         st.session_state[StateKeys.ESCO_SKILLS] = normalized_esco
 
-        esco_missing_by_field: Dict[str, List[str]] = {}
+        esco_missing_by_field: Dict[str, List[Dict[str, str]]] = {}
         for skill_field in ESCO_SKILL_TARGET_FIELDS:
             existing_values = existing_skill_values.get(skill_field, [])
-            missing_for_field = [normalized_lookup[key] for key in normalized_lookup if key not in existing_values]
+            existing_uris = _existing_esco_uris_for_field(extracted, skill_field)
+            missing_for_field: List[Dict[str, str]] = []
+            for key in normalized_lookup:
+                label = normalized_lookup[key]
+                if key in existing_values:
+                    continue
+                entry = _build_esco_skill_entry(label, lang)
+                uri = str(entry.get("uri") or "").strip()
+                if uri and uri in existing_uris:
+                    continue
+                missing_for_field.append(entry)
             if missing_for_field:
                 esco_missing_by_field[skill_field] = missing_for_field
 
         st.session_state[StateKeys.ESCO_MISSING_SKILLS] = esco_missing_by_field
-        esco_missing_skills = list(esco_missing_by_field.get("requirements.hard_skills_required", []))
+        esco_missing_skills = [
+            entry.get("label", "") for entry in esco_missing_by_field.get("requirements.hard_skills_required", [])
+        ]
 
         for skill_field in (
             "requirements.hard_skills_required",
@@ -831,7 +883,7 @@ def generate_followup_questions(
             mapped = esco_missing_by_field.get(skill_field, [])
             if mapped:
                 needs_esco = True
-                seeds = mapped
+                seeds = [entry.get("label", "") for entry in mapped if entry.get("label")]
             elif skill_field == "requirements.tools_and_technologies":
                 seeds = normalized_esco
             else:
@@ -848,8 +900,9 @@ def generate_followup_questions(
         field_missing = list(
             (st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, {}) or {}).get(esco_followup_field, [])
         )
+        field_missing_labels = [entry.get("label", "") for entry in field_missing if isinstance(entry, dict)]
         if (
-            field_missing
+            field_missing_labels
             and esco_followup_field in fields_to_check
             and esco_followup_field not in missing_fields
             and esco_followup_field not in answered_fields
