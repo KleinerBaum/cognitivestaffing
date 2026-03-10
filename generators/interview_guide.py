@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Mapping
 
 from config import get_active_verbosity
 from config.models import ModelTask, get_model_for
+from exports.transform import build_v2_export_payload
 from openai_utils import call_chat_api
 from prompts import prompt_registry
 from schemas import INTERVIEW_GUIDE_SCHEMA
@@ -13,10 +14,17 @@ from schemas import INTERVIEW_GUIDE_SCHEMA
 __all__ = ["generate_interview_guide"]
 
 
-def generate_interview_guide(vacancy_json: dict, lang: str) -> Any:
+def _prepare_interview_payload(vacancy_json: Mapping[str, Any]) -> dict[str, Any]:
+    """Apply V2 export decision filtering before prompting the model."""
+
+    return build_v2_export_payload(vacancy_json, artifact_key="interview_guide")
+
+
+def generate_interview_guide(vacancy_json: Mapping[str, Any], lang: str) -> Any:
     """Generate an interview guide JSON payload for a vacancy."""
 
     locale = str(lang or "de")
+    export_payload = _prepare_interview_payload(vacancy_json)
     system = {
         "role": "system",
         "content": prompt_registry.get(
@@ -27,7 +35,7 @@ def generate_interview_guide(vacancy_json: dict, lang: str) -> Any:
     }
     user = {
         "role": "user",
-        "content": f"Sprache: {lang}\nProfil:\n{vacancy_json}",
+        "content": f"Sprache: {lang}\nProfil:\n{export_payload}",
     }
     return call_chat_api(
         messages=[system, user],

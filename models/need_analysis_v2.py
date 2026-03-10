@@ -66,6 +66,18 @@ class SelectionBlock(BaseModel):
     stakeholders: list[str] = Field(default_factory=list)
 
 
+def _set_nested_value(payload: dict[str, Any], path: str, value: Any) -> None:
+    current = payload
+    parts = path.split(".")
+    for part in parts[:-1]:
+        child = current.get(part)
+        if not isinstance(child, dict):
+            child = {}
+            current[part] = child
+        current = child
+    current[parts[-1]] = value
+
+
 class NeedAnalysisV2(BaseModel):
     """Canonical V2 profile with explicit decision-gating for exports."""
 
@@ -86,11 +98,28 @@ class NeedAnalysisV2(BaseModel):
 
         return [card for card in self.open_decisions if card.decision_state == "confirmed"]
 
-    def export_input(self) -> dict[str, Any]:
-        """Build export input; only confirmed decisions are applied."""
+    def export_input(self, *, artifact_key: str | None = None) -> dict[str, Any]:
+        """Build export input with confirmed-only decision values and warnings."""
 
         payload = self.model_dump(mode="json")
-        payload["open_decisions"] = [
-            card.model_dump(mode="json") for card in self.open_decisions if card.decision_state == "confirmed"
-        ]
+        warnings = [item for item in payload.get("warnings", []) if isinstance(item, str)]
+        confirmed: list[dict[str, Any]] = []
+
+        for card in self.open_decisions:
+            entry = card.model_dump(mode="json")
+            if card.decision_state == "confirmed":
+                confirmed.append(entry)
+                field_path = str(card.field_path or "").strip()
+                if field_path:
+                    _set_nested_value(payload, field_path, card.proposed_value)
+                continue
+
+            if card.blocking_exports and (artifact_key is None or artifact_key in card.blocking_exports):
+                joined = ", ".join(card.blocking_exports)
+                warnings.append(
+                    f"Unconfirmed decision '{card.decision_id}' blocks exports ({joined}); proposed value was not exported."
+                )
+
+        payload["open_decisions"] = confirmed
+        payload["warnings"] = warnings
         return payload
