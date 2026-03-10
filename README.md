@@ -41,6 +41,11 @@ VERBOSITY=low
 RESPONSES_ALLOW_TOOLS=true
 ```
 
+## Wizard UI notes
+
+- In single-page mode, the global **Validate all steps** expander is hidden to reduce duplicate controls at the top of the page.
+- The introductory **Welcome** panel is also hidden in single-page mode, and step headers use text-only status labels (no warning emojis).
+
 ## Troubleshooting
 
 - **Missing API key:** set `OPENAI_API_KEY` in env or Streamlit secrets.
