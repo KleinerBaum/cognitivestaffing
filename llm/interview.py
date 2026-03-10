@@ -435,9 +435,9 @@ def generate_interview_guide(
     messages = _build_messages(payload)
     schema = get_response_schema(INTERVIEW_GUIDE_SCHEMA_NAME)
 
-    effort = REASONING_EFFORT if REASONING_EFFORT else "none"
-    if effort in {"none", "minimal", "low"}:
-        effort = "medium"
+    effort = REASONING_EFFORT if REASONING_EFFORT else "minimal"
+    if effort in {"none", "minimal"}:
+        effort = "low"
 
     try:
         response = call_responses_safe(

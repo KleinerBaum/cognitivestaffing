@@ -129,7 +129,7 @@ def generate_job_ad(vacancy_json: Mapping[str, Any], lang: str, tone: str = "pro
         temperature=0.4,
         json_schema={"name": "JobAd", "schema": JOB_AD_SCHEMA},
         task=ModelTask.JOB_AD,
-        reasoning_effort="medium",
+        reasoning_effort="low",
         verbosity=get_active_verbosity(),
     )
     _validate_job_ad_response(result)

@@ -1,3 +1,9 @@
+## 2026-03-10
+
+- Completed Task C nano-migration alignment: prompt contracts were tightened for compact, schema-first outputs in job-ad/interview flows and reasoning defaults were reduced from medium/high forcing to minimal/low nano-safe behavior.
+- Updated runtime docs (`README`, `.env.example`, deployment/debug/troubleshooting/FAQ/error docs) to consistently describe strict nano-only routing, Responses-first behavior, `text.format` structured outputs, and supported/blocked tool policy.
+- Expanded/updated tests to cover strict nano routing for core generation workflows and payload normalization behavior for quick/precise effort handling without model-family drift.
+
 
 ## Unreleased
 

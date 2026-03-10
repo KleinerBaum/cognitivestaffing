@@ -438,10 +438,10 @@ def _prepare_payload(
 
     effort_value = reasoning_effort.strip().lower() if isinstance(reasoning_effort, str) else None
     mode = get_reasoning_mode()
-    if mode == "quick" and effort_value not in {"none", "minimal", "low"}:
+    if mode == "quick" and effort_value not in {"minimal", "low"}:
+        reasoning_effort = "minimal"
+    elif mode == "precise" and effort_value in {None, "none", "minimal"}:
         reasoning_effort = "low"
-    elif mode == "precise" and effort_value in {None, "none", "minimal", "low"}:
-        reasoning_effort = "high"
 
     normalised_effort = normalise_reasoning_effort(reasoning_effort, default=REASONING_EFFORT)
     if cost_saver_enabled:
