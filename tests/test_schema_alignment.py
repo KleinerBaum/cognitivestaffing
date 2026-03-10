@@ -75,6 +75,36 @@ def test_schema_registry_tracks_builder_output() -> None:
     assert registry_schema == generated
 
 
+def test_builder_meta_field_metadata_required_consistency() -> None:
+    """Meta schema should include ``field_metadata`` and require exactly its properties."""
+
+    schema = build_need_analysis_responses_schema()
+    meta_schema = schema["properties"]["meta"]
+    meta_properties = meta_schema["properties"]
+
+    assert "field_metadata" in meta_properties
+    assert set(meta_schema["required"]) == set(meta_properties.keys())
+
+
+def test_schema_registry_uses_builder_without_disk_fallback(monkeypatch: Any) -> None:
+    """Schema registry should not emit disk-fallback warnings when builder succeeds."""
+
+    from core import schema_registry
+
+    schema_registry.clear_schema_cache()
+    with monkeypatch.context() as patch_ctx:
+        warning_calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+        def _capture_warning(*args: Any, **kwargs: Any) -> None:
+            warning_calls.append((args, kwargs))
+
+        patch_ctx.setattr(schema_registry.logger, "warning", _capture_warning)
+        schema = schema_registry.load_need_analysis_schema(schema_version="test-no-fallback")
+
+    assert "meta" in schema.get("properties", {})
+    assert warning_calls == []
+
+
 def test_schema_registry_can_trim_sections() -> None:
     """Registry section filtering should mirror the builder's behaviour."""
 
