@@ -426,10 +426,10 @@ def temporarily_force_classic_api() -> Iterator[None]:
         set_api_mode(previous_mode)
 
 
-# NO_TOOLS_IN_RESPONSES: Responses v2025 disables tool payloads by default.
+# Responses tools are enabled by default after runtime/tool guard hardening.
 RESPONSES_ALLOW_TOOLS = _normalise_bool(
     os.getenv("RESPONSES_ALLOW_TOOLS"),
-    default=False,
+    default=True,
 )
 VECTOR_STORE_ID = os.getenv("VECTOR_STORE_ID", "").strip()
 

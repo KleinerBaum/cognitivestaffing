@@ -37,6 +37,7 @@ import streamlit as st
 from prompts import prompt_registry
 
 from config import (
+    ALLOW_LEGACY_FALLBACKS,
     OPENAI_API_KEY,
     OPENAI_REQUEST_TIMEOUT,
     OPENAI_SESSION_TOKEN_LIMIT,
@@ -1287,6 +1288,7 @@ class ChatStream(Iterable[str]):
         *,
         task: ModelTask | str | None,
         api_mode: APIMode | str | bool | None = None,
+        allow_legacy_fallback: bool = ALLOW_LEGACY_FALLBACKS,
     ):
         prepared_payload = dict(payload)
         prepared_payload.setdefault("timeout", OPENAI_REQUEST_TIMEOUT)
@@ -1296,6 +1298,7 @@ class ChatStream(Iterable[str]):
         self._api_mode = resolve_api_mode(api_mode)
         self._result: ChatCallResult | None = None
         self._buffer: list[str] = []
+        self._allow_legacy_fallback = bool(allow_legacy_fallback)
 
     def __iter__(self) -> Iterator[str]:
         yield from self._consume()
@@ -1431,6 +1434,8 @@ class ChatStream(Iterable[str]):
         if response is not None:
             return response
 
+        if not self._allow_legacy_fallback:
+            return None
         return self._retry_chat_completion(client)
 
     def _retry_responses_without_stream(self, client: OpenAI) -> Any | None:
@@ -1449,6 +1454,10 @@ class ChatStream(Iterable[str]):
 
     def _retry_chat_completion(self, client: OpenAI) -> Any | None:
         """Fallback to the Chat Completions API when Responses streaming fails."""
+
+        if not self._allow_legacy_fallback:
+            logger.warning("Legacy chat fallback disabled for streaming request.")
+            return None
 
         chat_client = getattr(client, "chat", None)
         completions = getattr(chat_client, "completions", None)
@@ -1939,6 +1948,7 @@ def _call_chat_api_single(
     previous_response_id: str | None = None,
     api_mode: APIMode | str | bool | None = None,
     use_response_format: bool = True,
+    allow_legacy_fallback: bool = ALLOW_LEGACY_FALLBACKS,
 ) -> ChatCallResult:
     """Execute a single chat completion call with optional tool handling."""
 
@@ -2075,7 +2085,8 @@ def _call_chat_api_single(
                         continue
 
                     if (
-                        not active_mode.is_classic
+                        allow_legacy_fallback
+                        and not active_mode.is_classic
                         and (schema_error or not fallback_to_chat_attempted)
                         and not (schema_error and current_model in schema_degradation_attempted)
                     ):
@@ -2211,7 +2222,11 @@ def _call_chat_api_single(
                 repair_status = repair_attempt.status
                 if repair_attempt.payload is not None:
                     normalised_content = json.dumps(repair_attempt.payload, ensure_ascii=False)
-                if repair_attempt.status is JsonRepairStatus.FAILED and not active_mode.is_classic:
+                if (
+                    repair_attempt.status is JsonRepairStatus.FAILED
+                    and not active_mode.is_classic
+                    and allow_legacy_fallback
+                ):
                     logger.warning(
                         "Structured extraction JSON parse failed during %s; retrying via chat.",
                         current_model,
@@ -2345,6 +2360,7 @@ def call_chat_api(
     comparison_options: Optional[Mapping[str, Any]] = None,
     comparison_label: str | None = None,
     use_response_format: bool = True,
+    allow_legacy_fallback: bool = ALLOW_LEGACY_FALLBACKS,
 ) -> ChatCallResult:
     """Call the OpenAI chat endpoint and return a :class:`ChatCallResult`.
 
@@ -2403,6 +2419,7 @@ def call_chat_api(
         "previous_response_id": previous_response_id,
         "api_mode": active_mode,
         "use_response_format": use_response_format,
+        "allow_legacy_fallback": allow_legacy_fallback,
     }
 
     if comparison_messages is None:
@@ -2516,6 +2533,7 @@ def stream_chat_api(
     extra: Optional[dict] = None,
     task: ModelTask | str | None = None,
     api_mode: APIMode | str | bool | None = None,
+    allow_legacy_fallback: bool = ALLOW_LEGACY_FALLBACKS,
 ) -> ChatStream:
     """Return a :class:`ChatStream` yielding incremental text deltas.
 
@@ -2554,7 +2572,13 @@ def stream_chat_api(
     if not request.model:
         raise RuntimeError("No model resolved for streaming request")
 
-    return ChatStream(request.payload, request.model, task=task, api_mode=request.api_mode_override or active_mode)
+    return ChatStream(
+        request.payload,
+        request.model,
+        task=task,
+        api_mode=request.api_mode_override or active_mode,
+        allow_legacy_fallback=allow_legacy_fallback,
+    )
 
 
 def _chat_content(res: Any) -> str:

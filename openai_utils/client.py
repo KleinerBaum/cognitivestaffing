@@ -366,9 +366,9 @@ class OpenAIClient:
         client = self.get_client()
         if mode == "responses":
             return client.responses.create(timeout=timeout, **cleaned_payload)
-        if mode != "chat":
-            logger.debug("Routing non-chat mode '%s' through chat completions backend", mode)
-        return client.chat.completions.create(timeout=timeout, **cleaned_payload)
+        if mode == "chat":
+            return client.chat.completions.create(timeout=timeout, **cleaned_payload)
+        raise ValueError(f"Unsupported API mode: {mode}")
 
     def _execute_once(
         self,
