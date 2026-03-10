@@ -505,18 +505,6 @@ class Process(BaseModel):
         return []
 
 
-class Meta(BaseModel):
-    """Miscellaneous metadata about the profile."""
-
-    model_config = ConfigDict(extra="forbid")
-
-    target_start_date: Optional[str] = None
-    application_deadline: Optional[str] = None
-    followups_answered: List[str] = Field(default_factory=list)
-    extraction_fallback_active: bool = False
-    field_metadata: dict[str, "FieldMetadata"] = Field(default_factory=dict)
-
-
 class FieldMetadata(BaseModel):
     """Provenance and confidence metadata for a profile field."""
 
@@ -526,6 +514,18 @@ class FieldMetadata(BaseModel):
     confidence: float = Field(default=1.0, ge=0.0, le=1.0)
     evidence_snippet: str | None = None
     confirmed: bool = True
+
+
+class Meta(BaseModel):
+    """Miscellaneous metadata about the profile."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    target_start_date: Optional[str] = None
+    application_deadline: Optional[str] = None
+    followups_answered: List[str] = Field(default_factory=list)
+    extraction_fallback_active: bool = False
+    field_metadata: dict[str, FieldMetadata] = Field(default_factory=dict)
 
 
 class GeneratedContent(BaseModel):
