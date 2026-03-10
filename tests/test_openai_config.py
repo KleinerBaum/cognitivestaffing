@@ -68,15 +68,15 @@ def test_valid_base_url_eu_does_not_set_flag(monkeypatch):
         st.session_state.clear()
 
 
-def test_reasoning_effort_defaults_to_none(monkeypatch):
+def test_reasoning_effort_defaults_to_minimal(monkeypatch):
     monkeypatch.delenv("REASONING_EFFORT", raising=False)
     st.session_state.clear()
 
     reloaded_models = importlib.reload(model_config)
     reloaded_config = importlib.reload(config)
 
-    assert reloaded_models.REASONING_EFFORT == "none"
-    assert reloaded_config.REASONING_EFFORT == "none"
+    assert reloaded_models.REASONING_EFFORT == "minimal"
+    assert reloaded_config.REASONING_EFFORT == "minimal"
 
 
 def test_ensure_state_normalises_legacy_models():
@@ -258,12 +258,12 @@ def test_ensure_state_records_profile_repairs(monkeypatch: pytest.MonkeyPatch) -
     assert "company.contact_email" in repairs["auto_populated"]
 
 
-def test_ensure_state_respects_openai_model_secret(monkeypatch) -> None:
+def test_ensure_state_respects_strict_nano_model_lock(monkeypatch) -> None:
     st.session_state.clear()
     monkeypatch.setattr(
         st,
         "secrets",
-        {"openai": {"OPENAI_MODEL": "gpt-3.5-turbo"}},
+        {"openai": {"OPENAI_MODEL": "gpt-3.5-turbo", "STRICT_NANO_ONLY": True}},
         raising=False,
     )
     importlib.reload(config)
@@ -272,8 +272,8 @@ def test_ensure_state_respects_openai_model_secret(monkeypatch) -> None:
     try:
         es.ensure_state()
 
-        assert model_config.OPENAI_MODEL == model_config.GPT35
-        assert st.session_state["model"] == model_config.GPT35
+        assert model_config.OPENAI_MODEL == model_config.GPT51_NANO
+        assert st.session_state["model"] == model_config.GPT51_NANO
     finally:
         st.session_state.clear()
         monkeypatch.setattr(st, "secrets", {}, raising=False)
@@ -281,7 +281,9 @@ def test_ensure_state_respects_openai_model_secret(monkeypatch) -> None:
         importlib.reload(es)
 
 
-def test_env_openai_override_is_applied(monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+def test_env_openai_override_is_neutralised_in_strict_mode(
+    monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
+) -> None:
     previous_env = os.environ.get("OPENAI_MODEL")
 
     try:
@@ -289,8 +291,8 @@ def test_env_openai_override_is_applied(monkeypatch: pytest.MonkeyPatch, caplog:
         caplog.set_level("WARNING")
         importlib.reload(config)
 
-        assert model_config.OPENAI_MODEL == model_config.GPT35
-        assert model_config.get_model_for(model_config.ModelTask.DEFAULT) == model_config.GPT35
+        assert model_config.OPENAI_MODEL == model_config.GPT51_NANO
+        assert model_config.get_model_for(model_config.ModelTask.DEFAULT) == model_config.GPT51_NANO
     finally:
         if previous_env is None:
             monkeypatch.delenv("OPENAI_MODEL", raising=False)
@@ -299,7 +301,7 @@ def test_env_openai_override_is_applied(monkeypatch: pytest.MonkeyPatch, caplog:
         importlib.reload(config)
 
 
-def test_env_default_model_override_is_applied(
+def test_env_default_model_override_is_neutralised_in_strict_mode(
     monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
 ) -> None:
     previous_env = os.environ.get("DEFAULT_MODEL")
@@ -309,8 +311,8 @@ def test_env_default_model_override_is_applied(
         caplog.set_level("WARNING")
         importlib.reload(config)
 
-        assert model_config.DEFAULT_MODEL == model_config.O3
-        assert model_config.OPENAI_MODEL == model_config.O3
+        assert model_config.DEFAULT_MODEL == model_config.GPT51_NANO
+        assert model_config.OPENAI_MODEL == model_config.GPT51_NANO
     finally:
         if previous_env is None:
             monkeypatch.delenv("DEFAULT_MODEL", raising=False)

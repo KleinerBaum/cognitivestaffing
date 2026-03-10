@@ -51,6 +51,7 @@ MODEL_ROUTING: Dict[str, str]
 MODEL_CONFIG: Dict[str, model_config.TaskModelConfig]
 OPENAI_MODEL: str
 REASONING_MODEL: str
+STRICT_NANO_ONLY: bool
 TASK_MODEL_FALLBACKS: Dict[str, list[str]]
 
 
@@ -65,11 +66,11 @@ class APIMode(StrEnum):
         return self is APIMode.CLASSIC
 
 
-def _is_truthy_flag(value: str | None) -> bool:
+def _is_truthy_flag(value: str | None, *, default: bool = False) -> bool:
     """Return ``True`` when ``value`` matches a truthy environment token."""
 
     if value is None:
-        return False
+        return default
     return value.strip().lower() in _TRUTHY_ENV_VALUES
 
 
@@ -150,6 +151,8 @@ CHATKIT_SKILLS_WORKFLOW_ID = os.getenv("CHATKIT_SKILLS_WORKFLOW_ID", "")
 CHATKIT_COMPENSATION_WORKFLOW_ID = os.getenv("CHATKIT_COMPENSATION_WORKFLOW_ID", "")
 CHATKIT_PROCESS_WORKFLOW_ID = os.getenv("CHATKIT_PROCESS_WORKFLOW_ID", "")
 
+STRICT_NANO_ONLY = _is_truthy_flag(os.getenv("STRICT_NANO_ONLY"), default=True)
+
 REASONING_LEVELS = model_config.REASONING_LEVELS
 REASONING_EFFORT = model_config.normalise_reasoning_effort(os.getenv("REASONING_EFFORT", model_config.REASONING_EFFORT))
 _primary_model_override = None
@@ -186,7 +189,7 @@ VERBOSITY = normalise_verbosity(os.getenv("VERBOSITY", "medium"))
 def _configure_models() -> None:
     global DEFAULT_MODEL, EMBED_MODEL, HIGH_REASONING_MODEL, LIGHTWEIGHT_MODEL
     global MEDIUM_REASONING_MODEL, MODEL_ROUTING, MODEL_CONFIG, OPENAI_MODEL, REASONING_EFFORT
-    global REASONING_MODEL, TASK_MODEL_FALLBACKS
+    global REASONING_MODEL, STRICT_NANO_ONLY, TASK_MODEL_FALLBACKS
 
     model_config.configure_models(
         reasoning_effort=REASONING_EFFORT,
@@ -197,12 +200,14 @@ def _configure_models() -> None:
         default_override=_default_model_override,
         openai_override=_openai_model_override,
         model_routing_overrides=_MODEL_ROUTING_OVERRIDES,
+        strict_nano_only=STRICT_NANO_ONLY,
     )
     REASONING_EFFORT = model_config.REASONING_EFFORT
     LIGHTWEIGHT_MODEL = model_config.LIGHTWEIGHT_MODEL
     MEDIUM_REASONING_MODEL = model_config.MEDIUM_REASONING_MODEL
     HIGH_REASONING_MODEL = model_config.HIGH_REASONING_MODEL
     REASONING_MODEL = model_config.REASONING_MODEL
+    STRICT_NANO_ONLY = model_config.STRICT_NANO_ONLY
     DEFAULT_MODEL = model_config.DEFAULT_MODEL
     OPENAI_MODEL = model_config.OPENAI_MODEL
     MODEL_CONFIG = model_config.MODEL_CONFIG

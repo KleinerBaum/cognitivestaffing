@@ -10,11 +10,13 @@ from typing import Any, Iterable, Mapping, Sequence
 
 from config.models import (
     GPT41_NANO,
+    GPT51_NANO,
     FAST,
     LIGHTWEIGHT_MODEL,
     ModelTask,
     QUALITY,
     REASONING_MODEL,
+    STRICT_NANO_ONLY,
     is_model_available,
     normalise_model_name,
 )
@@ -119,7 +121,7 @@ def route_model_for_messages(
 
     estimate = estimate_prompt_complexity(messages)
     if estimate.total_tokens > _LONG_CONTEXT_TOKEN_THRESHOLD:
-        candidate = GPT41_NANO
+        candidate = GPT51_NANO if STRICT_NANO_ONLY else GPT41_NANO
         if is_model_available(candidate):
             return candidate, estimate
 
@@ -157,6 +159,9 @@ def route_model_for_messages(
         quality_normalised = normalise_model_name(QUALITY).lower()
         if chosen_normalised == quality_normalised and is_model_available(FAST):
             chosen = FAST
+
+    if STRICT_NANO_ONLY and chosen != GPT51_NANO and is_model_available(GPT51_NANO):
+        chosen = GPT51_NANO
 
     return chosen, estimate
 

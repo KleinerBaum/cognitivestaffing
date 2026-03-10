@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import warnings
 from dataclasses import dataclass
 from enum import StrEnum
@@ -35,14 +36,22 @@ O3 = "o3"
 O3_MINI = "o3-mini"
 GPT35 = "gpt-3.5-turbo"
 
-FAST = GPT4O_MINI
-QUALITY = GPT4O
-LONG_CONTEXT = GPT41_MINI
-PRECISE = O3_MINI
+FAST = GPT51_NANO
+QUALITY = GPT51_NANO
+LONG_CONTEXT = GPT51_NANO
+PRECISE = GPT51_NANO
 
 EMBED_MODEL = "text-embedding-3-large"  # RAG
 
 REASONING_LEVELS = ("none", "minimal", "low", "medium", "high")
+_TRUTHY_ENV_VALUES: tuple[str, ...] = ("1", "true", "yes", "on")
+
+
+def _is_truthy_flag(value: str | None, *, default: bool = False) -> bool:
+    if value is None:
+        return default
+    return value.strip().lower() in _TRUTHY_ENV_VALUES
+
 
 LATEST_MODEL_ALIASES: tuple[tuple[str, str], ...] = (
     ("gpt-5.2-pro", GPT52_PRO),
@@ -95,11 +104,13 @@ MODEL_ALIASES: Dict[str, str] = {
     **{alias: target for alias, target in LEGACY_MODEL_ALIASES},
 }
 
-LIGHTWEIGHT_MODEL_DEFAULT = FAST
-MEDIUM_REASONING_MODEL_DEFAULT = QUALITY
-HIGH_REASONING_MODEL_DEFAULT = PRECISE
-REASONING_MODEL_DEFAULT = QUALITY
-PRIMARY_MODEL_DEFAULT = FAST
+STRICT_NANO_ONLY = _is_truthy_flag(os.getenv("STRICT_NANO_ONLY"), default=True)
+
+LIGHTWEIGHT_MODEL_DEFAULT = GPT51_NANO
+MEDIUM_REASONING_MODEL_DEFAULT = GPT51_NANO
+HIGH_REASONING_MODEL_DEFAULT = GPT51_NANO
+REASONING_MODEL_DEFAULT = GPT51_NANO
+PRIMARY_MODEL_DEFAULT = GPT51_NANO
 PRIMARY_MODEL = PRIMARY_MODEL_DEFAULT
 
 SUPPORTED_MODEL_CHOICES = {
@@ -167,7 +178,7 @@ class ModelCapabilities:
     supports_response_format: bool = True
 
 
-REASONING_EFFORT = "none"
+REASONING_EFFORT = "minimal"
 LIGHTWEIGHT_MODEL = LIGHTWEIGHT_MODEL_DEFAULT
 MEDIUM_REASONING_MODEL = MEDIUM_REASONING_MODEL_DEFAULT
 HIGH_REASONING_MODEL = HIGH_REASONING_MODEL_DEFAULT
@@ -210,7 +221,7 @@ PRIMARY_MODEL_CHOICES: tuple[str, ...] = (
 )
 
 
-def normalise_reasoning_effort(value: str | None, *, default: str = "none") -> str:
+def normalise_reasoning_effort(value: str | None, *, default: str = "minimal") -> str:
     """Return a supported reasoning effort value or ``default`` when invalid."""
 
     if value is None:
@@ -218,8 +229,6 @@ def normalise_reasoning_effort(value: str | None, *, default: str = "none") -> s
     candidate = value.strip().lower()
     if not candidate:
         return default
-    if candidate == "minimal":
-        candidate = "none"
     if candidate in REASONING_LEVELS:
         return candidate
     warnings.warn(
@@ -323,7 +332,7 @@ def resolve_supported_model(value: str | None, fallback: str) -> str:
     if not value:
         return fallback
     candidate = normalise_model_name(value)
-    if candidate in SUPPORTED_MODEL_CHOICES:
+    if candidate in SUPPORTED_MODEL_CHOICES or candidate == EMBED_MODEL:
         return candidate
     if candidate:
         warnings.warn(
@@ -331,6 +340,22 @@ def resolve_supported_model(value: str | None, fallback: str) -> str:
             RuntimeWarning,
         )
     return fallback
+
+
+def _enforce_strict_generation_model(model: str, *, source: str) -> str:
+    normalised = normalise_model_name(model) or model
+    if STRICT_NANO_ONLY and normalised != GPT51_NANO:
+        warnings.warn(
+            "STRICT_NANO_ONLY enabled: forcing %s from '%s' to '%s'." % (source, normalised, GPT51_NANO),
+            RuntimeWarning,
+        )
+        return GPT51_NANO
+    return normalised
+
+
+def _resolve_generation_model(value: str | None, fallback: str, *, source: str) -> str:
+    resolved = resolve_supported_model(value, fallback)
+    return _enforce_strict_generation_model(resolved, source=source)
 
 
 def _model_for_reasoning_level(level: str) -> str:
@@ -393,7 +418,11 @@ def _build_model_config(overrides: Mapping[str, str] | None) -> Dict[str, TaskMo
             base = config.get(override_key)
             fallback = base.model if base else default_fallback
             config[override_key] = TaskModelConfig(
-                model=resolve_supported_model(override_value, fallback),
+                model=(
+                    resolve_supported_model(override_value, fallback)
+                    if override_key == "embedding"
+                    else _resolve_generation_model(override_value, fallback, source=f"MODEL_ROUTING__{override_key}")
+                ),
                 allow_json_schema=base.allow_json_schema if base else True,
                 allow_response_format=base.allow_response_format if base else True,
             )
@@ -402,8 +431,11 @@ def _build_model_config(overrides: Mapping[str, str] | None) -> Dict[str, TaskMo
         if key == "embedding":
             normalised[key] = task_config
             continue
+        model_name = normalise_model_name(task_config.model) or task_config.model
+        if STRICT_NANO_ONLY:
+            model_name = _enforce_strict_generation_model(model_name, source="task '%s'" % key)
         normalised[key] = TaskModelConfig(
-            model=normalise_model_name(task_config.model) or task_config.model,
+            model=model_name,
             allow_json_schema=task_config.allow_json_schema,
             allow_response_format=task_config.allow_response_format,
         )
@@ -457,6 +489,9 @@ def _build_task_fallbacks() -> Dict[str, list[str]]:
             mapping[task] = [model_name]
             continue
         preferred = model_name or OPENAI_MODEL or LIGHTWEIGHT_MODEL_DEFAULT
+        if STRICT_NANO_ONLY:
+            mapping[task] = [GPT51_NANO]
+            continue
         canonical = _canonical_model_name(preferred)
         fallbacks = MODEL_FALLBACKS.get(canonical, [preferred])
         options: list[str] = []
@@ -477,6 +512,7 @@ def configure_models(
     default_override: str | None = None,
     openai_override: str | None = None,
     model_routing_overrides: Mapping[str, str] | None = None,
+    strict_nano_only: bool | None = None,
 ) -> None:
     """Initialise model defaults, routing, and fallbacks."""
 
@@ -488,19 +524,31 @@ def configure_models(
         MODEL_ROUTING, \
         MODEL_CONFIG, \
         TASK_MODEL_FALLBACKS, \
-        PRIMARY_MODEL
+        PRIMARY_MODEL, \
+        STRICT_NANO_ONLY
 
     clear_unavailable_models()
+    if strict_nano_only is not None:
+        STRICT_NANO_ONLY = bool(strict_nano_only)
     REASONING_EFFORT = normalise_reasoning_effort(reasoning_effort, default=REASONING_EFFORT)
-    LIGHTWEIGHT_MODEL = resolve_supported_model(lightweight_override, LIGHTWEIGHT_MODEL_DEFAULT)
-    MEDIUM_REASONING_MODEL = resolve_supported_model(
+    LIGHTWEIGHT_MODEL = _resolve_generation_model(
+        lightweight_override,
+        LIGHTWEIGHT_MODEL_DEFAULT,
+        source="LIGHTWEIGHT_MODEL",
+    )
+    MEDIUM_REASONING_MODEL = _resolve_generation_model(
         medium_reasoning_override,
         MEDIUM_REASONING_MODEL_DEFAULT,
+        source="MEDIUM_REASONING_MODEL",
     )
-    HIGH_REASONING_MODEL = resolve_supported_model(high_reasoning_override, HIGH_REASONING_MODEL_DEFAULT)
-    PRIMARY_MODEL = resolve_supported_model(primary_override, PRIMARY_MODEL_DEFAULT)
-    DEFAULT_MODEL = resolve_supported_model(default_override, PRIMARY_MODEL)
-    OPENAI_MODEL = resolve_supported_model(openai_override, DEFAULT_MODEL)
+    HIGH_REASONING_MODEL = _resolve_generation_model(
+        high_reasoning_override,
+        HIGH_REASONING_MODEL_DEFAULT,
+        source="HIGH_REASONING_MODEL",
+    )
+    PRIMARY_MODEL = _resolve_generation_model(primary_override, PRIMARY_MODEL_DEFAULT, source="PRIMARY_MODEL")
+    DEFAULT_MODEL = _resolve_generation_model(default_override, PRIMARY_MODEL, source="DEFAULT_MODEL")
+    OPENAI_MODEL = _resolve_generation_model(openai_override, DEFAULT_MODEL, source="OPENAI_MODEL")
     REASONING_MODEL = _model_for_reasoning_level(REASONING_EFFORT)
     logger.info(
         "Configured model defaults: reasoning_effort='%s', primary_model='%s'.",
@@ -565,7 +613,7 @@ def get_model_fallbacks_for(task: ModelTask | str) -> list[str]:
     return list(
         TASK_MODEL_FALLBACKS.get(
             ModelTask.DEFAULT.value,
-            [PRIMARY_MODEL, GPT4O, GPT35, GPT52_MINI, GPT52],
+            [PRIMARY_MODEL, GPT51_NANO] if STRICT_NANO_ONLY else [PRIMARY_MODEL, GPT4O, GPT35, GPT52_MINI, GPT52],
         )
     )
 
@@ -640,6 +688,8 @@ def _collect_candidate_models(task: ModelTask | str, override: str | None) -> li
         canonical = _canonical_model_name(model_name)
         if not canonical:
             return
+        if STRICT_NANO_ONLY:
+            return
         chain = MODEL_FALLBACKS.get(canonical)
         if not chain:
             return
@@ -706,8 +756,9 @@ def get_first_available_model(task: ModelTask | str, *, override: str | None = N
             candidates[-1],
         )
         return candidates[-1]
-    logger.error("No model candidates resolved for task '%s'; falling back to %s.", task, GPT41_MINI)
-    return GPT41_MINI
+    fallback_model = GPT51_NANO if STRICT_NANO_ONLY else GPT41_MINI
+    logger.error("No model candidates resolved for task '%s'; falling back to %s.", task, fallback_model)
+    return fallback_model
 
 
 def get_model_for(task: ModelTask | str, *, override: str | None = None) -> str:
