@@ -113,6 +113,7 @@ Every step MUST render in the same top-down pattern:
    - One primary action: continue.
 
 Missing prompts should not duplicate inputs that are already editable in the Known section; inline fields (for example, the Team reporting line) are edited once to avoid conflicting updates.
+For Skills & requirements, ESCO occupation search/selection is treated as a supporting tool inside the Tools area (expander) and committed through explicit **Apply/Übernehmen** actions so Missing fields stay visually primary.
 
 The baseline UX uses the guided-flow UI kit in `app.py` (emoji stepper, context bar, progress microcopy, and inline saved feedback) to keep navigation stable without layout shifts.
 Wizard widget keys should always be generated via `wiz.k(...)` so session state remains namespaced for multi-wizard and multi-repo safety.

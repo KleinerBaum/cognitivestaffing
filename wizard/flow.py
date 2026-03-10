@@ -3212,12 +3212,36 @@ def _remember_company_page_text(cache_key: str, text: str) -> None:
 
 
 @st.cache_data(show_spinner=False, ttl=3600)
-def _cached_esco_search(query: str, *, lang: str, limit: int) -> list[dict[str, str]]:
-    """Return ESCO occupation matches with shared caching."""
+def _cached_esco_search(query: str, *, lang: str, limit: int) -> list[dict[str, Any]]:
+    """Return ESCO occupation matches with display metadata and shared caching."""
 
-    if not str(query or "").strip():
+    normalized_query = str(query or "").strip()
+    if not normalized_query:
         return []
-    return search_occupations(query, lang=lang, limit=limit)
+
+    raw_matches = search_occupations(normalized_query, lang=lang, limit=limit)
+    enriched: list[dict[str, Any]] = []
+    query_tokens = {token.casefold() for token in normalized_query.split() if token.strip()}
+    for rank, raw in enumerate(raw_matches, start=1):
+        label = str(raw.get("preferredLabel") or "").strip()
+        uri = str(raw.get("uri") or "").strip()
+        group = str(raw.get("group") or "").strip()
+        if not label and not uri:
+            continue
+        label_tokens = {token.casefold() for token in label.split() if token.strip()}
+        overlap = len(query_tokens.intersection(label_tokens))
+        heuristic_score = round(overlap / max(len(query_tokens), 1), 2)
+        enriched.append(
+            {
+                "preferredLabel": label,
+                "uri": uri,
+                "group": group,
+                "rank": rank,
+                "score_hint": heuristic_score,
+                "display_label": f"{label} — {group}".strip(" —"),
+            }
+        )
+    return enriched
 
 
 @st.cache_data(show_spinner=False, ttl=3600)
@@ -6828,10 +6852,10 @@ def _set_requirement_certificates(requirements: dict[str, Any], values: Iterable
 
 def _sanitize_esco_options(
     options: Iterable[Mapping[str, Any]] | None,
-) -> list[dict[str, str]]:
-    """Return cleaned ESCO occupation metadata entries."""
+) -> list[dict[str, Any]]:
+    """Return cleaned ESCO occupation metadata entries including display metadata."""
 
-    sanitized: list[dict[str, str]] = []
+    sanitized: list[dict[str, Any]] = []
     if not options:
         return sanitized
     seen: set[str] = set()
@@ -6847,8 +6871,48 @@ def _sanitize_esco_options(
         if marker in seen:
             continue
         seen.add(marker)
-        sanitized.append({"preferredLabel": label, "uri": uri, "group": group})
+        score_hint_raw = raw.get("score_hint")
+        rank_raw = raw.get("rank")
+        score_hint = float(score_hint_raw) if isinstance(score_hint_raw, (int, float)) else None
+        rank = int(rank_raw) if isinstance(rank_raw, (int, float)) else None
+        display_label = str(raw.get("display_label") or "").strip()
+        sanitized.append(
+            {
+                "preferredLabel": label,
+                "uri": uri,
+                "group": group,
+                "score_hint": score_hint,
+                "rank": rank,
+                "display_label": display_label,
+            }
+        )
     return sanitized
+
+
+def _reset_esco_state(*, clear_query: bool = False) -> None:
+    """Reset ESCO occupation, selection and skill state consistently."""
+
+    st.session_state[StateKeys.UI_ESCO_OCCUPATION_OPTIONS] = []
+    st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = []
+    st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = []
+    st.session_state[StateKeys.ESCO_SKILLS] = []
+    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
+    st.session_state.pop(StateKeys.UI_ESCO_OCCUPATION_OVERRIDE, None)
+    st.session_state.pop(UIKeys.POSITION_ESCO_OCCUPATION_WIDGET, None)
+    if clear_query:
+        st.session_state.pop(UIKeys.REQUIREMENTS_OCC_SEARCH, None)
+    _write_occupation_to_profile(None)
+
+
+def _invalidate_esco_state_if_job_title_changed(job_title: str) -> None:
+    """Invalidate ESCO-dependent selections when the job title changes."""
+
+    title_key = "ui.requirements.last_job_title_for_esco"
+    normalized_title = str(job_title or "").strip()
+    previous_title = str(st.session_state.get(title_key) or "").strip()
+    if previous_title and previous_title.casefold() != normalized_title.casefold():
+        _reset_esco_state(clear_query=False)
+    st.session_state[title_key] = normalized_title
 
 
 def _coerce_occupation_ids(raw_value: Any) -> list[str]:
@@ -7033,20 +7097,16 @@ def _render_requirements_esco_search(
             if not current_ids and available_ids:
                 current_ids = [available_ids[0]]
             st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = current_ids
-            _apply_esco_selection(current_ids, sanitized, lang=lang)
+            st.session_state[StateKeys.UI_ESCO_OCCUPATION_OVERRIDE] = list(current_ids)
             container.success(
                 tr(
-                    "ESCO-Profile aktualisiert – Vorschläge sind im Skill-Board verfügbar.",
-                    "ESCO occupations updated – suggestions are ready in the skill board.",
+                    "ESCO-Profile aktualisiert – Auswahl jetzt mit „Übernehmen“ bestätigen.",
+                    "ESCO occupations updated – confirm the selection with “Apply”.",
                     lang=lang,
                 )
             )
         else:
-            st.session_state[StateKeys.UI_ESCO_OCCUPATION_OPTIONS] = []
-            st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = []
-            st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = []
-            st.session_state[StateKeys.ESCO_SKILLS] = []
-            st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
+            _reset_esco_state(clear_query=False)
             container.warning(
                 tr(
                     "Keine passenden ESCO-Berufe gefunden.",
@@ -7077,9 +7137,12 @@ def _render_esco_occupation_selector(
     lang_code = st.session_state.get("lang", "de") or "de"
     option_ids = [str(entry.get("uri") or "").strip() for entry in options]
     format_map = {
-        option_id: f"{entry.get('preferredLabel', '')} — {entry.get('group', '')}".strip(" —")
+        option_id: str(
+            entry.get("display_label") or f"{entry.get('preferredLabel', '')} — {entry.get('group', '')}"
+        ).strip(" —")
         for option_id, entry in zip(option_ids, options)
     }
+    meta_map = {option_id: entry for option_id, entry in zip(option_ids, options)}
 
     selected_entries = st.session_state.get(StateKeys.ESCO_SELECTED_OCCUPATIONS, []) or []
     selected_ids = [
@@ -7170,11 +7233,9 @@ def _render_esco_occupation_selector(
     )
 
     def _on_change() -> None:
-        """Persist ESCO occupation selections and sync dependent state."""
+        """Persist the in-progress ESCO occupation selections."""
 
-        current_ids = _current_selection()
-        st.session_state[profile_key] = current_ids
-        _apply_esco_selection(current_ids, options, lang=lang_code)
+        st.session_state[profile_key] = _current_selection()
 
     selection_label = tr("Empfohlene Berufe", "Suggested occupations")
     render_target.caption(selection_label)
@@ -7191,6 +7252,16 @@ def _render_esco_occupation_selector(
             "Search or add ESCO occupations…",
         ),
     )
+
+    with render_target.expander(tr("Treffer-Metadaten", "Match metadata"), expanded=False):
+        for option_id in option_ids:
+            meta = meta_map.get(option_id, {})
+            label = format_map.get(option_id, option_id)
+            rank = meta.get("rank")
+            score_hint = meta.get("score_hint")
+            rank_text = f"#{rank}" if isinstance(rank, int) else "-"
+            score_text = f"{score_hint:.2f}" if isinstance(score_hint, float) else "-"
+            st.caption(f"{label} · rank={rank_text} · score≈{score_text}")
 
     selected_ids = list(st.session_state.get(widget_key, []))
     selected_labels = [format_map.get(opt, opt) for opt in selected_ids]
@@ -7258,7 +7329,30 @@ def _render_esco_occupation_selector(
 
     current_ids = _current_selection()
     st.session_state[profile_key] = current_ids
-    _apply_esco_selection(current_ids, options, lang=lang_code)
+
+    apply_columns = render_target.columns((2, 1), gap="small")
+    with apply_columns[0]:
+        st.caption(
+            tr(
+                "Änderungen werden erst nach „Übernehmen“ auf Profil und Skills angewendet.",
+                "Changes are applied to profile and skills only after pressing “Apply”.",
+            )
+        )
+    with apply_columns[1]:
+        if st.button(
+            tr("✅ Übernehmen", "✅ Apply"),
+            key=f"{widget_key}.apply",
+            type="primary",
+            use_container_width=True,
+            disabled=not bool(current_ids),
+        ):
+            _apply_esco_selection(current_ids, options, lang=lang_code)
+            st.success(
+                tr(
+                    "Auswahl übernommen – ESCO-Occupation(s) und Skills wurden synchronisiert.",
+                    "Selection applied – ESCO occupation(s) and skills are now synced.",
+                )
+            )
 
     if compact:
         container.markdown("</div>", unsafe_allow_html=True)
@@ -8184,6 +8278,7 @@ def _step_requirements() -> None:
     )
 
     job_title = (data.get("position", {}).get("job_title", "") or "").strip()
+    _invalidate_esco_state_if_job_title_changed(job_title)
     has_missing_key = bool(st.session_state.get("openai_api_key_missing"))
 
     def _load_skill_suggestions(
@@ -8389,33 +8484,34 @@ def _step_requirements() -> None:
 
     with helper_columns[1]:
         lang_code = st.session_state.get("lang", "de") or "de"
-        _render_requirements_esco_search(position_mapping, lang=lang_code)
-        _render_esco_occupation_selector(
-            position_mapping,
-            compact=True,
-            key_suffix="role_tasks",
-        )
-        current_esco_opt_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_ESCO_OPT_IN))
-        esco_button_label = (
-            tr("🌐 ESCO-Vorschläge laden", "🌐 Fetch suggestions from ESCO")
-            if not current_esco_opt_in
-            else tr("🔌 ESCO-Vorschläge deaktivieren", "🔌 Disable ESCO suggestions")
-        )
-        if st.button(
-            esco_button_label,
-            key=UIKeys.REQUIREMENTS_FETCH_ESCO_SUGGESTIONS,
-            type="secondary",
-            help=tr(
-                "Steuert, ob ESCO-Empfehlungen im Skill-Board erscheinen.",
-                "Control whether ESCO recommendations appear on the skill board.",
-            ),
-        ):
-            new_value = not current_esco_opt_in
-            st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] = new_value
-            if not new_value:
-                st.session_state[StateKeys.ESCO_SKILLS] = []
-                st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
-            st.rerun()
+        with st.expander(tr("🧰 Tools", "🧰 Tools"), expanded=False):
+            _render_requirements_esco_search(position_mapping, lang=lang_code)
+            _render_esco_occupation_selector(
+                position_mapping,
+                compact=True,
+                key_suffix="role_tasks",
+            )
+            current_esco_opt_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_ESCO_OPT_IN))
+            esco_button_label = (
+                tr("🌐 ESCO-Vorschläge laden", "🌐 Fetch suggestions from ESCO")
+                if not current_esco_opt_in
+                else tr("🔌 ESCO-Vorschläge deaktivieren", "🔌 Disable ESCO suggestions")
+            )
+            if st.button(
+                esco_button_label,
+                key=UIKeys.REQUIREMENTS_FETCH_ESCO_SUGGESTIONS,
+                type="secondary",
+                help=tr(
+                    "Steuert, ob ESCO-Empfehlungen im Skill-Board erscheinen.",
+                    "Control whether ESCO recommendations appear on the skill board.",
+                ),
+            ):
+                new_value = not current_esco_opt_in
+                st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] = new_value
+                if not new_value:
+                    st.session_state[StateKeys.ESCO_SKILLS] = []
+                    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
+                st.rerun()
 
     st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = focus_selection
     suggestions, suggestions_error, suggestion_hint = _load_skill_suggestions(focus_selection)
