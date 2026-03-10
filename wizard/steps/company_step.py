@@ -796,9 +796,12 @@ def _format_summary_value(value: Any) -> str:
 
 def _render_company_summary(profile: Mapping[str, Any]) -> None:
     lang = st.session_state.get("lang", "de")
-    company = profile.get("company") if isinstance(profile.get("company"), Mapping) else {}
-    location = profile.get("location") if isinstance(profile.get("location"), Mapping) else {}
-    business_context = profile.get("business_context") if isinstance(profile.get("business_context"), Mapping) else {}
+    company_raw = profile.get("company")
+    location_raw = profile.get("location")
+    business_context_raw = profile.get("business_context")
+    company: Mapping[str, Any] = company_raw if isinstance(company_raw, Mapping) else {}
+    location: Mapping[str, Any] = location_raw if isinstance(location_raw, Mapping) else {}
+    business_context: Mapping[str, Any] = business_context_raw if isinstance(business_context_raw, Mapping) else {}
     items = [
         (tr("Business-Domain", "Business domain", lang=lang), business_context.get("domain")),
         (tr("Industrie-Codes", "Industry codes", lang=lang), business_context.get("industry_codes")),
@@ -833,7 +836,6 @@ def _step_company() -> None:
         None
     """
 
-    flow = _get_flow_module()
     st.markdown(COMPACT_STEP_STYLE, unsafe_allow_html=True)
 
     profile = _get_profile_state()

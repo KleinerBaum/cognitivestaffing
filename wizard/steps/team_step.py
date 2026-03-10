@@ -108,10 +108,14 @@ def _format_summary_value(value: Any) -> str:
 
 def _render_team_summary(profile: Mapping[str, Any]) -> None:
     lang = st.session_state.get("lang", "de")
-    department = profile.get("department") if isinstance(profile.get("department"), dict) else {}
-    team = profile.get("team") if isinstance(profile.get("team"), dict) else {}
-    position = profile.get("position") if isinstance(profile.get("position"), dict) else {}
-    meta = profile.get("meta") if isinstance(profile.get("meta"), dict) else {}
+    department_raw = profile.get("department")
+    team_raw = profile.get("team")
+    position_raw = profile.get("position")
+    meta_raw = profile.get("meta")
+    department: Mapping[str, Any] = department_raw if isinstance(department_raw, Mapping) else {}
+    team: Mapping[str, Any] = team_raw if isinstance(team_raw, Mapping) else {}
+    position: Mapping[str, Any] = position_raw if isinstance(position_raw, Mapping) else {}
+    meta: Mapping[str, Any] = meta_raw if isinstance(meta_raw, Mapping) else {}
     items = [
         (tr("Jobtitel", "Job title", lang=lang), position.get("job_title")),
         (tr("Abteilung", "Department", lang=lang), department.get("name")),
