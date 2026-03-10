@@ -105,6 +105,27 @@ def test_export_input_contains_only_confirmed_decisions() -> None:
     assert export_payload["open_decisions"][0]["decision_state"] == "confirmed"
 
 
+def test_export_input_adds_warning_for_blocking_unconfirmed_decision() -> None:
+    profile = NeedAnalysisV2(
+        open_decisions=[
+            DecisionCard(
+                decision_id="d3",
+                title="Salary",
+                field_path="constraints.salary_min",
+                decision_state="proposed",
+                proposed_value=80000,
+                rationale="pending",
+                blocking_exports=["job_ad_markdown"],
+            )
+        ]
+    )
+
+    export_payload = profile.export_input(artifact_key="job_ad_markdown")
+
+    assert export_payload["open_decisions"] == []
+    assert any("d3" in warning for warning in export_payload["warnings"])
+
+
 def test_v1_adapter_marks_undecided_items_as_proposed() -> None:
     v1_payload = {
         "meta": {

@@ -7,6 +7,7 @@ from typing import Any, Mapping, Sequence
 
 from config import get_active_verbosity
 from config.models import ModelTask, get_model_for
+from exports.transform import build_v2_export_payload
 from openai_utils import call_chat_api
 from openai_utils.api import ChatCallResult
 from prompts import prompt_registry
@@ -25,6 +26,12 @@ def _sequence_has_content(values: Any) -> bool:
     if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
         return False
     return any(_normalized_text(item) for item in values)
+
+
+def _prepare_job_ad_payload(vacancy_json: Mapping[str, Any]) -> dict[str, Any]:
+    """Apply V2 export decision filtering before prompting the model."""
+
+    return build_v2_export_payload(vacancy_json, artifact_key="job_ad_markdown")
 
 
 def _validate_job_ad_sections(payload: Mapping[str, Any]) -> None:
@@ -80,17 +87,18 @@ def _validate_job_ad_response(result: ChatCallResult) -> None:
     _validate_job_ad_sections(payload)
 
 
-def generate_job_ad(vacancy_json: dict, lang: str, tone: str = "professional") -> Any:
+def generate_job_ad(vacancy_json: Mapping[str, Any], lang: str, tone: str = "professional") -> Any:
     """Generate a structured job ad JSON payload."""
 
     locale = str(lang or "de")
+    export_payload = _prepare_job_ad_payload(vacancy_json)
     system = {
         "role": "system",
         "content": prompt_registry.get("generators.job_ad.system", locale=locale),
     }
     user = {
         "role": "user",
-        "content": f"Sprache: {lang}\nTon: {tone}\nProfil:\n{vacancy_json}",
+        "content": f"Sprache: {lang}\nTon: {tone}\nProfil:\n{export_payload}",
     }
     result = call_chat_api(
         messages=[system, user],

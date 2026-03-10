@@ -1,6 +1,7 @@
 
 ## Unreleased
 
+- Added confirmed-only V2 export mapping for artifact inputs: non-confirmed decisions are excluded from export payload fields, blocking items emit `warnings[]`, and generator prompts now consume the normalized V2 payload.
 - Added Wizard V2 scaffolding with separate step modules/registry and explicit V1↔V2 routing via query parameter/feature flag, plus intake fast-path diagnostics and tests for high/medium coverage behavior.
 - Added a decision-backlog engine for `open_decisions` with impact-prioritized ordering (Search, Selection, Candidate-Communication), enriched `DecisionCard` metadata (`category`, `impact_area`, `blocking_exports`, `suggested_resolution_options`), and a new follow-up `decision-first` mode that asks fewer targeted clarification questions.
 - Structured extraction now treats `BadRequestError` schema failures on `response_format` (e.g. "Invalid schema for response_format") as unrecoverable, skips model rotation/retry loops, and immediately switches to a reduced fallback mode with a single bilingual user warning.

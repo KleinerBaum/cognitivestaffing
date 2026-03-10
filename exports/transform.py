@@ -8,7 +8,7 @@ Do not edit manually.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Final, Iterable, Mapping
+from typing import Any, Final, Iterable, Mapping
 
 from core.schema import RecruitingWizard
 
@@ -221,6 +221,70 @@ def ensure_export_payload(payload: Mapping[str, object] | RecruitingWizard) -> d
     return export.to_dict()
 
 
+def _set_nested_value(payload: dict[str, Any], path: str, value: Any) -> None:
+    current = payload
+    parts = path.split(".")
+    for part in parts[:-1]:
+        child = current.get(part)
+        if not isinstance(child, dict):
+            child = {}
+            current[part] = child
+        current = child
+    current[parts[-1]] = value
+
+
+def build_v2_export_payload(
+    payload: Mapping[str, Any],
+    *,
+    artifact_key: str | None = None,
+) -> dict[str, Any]:
+    """Return a V2 export payload that only applies confirmed decisions.
+
+    Confirmed decisions are applied to their ``field_path`` as export values.
+    Non-confirmed decisions are excluded and converted into warning entries when
+    they block the requested artifact (or any artifact when ``artifact_key`` is ``None``).
+    """
+
+    export_payload: dict[str, Any] = dict(payload)
+    raw_warnings = export_payload.get("warnings")
+    warnings: list[str] = (
+        [item for item in raw_warnings if isinstance(item, str)] if isinstance(raw_warnings, list) else []
+    )
+
+    raw_decisions = payload.get("open_decisions")
+    decisions = list(raw_decisions) if isinstance(raw_decisions, list) else []
+    confirmed_decisions: list[dict[str, Any]] = []
+
+    for entry in decisions:
+        if not isinstance(entry, Mapping):
+            continue
+
+        decision_state = str(entry.get("decision_state") or "")
+        field_path = str(entry.get("field_path") or "").strip()
+        decision_id = str(entry.get("decision_id") or "").strip() or "unknown"
+        blocking_raw = entry.get("blocking_exports")
+        blocking_exports = (
+            [str(item) for item in blocking_raw if isinstance(item, str)] if isinstance(blocking_raw, list) else []
+        )
+
+        if decision_state == "confirmed":
+            confirmed_decisions.append(dict(entry))
+            if field_path:
+                _set_nested_value(export_payload, field_path, entry.get("proposed_value"))
+            continue
+
+        should_warn = bool(blocking_exports) and (artifact_key is None or artifact_key in blocking_exports)
+        if should_warn:
+            joined = ", ".join(blocking_exports)
+            warnings.append(
+                f"Unconfirmed decision '{decision_id}' blocks exports ({joined}); proposed value was not exported."
+            )
+
+    export_payload["open_decisions"] = confirmed_decisions
+    export_payload["warnings"] = warnings
+    return export_payload
+
+
 def iter_export_fields() -> Iterable[WizardExportField]:
     """Yield the canonical export field descriptors."""
 
@@ -233,5 +297,6 @@ __all__ = [
     "WIZARD_EXPORT_FIELD_TYPES",
     "WIZARD_EXPORT_LIST_FIELDS",
     "ensure_export_payload",
+    "build_v2_export_payload",
     "iter_export_fields",
 ]
