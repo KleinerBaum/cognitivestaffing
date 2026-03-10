@@ -37,6 +37,7 @@ from .openai_responses import (
     build_json_schema_format,
     call_responses_safe,
 )
+from .response_schemas import NEED_ANALYSIS_PROFILE_SCHEMA_NAME, get_response_schema
 from .output_parsers import (
     NeedAnalysisParserError,
     get_need_analysis_output_parser,
@@ -571,7 +572,17 @@ def _generate_error_report(instance: dict[str, Any]) -> str:
     return "\n".join(lines)
 
 
-NEED_ANALYSIS_SCHEMA = load_need_analysis_schema()
+def _load_structured_extraction_schema() -> dict[str, Any]:
+    """Return the canonical schema used for NeedAnalysis structured extraction."""
+
+    try:
+        return get_response_schema(NEED_ANALYSIS_PROFILE_SCHEMA_NAME)
+    except Exception:
+        logger.exception("Failed to load response schema registry entry; falling back to schema registry")
+        return load_need_analysis_schema()
+
+
+NEED_ANALYSIS_SCHEMA = _load_structured_extraction_schema()
 NEED_ANALYSIS_SCHEMA.pop("$schema", None)
 NEED_ANALYSIS_SCHEMA.pop("title", None)
 _assert_closed_schema(NEED_ANALYSIS_SCHEMA)

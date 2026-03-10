@@ -1851,6 +1851,18 @@ def _on_api_giveup(details: Any) -> None:
     if isinstance(err, APITimeoutError):
         raise err
     if isinstance(err, BadRequestError):
+        if is_unrecoverable_schema_error(err):
+            try:
+                from core.schema_registry import clear_schema_cache
+                from llm.response_schemas import clear_response_schema_cache
+
+                clear_schema_cache()
+                clear_response_schema_cache()
+                logger.warning(
+                    "Detected unrecoverable schema response-format error. In-memory schema caches were cleared; restart workers to avoid stale schema state."
+                )
+            except Exception:
+                logger.debug("Unable to clear schema caches after unrecoverable schema error.", exc_info=True)
         raise SchemaValidationError(
             resolve_message(_INVALID_REQUEST_ERROR_MESSAGE),
             schema=None,

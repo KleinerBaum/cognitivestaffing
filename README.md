@@ -351,6 +351,10 @@ Extraction goldenset fixtures for deterministic core-field evaluation live under
   key (`ui.position.esco_occupation`).
 - Avoid committing binary screenshots in PRs; add any required images manually after review to
   keep diffs lightweight.
+- For `Invalid schema for response_format` errors, enable debug logs and inspect the
+  `response_format meta-schema probe` entry emitted by `openai_utils.client` before the API call.
+  Verify `meta.properties` and `meta.required` list exactly the same keys (especially
+  `field_metadata`), then restart app workers to drop any stale in-memory schema caches.
 
 
 ## Quality metrics and degraded-run interpretation
