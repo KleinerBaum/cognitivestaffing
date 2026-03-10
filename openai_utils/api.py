@@ -169,6 +169,10 @@ _INVALID_REQUEST_ERROR_MESSAGE: Final[tuple[str, str]] = (
     "❌ Interner Fehler bei der Verarbeitung der Anfrage. (Die App hat eine ungültige Anfrage an das KI-Modell gesendet.)",
     "❌ An internal error occurred while processing your request. (The app made an invalid request to the AI model.)",
 )
+_SCHEMA_CONFIG_FALLBACK_MESSAGE: Final[tuple[str, str]] = (
+    "⚠️ Internes Schema-Konfigurationsproblem erkannt. Die App setzt die Analyse im reduzierten Modus fort.",
+    "⚠️ An internal schema configuration issue was detected. The app will continue in reduced mode.",
+)
 
 
 _VERBOSITY_CONFIG: dict[str, str] = prompt_registry.get("openai_utils.api.verbosity")
@@ -381,11 +385,41 @@ def _message_indicates_unrecoverable_schema(message: str) -> bool:
     return False
 
 
+def _is_response_format_schema_bad_request(error: Exception) -> bool:
+    """Return ``True`` for unrecoverable ``response_format`` schema validation failures."""
+
+    if not isinstance(error, BadRequestError):
+        return False
+
+    message = str(getattr(error, "message", str(error))).lower()
+    param = str(getattr(error, "param", "")).strip().lower()
+    invalid_schema_hint = (
+        "invalid schema for response_format" in message
+        or "invalid schema for 'response_format'" in message
+        or 'invalid schema for "response_format"' in message
+    )
+    if param == "response_format" and invalid_schema_hint:
+        return True
+
+    for payload in _iter_error_payloads(error):
+        payload_param = str(payload.get("param") or payload.get("parameter") or "").strip().lower()
+        payload_message = str(payload.get("message") or "").lower()
+        if payload_param == "response_format" and (
+            "invalid schema for response_format" in payload_message or invalid_schema_hint
+        ):
+            return True
+
+    return False
+
+
 def is_unrecoverable_schema_error(error: Exception) -> bool:
     """Return ``True`` when ``error`` should stop retries due to schema issues."""
 
     if not isinstance(error, APIError):
         return False
+
+    if _is_response_format_schema_bad_request(error):
+        return True
 
     message = getattr(error, "message", str(error))
     if isinstance(message, str) and _message_indicates_unrecoverable_schema(message):
@@ -1655,6 +1689,8 @@ def _describe_openai_error(error: OpenAIError) -> tuple[str, str]:
     if isinstance(error, BadRequestError) or getattr(error, "type", "") == "invalid_request_error":
         detail = getattr(error, "message", str(error))
         log_msg = f"OpenAI invalid request: {detail}"
+        if _is_response_format_schema_bad_request(error):
+            return resolve_message(_SCHEMA_CONFIG_FALLBACK_MESSAGE), log_msg
         return resolve_message(_INVALID_REQUEST_ERROR_MESSAGE), log_msg
 
     if isinstance(error, APIError):

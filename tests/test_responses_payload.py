@@ -209,3 +209,31 @@ def test_call_responses_rejects_mismatched_required_and_properties(monkeypatch: 
         )
 
     assert invoked is False
+
+
+def test_call_responses_safe_raises_short_circuit_for_response_format_param_error(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """response_format schema-param BadRequest should short-circuit immediately."""
+
+    fmt = openai_responses.build_json_schema_format(
+        name="need_analysis_profile",
+        schema={"type": "object"},
+    )
+    fake_response = cast(Response, SimpleNamespace(request=SimpleNamespace(), status_code=400, headers={}))
+
+    def _raise_error(*_: Any, **__: Any) -> Any:
+        raise BadRequestError(
+            "Invalid schema for response_format 'need_analysis_profile'",
+            response=fake_response,
+            body={"error": {"param": "response_format"}},
+        )
+
+    monkeypatch.setattr(openai_responses, "call_responses", _raise_error)
+
+    with pytest.raises(openai_responses.UnrecoverableSchemaShortCircuitError):
+        openai_responses.call_responses_safe(
+            messages=[{"role": "user", "content": "hi"}],
+            model=model_config.GPT4O_MINI,
+            response_format=fmt,
+        )

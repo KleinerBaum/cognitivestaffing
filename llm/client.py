@@ -76,6 +76,30 @@ _STRUCTURED_EXTRACTION_CHAIN: Any | None = None
 _STRUCTURED_RESPONSE_RETRIES = 3
 _SCHEMA_REPAIR_MAX_RETRIES = 1
 _EXTRACTION_MAX_COMPLETION_TOKENS: Final[int] = 500
+_SCHEMA_FALLBACK_NOTICE_KEY: Final[str] = "llm.schema_config_fallback_notice_shown"
+_SCHEMA_FALLBACK_NOTICE: Final[tuple[str, str]] = (
+    "Interner Schema-Konfigurationsfehler erkannt. Die Analyse läuft im reduzierten Modus weiter.",
+    "An internal schema configuration issue was detected. The analysis will continue in reduced mode.",
+)
+
+
+def _schema_fallback_user_notice() -> str:
+    """Return a user-facing bilingual notice for schema short-circuit fallback."""
+
+    language = str(st.session_state.get("language", "de") or "de").lower()
+    return _SCHEMA_FALLBACK_NOTICE[0] if language.startswith("de") else _SCHEMA_FALLBACK_NOTICE[1]
+
+
+def _show_schema_fallback_notice_once() -> None:
+    """Display a single user-facing warning when schema fallback mode is engaged."""
+
+    try:
+        if bool(st.session_state.get(_SCHEMA_FALLBACK_NOTICE_KEY)):
+            return
+        st.warning(_schema_fallback_user_notice())
+        st.session_state[_SCHEMA_FALLBACK_NOTICE_KEY] = True
+    except Exception:
+        return
 
 
 def _build_missing_section_schema(missing_sections: Sequence[str]) -> Mapping[str, Any]:
@@ -690,10 +714,6 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
                 result = _attempt(active_model)
             except (BadRequestError, UnrecoverableSchemaShortCircuitError) as err:
                 if is_unrecoverable_schema_error(err) or isinstance(err, UnrecoverableSchemaShortCircuitError):
-                    logger.warning(
-                        "Responses schema invalid for %s; schema_unrecoverable_short_circuit=true",
-                        prompt_digest,
-                    )
                     return StructuredExtractionOutcome(
                         content="",
                         source="responses",
@@ -790,15 +810,17 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
                 "name": "need_analysis_profile",
                 "schema": NEED_ANALYSIS_SCHEMA,
             }
+            logger.warning(
+                "Structured extraction streaming returned empty content; retrying via chat completions for %s.",
+                prompt_digest,
+            )
         else:
             fallback_kwargs["use_response_format"] = False
             logger.warning(
-                "Structured extraction short-circuit fallback engaged; schema_unrecoverable_short_circuit=true",
+                "Structured extraction schema config invalid for %s; switching to reduced fallback mode.",
+                prompt_digest,
             )
-        logger.warning(
-            "Structured extraction streaming returned empty content; retrying via chat completions for %s.",
-            prompt_digest,
-        )
+            _show_schema_fallback_notice_once()
         call_result = call_chat_api(**fallback_kwargs)
         fallback_content = (call_result.content or "").strip()
         content = StructuredExtractionOutcome(

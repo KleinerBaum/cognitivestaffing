@@ -281,11 +281,6 @@ def call_responses_safe(
         return None
     except (OpenAIError, LLMResponseFormatError) as exc:
         if is_unrecoverable_schema_error(exc):
-            active_logger.error(
-                "Structured %s call short-circuited after unrecoverable schema error; "
-                "schema_unrecoverable_short_circuit=true",
-                context,
-            )
             raise UnrecoverableSchemaShortCircuitError(str(exc)) from exc
         active_logger.error(
             "Structured chat call for %s failed: %s",

@@ -69,3 +69,15 @@ def test_invalid_request_response_format_aborts_retry() -> None:
     error.type = "invalid_request_error"
 
     assert api._should_abort_retry(error) is True
+
+
+def test_bad_request_response_format_invalid_schema_is_unrecoverable() -> None:
+    fake_response = type("_Resp", (), {"request": object(), "status_code": 400, "headers": {}})()
+    error = BadRequestError(
+        "Invalid schema for response_format 'need_analysis_profile'",
+        response=fake_response,
+        body={"error": {"param": "response_format"}},
+    )
+
+    assert api.is_unrecoverable_schema_error(error) is True
+    assert api._should_abort_retry(error) is True
