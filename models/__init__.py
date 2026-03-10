@@ -6,7 +6,10 @@ from .interview_guide import (
     InterviewGuideMetadata,
     InterviewGuideQuestion,
 )
+from .decision_card import DecisionCard
+from .evidence import EvidenceItem
 from .need_analysis import NeedAnalysisProfile
+from .need_analysis_v2 import NeedAnalysisV2
 
 __all__ = [
     "InterviewGuide",
@@ -14,4 +17,7 @@ __all__ = [
     "InterviewGuideMetadata",
     "InterviewGuideQuestion",
     "NeedAnalysisProfile",
+    "NeedAnalysisV2",
+    "EvidenceItem",
+    "DecisionCard",
 ]

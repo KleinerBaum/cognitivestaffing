@@ -39,6 +39,7 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 - `_extract_and_summarize` now keeps `StateKeys.PROFILE` canonical and schema-conformant while storing unconfirmed extraction payloads separately in `StateKeys.EXTRACTION_RAW_PROFILE`.
 
 ### Added
+- NeedAnalysis V2 schema/models plus a V1→V2 adapter with explicit `decision_state` (`proposed|confirmed|rejected`), migration of undecided values as `proposed`, and contract tests for required fields, enums, and export gating.
 - Shared wizard required-field validator registry (`wizard/validators/registry.py`) now centralizes mappings (including `company.contact_email` and `location.primary_city`) for router and metadata consumers.
 - Reproducible extraction goldenset fixtures (`tests/fixtures/extraction/`) plus a core-field evaluator that emits `artifacts/extraction_eval_report.json` for CI regression gating.
 - New bilingual landing step at the start of the wizard to capture job title, location, and line-based tasks/skills/benefits before entering onboarding.
