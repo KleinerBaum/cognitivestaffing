@@ -20,6 +20,7 @@ from utils.json_repair import JsonRepairStatus, parse_json_with_repair
 from wizard._openai_bridge import get_build_file_search_tool, get_call_chat_api
 from wizard.field_metadata import is_unconfirmed_low_confidence_heuristic
 from wizard.step_status import compute_field_score
+from wizard.services.decision_engine import build_decision_backlog, decision_backlog_to_followups
 from wizard.services.gaps import load_critical_fields
 
 logger = logging.getLogger(__name__)
@@ -222,6 +223,8 @@ def _fallback_followups(
     reason: str | None = None,
     error_reason: str | None = None,
     role_context: str | None = None,
+    followup_mode: str = "field-first",
+    max_questions: int = 3,
 ) -> dict[str, Any]:
     """Return a minimal set of follow-up questions when the LLM fails."""
 
@@ -517,6 +520,8 @@ def generate_followups(
     build_file_search_tool: ToolBuilder | None = None,
     previous_response_id: str | None = None,
     role_context: str | None = None,
+    followup_mode: str = "field-first",
+    max_questions: int = 3,
 ) -> dict[str, Any]:
     """Generate prioritised follow-up questions for a vacancy profile."""
 
@@ -525,6 +530,18 @@ def generate_followups(
 
     if call_llm is None:
         return _fallback_followups(locale, reason="llm_unavailable", role_context=role_context)
+
+    mode_value = (followup_mode or "field-first").strip().lower()
+    if mode_value == "decision-first":
+        open_decisions_raw = profile.get("open_decisions", []) if isinstance(profile, Mapping) else []
+        if isinstance(open_decisions_raw, Sequence):
+            backlog = build_decision_backlog(open_decisions_raw, max_items=max_questions)
+            if backlog:
+                return {
+                    "questions": decision_backlog_to_followups(backlog, locale=locale),
+                    "source": "decision_backlog",
+                    "mode": "decision-first",
+                }
 
     lang = _normalize_locale(locale)
     system_prompt = prompt_registry.get("question_logic.followups.system", locale=lang)

@@ -1,6 +1,7 @@
 
 ## Unreleased
 
+- Added a decision-backlog engine for `open_decisions` with impact-prioritized ordering (Search, Selection, Candidate-Communication), enriched `DecisionCard` metadata (`category`, `impact_area`, `blocking_exports`, `suggested_resolution_options`), and a new follow-up `decision-first` mode that asks fewer targeted clarification questions.
 - Structured extraction now treats `BadRequestError` schema failures on `response_format` (e.g. "Invalid schema for response_format") as unrecoverable, skips model rotation/retry loops, and immediately switches to a reduced fallback mode with a single bilingual user warning.
 - Wizard step ownership now routes `responsibilities.*` exclusively to **Tasks** (`role_tasks`) and `requirements.*` exclusively to **Skills** (`skills`), including follow-up prefix routing and section blocking indexes.
 - Follow-up field keys are now normalized to canonical schema paths across `question_logic` and `wizard/services/followups`; legacy keys (`position.location`, `position.context`, `compensation.salary_range`) are mapped to `location.primary_city`, `position.role_summary`, and `compensation.salary_min`.

@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from sidebar import _build_context
-from wizard.metadata import PAGE_FIELD_MAP, resolve_step_key_for_field_path
+from wizard.metadata import (
+    PAGE_FIELD_MAP,
+    resolve_step_key_for_decision_category,
+    resolve_step_key_for_field_path,
+)
 
 
 def test_every_page_mapped_field_resolves_to_same_step() -> None:
@@ -30,3 +34,10 @@ def test_sidebar_context_groups_missing_fields_by_step_key(monkeypatch) -> None:
     context = _build_context()
 
     assert set(context.missing_by_step) == {"company", "interview"}
+
+
+def test_decision_categories_resolve_to_steps() -> None:
+    assert resolve_step_key_for_decision_category("search") == "skills"
+    assert resolve_step_key_for_decision_category("selection") == "interview"
+    assert resolve_step_key_for_decision_category("candidate_communication") == "interview"
+    assert resolve_step_key_for_field_path("", decision_category="search") == "skills"
