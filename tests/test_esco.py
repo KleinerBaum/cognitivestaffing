@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import json
 import logging
+from types import SimpleNamespace
 from pathlib import Path
 from typing import Any, Dict
 
 import pytest
+import requests
 
 from core import esco_utils as esco
 
@@ -131,3 +133,52 @@ def test_get_essential_skills_uses_offline_cache_for_placeholder(monkeypatch, ca
     assert skills == expected
     assert calls == []
     assert not [record for record in caplog.records if record.levelno >= logging.WARNING]
+
+
+def test_fetch_json_retries_transient_errors(monkeypatch):
+    """Transient transport failures should use exponential backoff retries."""
+
+    attempts = {"count": 0}
+
+    class _Response:
+        def raise_for_status(self) -> None:
+            return None
+
+        def json(self) -> Dict[str, Any]:
+            return {"ok": True}
+
+    def fake_get(*_args: Any, **_kwargs: Any) -> _Response:
+        attempts["count"] += 1
+        if attempts["count"] < 3:
+            raise requests.Timeout("slow network")
+        return _Response()
+
+    sleeps: list[float] = []
+    monkeypatch.setattr(esco._SESSION, "get", fake_get)
+    monkeypatch.setattr(esco.time, "sleep", lambda seconds: sleeps.append(seconds))
+
+    payload = esco._fetch_json("https://example.test/search", {"text": "x"})
+
+    assert payload == {"ok": True}
+    assert attempts["count"] == 3
+    assert sleeps == [esco.RETRY_BACKOFF_BASE_SECONDS, esco.RETRY_BACKOFF_BASE_SECONDS * 2]
+
+
+def test_fallback_notice_flag_is_set_for_cached_offline_result(monkeypatch):
+    """API failures should set a UI notice flag when local ESCO data is used."""
+
+    fake_streamlit = SimpleNamespace(session_state={})
+    monkeypatch.setattr(esco, "st", fake_streamlit)
+    monkeypatch.setattr(esco, "_is_offline", lambda: False)
+    monkeypatch.setattr(
+        esco, "_api_search_occupations", lambda *_a, **_k: (_ for _ in ()).throw(esco.EscoServiceError("boom"))
+    )
+    monkeypatch.setattr(
+        esco, "_offline_classify", lambda *_a, **_k: {"preferredLabel": "offline", "uri": "offline://x", "group": "x"}
+    )
+
+    result = esco.classify_occupation("Software engineer", lang="en")
+
+    assert result and result["uri"] == "offline://x"
+    assert esco.consume_local_fallback_notice() is True
+    assert esco.consume_local_fallback_notice() is False
