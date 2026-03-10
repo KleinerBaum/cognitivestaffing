@@ -23,6 +23,7 @@ A multi-step **Streamlit wizard** that turns unstructured job ads (PDF, DOCX, UR
 - `wizard.flow` now emits structured `flow_event` JSON logs for extraction/follow-up lifecycle events plus a compact `structured_extraction.summary` payload (`missing_required_count`, `repair_count`, `heuristic_critical_count`, `degraded`, `degraded_reasons`) to simplify Streamlit-Cloud filtering.
 - Extraction runs are marked `degraded` when alert criteria are hit (currently: more than one JSON repair attempt or required fields still missing after retry), and the wizard surfaces this state as a bilingual warning for manual review.
 - Normalization logs are deduplicated per run to reduce repeated identical `Normalized ...` entries while preserving field/rule context in structured log attributes.
+- Skills step now shows compact ESCO suggestion groups per target field (required/optional hard and soft skills) with inline **Add/Ignore** actions, immediate `requirements.*` sync, and refreshed missing-critical status.
 
 ## Table of Contents
 - [What it does](#what-it-does)

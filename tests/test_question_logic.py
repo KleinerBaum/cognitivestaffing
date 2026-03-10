@@ -92,7 +92,12 @@ def test_esco_missing_skills_trigger_followup(monkeypatch) -> None:
 
     assert hard_skill_question["priority"] == "critical"
     assert hard_skill_question["suggestions"] == ["Data analysis"]
-    assert st.session_state[StateKeys.ESCO_MISSING_SKILLS] == ["Data analysis"]
+    assert st.session_state[StateKeys.ESCO_MISSING_SKILLS] == {
+        "requirements.hard_skills_required": ["Data analysis"],
+        "requirements.hard_skills_optional": ["Python", "Data analysis"],
+        "requirements.soft_skills_required": ["Python", "Data analysis"],
+        "requirements.soft_skills_optional": ["Python", "Data analysis"],
+    }
 
 
 def test_yes_no_default(monkeypatch) -> None:

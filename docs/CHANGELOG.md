@@ -1,6 +1,9 @@
 
 ## Unreleased
 
+- ESCO missing-skill state is now field-scoped (`requirements.hard_skills_*`, `requirements.soft_skills_*`) with centralized skill de-duplication (`normalize_skills` + casefold keys) across user input, AI suggestions, and ESCO imports.
+- Requirements UI now renders compact per-target ESCO suggestion blocks with bilingual **Add/Ignore** actions; accepted skills update `requirements.*` immediately and trigger missing/critical progress recomputation.
+- Sidebar/summary/export suggestion plumbing now consumes field-scoped ESCO missing skills so JSON/Markdown artifacts remain consistent after ESCO skill adoption.
 - Requirements step: ESCO occupation search now lives in a dedicated **Tools** expander, returns enriched match metadata (`label`, `uri`, `group`, rank/score hints), and applies occupations only via explicit **Übernehmen / Apply** action with consistent reset when job titles change.
 - Added confirmed-only V2 export mapping for artifact inputs: non-confirmed decisions are excluded from export payload fields, blocking items emit `warnings[]`, and generator prompts now consume the normalized V2 payload.
 - Added Wizard V2 scaffolding with separate step modules/registry and explicit V1↔V2 routing via query parameter/feature flag, plus intake fast-path diagnostics and tests for high/medium coverage behavior.

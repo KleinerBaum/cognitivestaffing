@@ -77,7 +77,7 @@ _DEFAULT_STATE_FACTORIES: Mapping[str, Callable[[], Any]] = MappingProxyType(
         StateKeys.EXTRACTION_CACHE_RESULT: lambda: None,
         StateKeys.SESSION_ID: lambda: str(uuid4()),
         StateKeys.ESCO_SKILLS: list,
-        StateKeys.ESCO_MISSING_SKILLS: list,
+        StateKeys.ESCO_MISSING_SKILLS: dict,
         StateKeys.EXTRACTION_ESCO_OCCUPATION_OPTIONS: list,
         StateKeys.UI_ESCO_OCCUPATION_OPTIONS: list,
         StateKeys.ESCO_SELECTED_OCCUPATIONS: list,

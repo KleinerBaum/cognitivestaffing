@@ -207,9 +207,17 @@ def _fetch_missing_esco_skills_from_state() -> List[str]:
 
     try:
         session_state = getattr(st, "session_state", {})
-        values = session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
+        raw_values = session_state.get(StateKeys.ESCO_MISSING_SKILLS, {}) or {}
     except Exception:  # pragma: no cover - streamlit guard
         return []
+
+    values: list[str] = []
+    if isinstance(raw_values, dict):
+        for bucket in raw_values.values():
+            if isinstance(bucket, list):
+                values.extend(bucket)
+    elif isinstance(raw_values, list):
+        values = raw_values
 
     missing: List[str] = []
     for entry in values:
