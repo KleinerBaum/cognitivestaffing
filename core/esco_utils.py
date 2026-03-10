@@ -18,6 +18,7 @@ import json
 import logging
 import os
 import re
+import time
 from functools import lru_cache
 from typing import Any, Callable, Dict, Iterable, List, Optional, Sequence
 
@@ -33,9 +34,15 @@ except Exception:  # pragma: no cover - Streamlit not available in some envs
 log = logging.getLogger("cognitive_needs.esco")
 
 REQUEST_TIMEOUT = 6  # seconds
+MAX_RETRIES = 3
+RETRY_BACKOFF_BASE_SECONDS = 0.35
+CACHE_TTL_SECONDS = 3600
+ESCO_CACHE_API_VERSION = "v1"
 _ESCO_API_ROOT = "https://ec.europa.eu/esco/api"
 _SEARCH_URL = f"{_ESCO_API_ROOT}/search"
 _OCCUPATION_URL = f"{_ESCO_API_ROOT}/resource/occupation"
+_ESCO_FALLBACK_NOTICE_KEY = "wizard.esco.local_fallback_used"
+_TRANSIENT_STATUS_CODES = {408, 429, 500, 502, 503, 504}
 
 
 class EscoServiceError(RuntimeError):
@@ -47,9 +54,16 @@ _SESSION.headers.update({"Accept": "application/json"})
 
 
 def _cache_esco_data(*, maxsize: int) -> Callable[[Callable[..., Any]], Callable[..., Any]]:
+    """Cache decorator for ESCO lookups.
+
+    This module-level cache is intentionally scoped to ESCO HTTP helpers only.
+    Wizard-level Streamlit UI helpers may still apply `st.cache_data` for rendered
+    projection data, but should not re-cache the exact same raw payload shape.
+    """
+
     def decorator(func: Callable[..., Any]) -> Callable[..., Any]:
         if st is not None:
-            cached_func = st.cache_data(show_spinner=False, ttl=3600)(func)
+            cached_func = st.cache_data(show_spinner=False, ttl=CACHE_TTL_SECONDS)(func)
             if not hasattr(cached_func, "cache_clear"):
                 cached_func.cache_clear = cached_func.clear  # type: ignore[attr-defined]
             return cached_func
@@ -76,19 +90,63 @@ def _is_offline() -> bool:
     return value not in {"", "0", "false", "no"}
 
 
+def _is_transient_request_error(exc: requests.RequestException) -> bool:
+    """Return True when ``exc`` represents a retryable transport failure."""
+
+    if isinstance(exc, (requests.Timeout, requests.ConnectionError)):
+        return True
+    if isinstance(exc, requests.HTTPError) and exc.response is not None:
+        return exc.response.status_code in _TRANSIENT_STATUS_CODES
+    return False
+
+
+def _mark_local_fallback_used() -> None:
+    """Record that ESCO network data was unavailable and offline data was used."""
+
+    if st is None:
+        return
+    st.session_state[_ESCO_FALLBACK_NOTICE_KEY] = True
+
+
+def consume_local_fallback_notice() -> bool:
+    """Return and clear the transient fallback notice flag."""
+
+    if st is None:
+        return False
+    return bool(st.session_state.pop(_ESCO_FALLBACK_NOTICE_KEY, False))
+
+
 def _fetch_json(url: str, params: Dict[str, Any]) -> Dict[str, Any]:
     """Execute a GET request and return the parsed JSON payload."""
 
-    try:
-        response = _SESSION.get(url, params=params, timeout=REQUEST_TIMEOUT)
-        response.raise_for_status()
-    except requests.RequestException as exc:
-        raise EscoServiceError(str(exc)) from exc
+    endpoint = url.rsplit("/", 1)[-1]
+    for attempt in range(1, MAX_RETRIES + 1):
+        try:
+            response = _SESSION.get(url, params=params, timeout=REQUEST_TIMEOUT)
+            response.raise_for_status()
+            try:
+                return response.json()
+            except json.JSONDecodeError as exc:  # pragma: no cover - defensive
+                raise EscoServiceError("Invalid JSON from ESCO API") from exc
+        except requests.RequestException as exc:
+            transient = _is_transient_request_error(exc)
+            status_code = exc.response.status_code if isinstance(exc, requests.HTTPError) and exc.response else None
+            log.warning(
+                "ESCO GET failed endpoint=%s attempt=%s/%s transient=%s status=%s error_type=%s",
+                endpoint,
+                attempt,
+                MAX_RETRIES,
+                transient,
+                status_code,
+                type(exc).__name__,
+            )
+            if transient and attempt < MAX_RETRIES:
+                backoff_seconds = RETRY_BACKOFF_BASE_SECONDS * (2 ** (attempt - 1))
+                time.sleep(backoff_seconds)
+                continue
+            raise EscoServiceError(f"ESCO GET failed endpoint={endpoint}") from exc
 
-    try:
-        return response.json()
-    except json.JSONDecodeError as exc:  # pragma: no cover - defensive
-        raise EscoServiceError("Invalid JSON from ESCO API") from exc
+    raise EscoServiceError(f"ESCO GET failed endpoint={endpoint}")
 
 
 def _load_offline_data() -> Dict[str, Dict[str, List[str]]]:
@@ -253,7 +311,7 @@ def _offline_search(title: str, limit: int) -> List[Dict[str, str]]:
         if fallback:
             matches.append(fallback)
 
-    return matches[:limit]
+    return matches[: max(1, min(limit, 20))]
 
 
 def _offline_essential_skills(uri: str) -> List[str]:
@@ -325,17 +383,21 @@ def _extract_group(ancestors: Sequence[Dict[str, Any]]) -> str:
 
 
 @_cache_esco_data(maxsize=128)
-def _get_occupation_detail(uri: str, lang: str) -> Dict[str, Any]:
+def _get_occupation_detail(uri: str, lang: str, *, api_version: str = ESCO_CACHE_API_VERSION) -> Dict[str, Any]:
+    _ = api_version
     params = {"uri": uri, "language": _normalize_lang(lang), "view": "full"}
     return _fetch_json(_OCCUPATION_URL, params)
 
 
 def _api_search_occupations(title: str, lang: str, limit: int) -> List[Dict[str, str]]:
+    normalized_title = str(title or "").strip()
+    normalized_lang = _normalize_lang(lang)
+    normalized_limit = max(1, min(limit, 20))
     params = {
-        "text": title,
+        "text": normalized_title,
         "type": "occupation",
-        "language": _normalize_lang(lang),
-        "limit": max(1, min(limit, 20)),
+        "language": normalized_lang,
+        "limit": normalized_limit,
     }
     payload = _fetch_json(_SEARCH_URL, params)
     results = payload.get("_embedded", {}).get("results", [])
@@ -344,10 +406,10 @@ def _api_search_occupations(title: str, lang: str, limit: int) -> List[Dict[str,
         uri = str(result.get("uri") or "").strip()
         if not uri:
             continue
-        label = _select_label(result.get("preferredLabel"), result.get("title"), lang)
+        label = _select_label(result.get("preferredLabel"), result.get("title"), normalized_lang)
         group = ""
         try:
-            detail = _get_occupation_detail(uri, lang)
+            detail = _get_occupation_detail(uri, normalized_lang, api_version=ESCO_CACHE_API_VERSION)
         except EscoServiceError as exc:
             log.debug("ESCO detail lookup failed for %s: %s", uri, exc)
             detail = {}
@@ -369,13 +431,14 @@ def classify_occupation(title: str, lang: str = "en") -> Optional[Dict[str, str]
     if _is_offline():
         if offline_match:
             return offline_match
-        log.info("No offline ESCO occupation match for '%s'", title)
+        log.info("No offline ESCO occupation match found")
         return None
 
     try:
         matches = _api_search_occupations(title, lang=lang, limit=1)
     except EscoServiceError as exc:
-        log.warning("ESCO occupation search failed (%s); falling back to cache", exc)
+        _mark_local_fallback_used()
+        log.warning("ESCO occupation search failed; falling back to cache (%s)", type(exc).__name__)
         return offline_match
 
     if matches:
@@ -406,7 +469,8 @@ def search_occupations(
     try:
         matches = _api_search_occupations(title, lang=lang, limit=limit)
     except EscoServiceError as exc:
-        log.warning("ESCO occupation search failed (%s); using offline cache", exc)
+        _mark_local_fallback_used()
+        log.warning("ESCO occupation search failed; using offline cache (%s)", type(exc).__name__)
         return _offline_search(title, limit)
 
     if matches:
@@ -416,7 +480,7 @@ def search_occupations(
 
 
 def _api_essential_skills(uri: str, lang: str) -> List[str]:
-    detail = _get_occupation_detail(uri, lang)
+    detail = _get_occupation_detail(uri, _normalize_lang(lang), api_version=ESCO_CACHE_API_VERSION)
     skills: List[str] = []
     for entry in detail.get("_links", {}).get("hasEssentialSkill", []) or []:
         label = str(entry.get("title") or "").strip()
@@ -441,7 +505,8 @@ def get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
     try:
         skills = _api_essential_skills(uri, lang)
     except EscoServiceError as exc:
-        log.warning("ESCO essential skill lookup failed (%s); falling back to cache", exc)
+        _mark_local_fallback_used()
+        log.warning("ESCO essential skill lookup failed; falling back to cache (%s)", type(exc).__name__)
         return _offline_essential_skills(uri)
 
     if skills:
@@ -451,7 +516,7 @@ def get_essential_skills(occupation_uri: str, lang: str = "en") -> List[str]:
 
 
 @_cache_esco_data(maxsize=256)
-def _api_lookup_skill(name: str, lang: str) -> Dict[str, str]:
+def _api_lookup_skill(name: str, lang: str, *, api_version: str = ESCO_CACHE_API_VERSION) -> Dict[str, str]:
     params = {
         "text": name,
         "type": "skill",
@@ -485,9 +550,10 @@ def lookup_esco_skill(name: str, lang: str = "en") -> Dict[str, str]:
         return {"preferredLabel": label}
 
     try:
-        data = _api_lookup_skill(label, lang)
+        data = _api_lookup_skill(_normalize(label), _normalize_lang(lang), api_version=ESCO_CACHE_API_VERSION)
     except EscoServiceError as exc:
-        log.warning("ESCO skill lookup failed (%s); returning local normalization", exc)
+        _mark_local_fallback_used()
+        log.warning("ESCO skill lookup failed; returning local normalization (%s)", type(exc).__name__)
         return {"preferredLabel": label}
 
     if not data:

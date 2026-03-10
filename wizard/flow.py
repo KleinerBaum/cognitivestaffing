@@ -759,7 +759,9 @@ from utils.export import prepare_clean_json, prepare_download_data
 from nlp.bias import scan_bias_language
 from ingest.heuristics import is_soft_skill
 from core.esco_utils import (
+    ESCO_CACHE_API_VERSION,
     classify_occupation,
+    consume_local_fallback_notice,
     get_essential_skills,
     normalize_skill_map,
     normalize_skills,
@@ -3345,15 +3347,38 @@ def _remember_company_page_text(cache_key: str, text: str) -> None:
     _get_company_page_text_cache()[cache_key] = text
 
 
+def _render_esco_fallback_notice(container: Any, *, lang: str) -> None:
+    """Render a bilingual fallback info when ESCO API data came from local cache."""
+
+    if not consume_local_fallback_notice():
+        return
+    container.info(
+        tr(
+            "ESCO temporär nicht erreichbar, lokale Vorschläge genutzt.",
+            "ESCO temporarily unavailable, local suggestions were used.",
+            lang=lang,
+        )
+    )
+
+
+# ESCO cache layering note:
+# - core.esco_utils keeps a function-level cache for raw API responses/fallbacks.
+# - wizard.flow caches only UI-ready projections to avoid recomputing labels/ranking.
+# Keep keys deterministic to prevent language/cache mismatches.
 @st.cache_data(show_spinner=False, ttl=3600)
-def _cached_esco_search(query: str, *, lang: str, limit: int) -> list[dict[str, Any]]:
+def _cached_esco_search(
+    query: str, *, lang: str, limit: int, api_version: str = ESCO_CACHE_API_VERSION
+) -> list[dict[str, Any]]:
     """Return ESCO occupation matches with display metadata and shared caching."""
 
+    _ = api_version
     normalized_query = str(query or "").strip()
+    normalized_lang = str(lang or "en").strip().lower() or "en"
+    normalized_limit = max(1, min(int(limit), 20))
     if not normalized_query:
         return []
 
-    raw_matches = search_occupations(normalized_query, lang=lang, limit=limit)
+    raw_matches = search_occupations(normalized_query, lang=normalized_lang, limit=normalized_limit)
     enriched: list[dict[str, Any]] = []
     query_tokens = {token.casefold() for token in normalized_query.split() if token.strip()}
     for rank, raw in enumerate(raw_matches, start=1):
@@ -3375,16 +3400,19 @@ def _cached_esco_search(query: str, *, lang: str, limit: int) -> list[dict[str, 
                 "display_label": f"{label} — {group}".strip(" —"),
             }
         )
-    return enriched
+    return enriched[:normalized_limit]
 
 
 @st.cache_data(show_spinner=False, ttl=3600)
-def _cached_esco_skills(occupation_uri: str, *, lang: str) -> list[str]:
+def _cached_esco_skills(occupation_uri: str, *, lang: str, api_version: str = ESCO_CACHE_API_VERSION) -> list[str]:
     """Return ESCO essential skills with shared caching."""
 
-    if not str(occupation_uri or "").strip():
+    _ = api_version
+    normalized_uri = str(occupation_uri or "").strip()
+    normalized_lang = str(lang or "en").strip().lower() or "en"
+    if not normalized_uri:
         return []
-    return get_essential_skills(occupation_uri, lang=lang)
+    return get_essential_skills(normalized_uri, lang=normalized_lang)
 
 
 @st.cache_data(show_spinner=False, ttl=3600)
@@ -7097,7 +7125,7 @@ def _refresh_esco_skills(
         uri = str(entry.get("uri") or "").strip()
         if not uri:
             continue
-        for skill in _cached_esco_skills(uri, lang=lang):
+        for skill in _cached_esco_skills(uri, lang=lang, api_version=ESCO_CACHE_API_VERSION):
             cleaned = str(skill or "").strip()
             if not cleaned:
                 continue
@@ -7204,7 +7232,8 @@ def _render_requirements_esco_search(
             return
         try:
             with container.spinner(tr("Lade ESCO-Berufe…", "Loading ESCO occupations…", lang=lang)):
-                options = _cached_esco_search(query, lang=lang, limit=8)
+                options = _cached_esco_search(query, lang=lang, limit=8, api_version=ESCO_CACHE_API_VERSION)
+            _render_esco_fallback_notice(container, lang=lang)
         except Exception as exc:  # pragma: no cover - defensive fallback
             if is_admin_debug_session_active():
                 st.session_state["esco_search_error"] = str(exc)
@@ -8625,6 +8654,7 @@ def _step_requirements() -> None:
                 compact=True,
                 key_suffix="role_tasks",
             )
+            _render_esco_fallback_notice(st, lang=lang_code)
             current_esco_opt_in = bool(st.session_state.get(StateKeys.REQUIREMENTS_ESCO_OPT_IN))
             esco_button_label = (
                 tr("🌐 ESCO-Vorschläge laden", "🌐 Fetch suggestions from ESCO")

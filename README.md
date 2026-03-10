@@ -268,6 +268,14 @@ pytest.ini
 
 AGENTS.md
 
+
+ESCO API resilience and cache behavior
+
+- ESCO calls use GET only (`https://ec.europa.eu/esco/api`) with request timeout plus retry/backoff for transient failures.
+- Caching is intentionally split: `core/esco_utils.py` caches raw ESCO payloads, while `wizard/flow.py` caches only UI-ready projections (labels/rank metadata) to avoid duplicate raw-cache layers.
+- ESCO cache keys are normalized with query/URI + language + limit + `ESCO_CACHE_API_VERSION` to avoid language mismatches across reruns.
+- If ESCO is temporarily unavailable, the wizard surfaces a bilingual notice and falls back to local/offline suggestions.
+
 Configuration
 Required variables
 Variable	Required	Purpose
