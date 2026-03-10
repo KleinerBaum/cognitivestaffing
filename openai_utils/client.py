@@ -27,6 +27,51 @@ logger = logging.getLogger("cognitive_needs.openai")
 tracer = trace.get_tracer(__name__)
 USER_FRIENDLY_TIMEOUT_SECONDS: float = 60.0
 
+
+def _log_meta_schema_probe(response_format: Mapping[str, Any], *, api_mode: str, model: str | None) -> None:
+    """Log ``meta`` schema diagnostics for structured-response payloads."""
+
+    format_type = str(response_format.get("type") or "").lower()
+    if format_type != "json_schema":
+        return
+
+    json_schema_block = response_format.get("json_schema")
+    if not isinstance(json_schema_block, Mapping):
+        return
+
+    schema_block = json_schema_block.get("schema")
+    if not isinstance(schema_block, Mapping):
+        return
+
+    properties = schema_block.get("properties")
+    if not isinstance(properties, Mapping):
+        return
+
+    meta_schema = properties.get("meta")
+    if not isinstance(meta_schema, Mapping):
+        return
+
+    meta_properties = meta_schema.get("properties")
+    meta_required = meta_schema.get("required")
+    if not isinstance(meta_properties, Mapping) or not isinstance(meta_required, list):
+        return
+
+    property_keys = sorted(str(key) for key in meta_properties.keys())
+    required_keys = sorted(str(key) for key in meta_required)
+    missing = sorted(set(property_keys) - set(required_keys))
+    extra = sorted(set(required_keys) - set(property_keys))
+
+    logger.debug(
+        "response_format meta-schema probe (api_mode=%s, model=%s, missing=%s, extra=%s, properties=%s, required=%s)",
+        api_mode,
+        model,
+        missing,
+        extra,
+        property_keys,
+        required_keys,
+    )
+
+
 ToolCallable = Callable[..., Any]
 UsageDict: TypeAlias = dict[str, int]
 
@@ -304,6 +349,8 @@ class OpenAIClient:
     def _create_response_with_timeout(self, payload: dict[str, Any], *, api_mode: str) -> Any:
         request_kwargs = dict(payload)
         mode_override = request_kwargs.pop("_api_mode", None)
+        model_value = request_kwargs.get("model")
+        model_name = model_value if isinstance(model_value, str) else None
         raw_timeout = request_kwargs.pop("timeout", OPENAI_REQUEST_TIMEOUT)
         try:
             timeout_value = float(raw_timeout)
@@ -313,6 +360,7 @@ class OpenAIClient:
         response_format_payload = request_kwargs.get("response_format")
         if isinstance(response_format_payload, Mapping):
             request_kwargs["response_format"] = sanitize_response_format_payload(response_format_payload)
+            _log_meta_schema_probe(request_kwargs["response_format"], api_mode=api_mode, model=model_name)
         mode = mode_override or api_mode
         cleaned_payload = _prune_payload_for_api_mode(request_kwargs, mode)
         client = self.get_client()
