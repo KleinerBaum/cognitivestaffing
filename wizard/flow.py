@@ -159,6 +159,7 @@ from wizard.sections import followups as followup_sections
 from wizard.services.gaps import detect_missing_critical_fields
 from wizard.ai_skip import render_skip_cta, render_skipped_banner
 from wizard.step_registry import WIZARD_STEPS, resolve_active_step_keys, step_keys as _step_registry_keys
+from wizard._widget_state import _ensure_widget_state
 
 REQUIRED_PREFIX = followup_sections.REQUIRED_PREFIX
 _render_followup_question = followup_sections._render_followup_question
@@ -4275,6 +4276,7 @@ class _WizardProgressTracker:
 def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTracker | None = None) -> None:
     """Run extraction on ``text`` and store profile, summary, and missing fields."""
 
+    _sync_summary_widget_state_from_profile(reset_before_sync=True)
     raw_blocks = st.session_state.get(StateKeys.RAW_BLOCKS, []) or []
     doc: StructuredDocument | None = st.session_state.get("__prefill_profile_doc__")
     base_profile = st.session_state.get(StateKeys.PROFILE)
@@ -4638,6 +4640,7 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
     if recovered:
         mark_low_confidence(metadata, data, issues=extraction_issues, repaired=recovered)
     st.session_state[StateKeys.PROFILE] = data
+    _sync_summary_widget_state_from_profile(overwrite_existing=True)
     _prime_widget_state_from_profile(data)
     st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = raw_profile_payload
     if extraction_warning is None:
@@ -7242,6 +7245,106 @@ BOOLEAN_WIDGET_KEYS = "ui.summary.boolean_widget_keys"
 BOOLEAN_PROFILE_SIGNATURE = "ui.summary.boolean_profile_signature"
 SUMMARY_EXPORT_MARK_UNCONFIRMED = "ui.summary.export.mark_unconfirmed"
 SUMMARY_EXPORT_EXCLUDE_UNCONFIRMED = "ui.summary.export.exclude_unconfirmed"
+
+SUMMARY_WIDGET_PROFILE_MAPPING: Final[dict[str, str]] = {
+    "position.job_title": "ui.summary.position.job_title",
+    "company.name": "ui.summary.company.name",
+    "team.name": "ui.summary.team.name",
+    "requirements.hard_skills_required": "ui.summary.requirements.hard_skills_required",
+    "employment.job_type": "ui.summary.employment.job_type",
+    "compensation.salary_range": "ui.summary.compensation.salary_range",
+    "process.hiring_process": "ui.summary.process.hiring_process",
+}
+
+SUMMARY_WIDGET_GROUP_KEYS: Final[dict[str, tuple[str, ...]]] = {
+    "company": (
+        "ui.summary.company.name",
+        "ui.summary.company.industry",
+        "ui.summary.company.hq_location",
+        "ui.summary.company.website",
+    ),
+    "team": (
+        "ui.summary.team.name",
+        "ui.summary.team.mission",
+        "ui.summary.team.reporting_line",
+    ),
+    "requirements": (
+        "ui.summary.requirements.hard_skills_required",
+        "ui.summary.requirements.soft_skills_required",
+        "ui.summary.requirements.tools",
+    ),
+    "employment": (
+        "ui.summary.employment.job_type",
+        "ui.summary.employment.work_policy",
+        "ui.summary.employment.contract_type",
+    ),
+    "compensation": (
+        "ui.summary.compensation.salary_range",
+        "ui.summary.compensation.currency_select",
+        "ui.summary.compensation.period",
+    ),
+    "process": (
+        "ui.summary.process.hiring_manager_name",
+        "ui.summary.process.hiring_manager_role",
+        "ui.summary.process.hiring_process",
+    ),
+}
+
+
+def _summary_widget_value(profile: Mapping[str, Any], profile_path: str) -> Any:
+    """Return widget-friendly values for summary-state syncing."""
+
+    if profile_path == "compensation.salary_range":
+        salary_min = float(get_in(profile, "compensation.salary_min", 0.0) or 0.0)
+        salary_max = float(get_in(profile, "compensation.salary_max", 0.0) or 0.0)
+        return (salary_min, salary_max)
+
+    value = get_in(profile, profile_path, None)
+    if profile_path == "process.hiring_process" and isinstance(value, list):
+        return format_hiring_process_text(value)
+    if isinstance(value, list):
+        return ", ".join(str(item).strip() for item in value if str(item).strip())
+    return value
+
+
+def _sync_summary_widget_state_from_profile(
+    *, overwrite_existing: bool = False, reset_before_sync: bool = False
+) -> None:
+    """Sync ``ui.summary.*`` widget values from the canonical profile payload."""
+
+    profile = st.session_state.get(StateKeys.PROFILE)
+    if not isinstance(profile, Mapping):
+        return
+
+    if reset_before_sync:
+        for summary_key in {key for keys in SUMMARY_WIDGET_GROUP_KEYS.values() for key in keys} | set(
+            SUMMARY_WIDGET_PROFILE_MAPPING.values()
+        ):
+            st.session_state.pop(summary_key, None)
+
+    for profile_path, summary_key in SUMMARY_WIDGET_PROFILE_MAPPING.items():
+        normalized_value = _summary_widget_value(profile, profile_path)
+
+        if summary_key == "ui.summary.position.job_title":
+            normalized_value = normalized_value or get_in(profile, "position.title", None)
+
+        if summary_key == "ui.summary.team.name":
+            normalized_value = normalized_value or get_in(profile, "department.name", None)
+
+        if summary_key == "ui.summary.employment.job_type":
+            normalized_value = normalized_value or "full_time"
+
+        if overwrite_existing:
+            st.session_state[summary_key] = normalized_value
+            continue
+        if summary_key in st.session_state and _is_meaningful_value(st.session_state.get(summary_key)):
+            continue
+        _ensure_widget_state(summary_key, normalized_value)
+
+    if overwrite_existing:
+        _ensure_widget_state(
+            "ui.summary.compensation.salary_range", _summary_widget_value(profile, "compensation.salary_range")
+        )
 
 
 def _boolean_skill_terms(profile: NeedAnalysisProfile) -> list[str]:
@@ -12416,6 +12519,7 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
     """
 
     st.markdown(COMPACT_STEP_STYLE, unsafe_allow_html=True)
+    _sync_summary_widget_state_from_profile()
 
     profile_state = st.session_state.get(StateKeys.PROFILE)
     summary_data: dict[str, Any] = {}
