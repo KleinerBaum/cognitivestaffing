@@ -116,3 +116,54 @@ def test_prepare_payload_forces_nano_model_in_strict_mode() -> None:
     )
 
     assert request.payload["model"] == GPT51_NANO
+
+
+def test_prepare_payload_quick_vs_precise_effort_and_output_limits(monkeypatch: pytest.MonkeyPatch) -> None:
+    from openai_utils import payloads as payload_module
+
+    monkeypatch.setattr(payload_module, "get_reasoning_mode", lambda: "quick")
+    monkeypatch.setattr(payload_module, "model_supports_reasoning", lambda _model: True)
+    quick = _prepare_payload(
+        [{"role": "user", "content": "hi"}],
+        model=GPT51_NANO,
+        temperature=None,
+        max_completion_tokens=321,
+        json_schema=None,
+        tools=None,
+        tool_choice=None,
+        tool_functions=None,
+        reasoning_effort="high",
+        verbosity="low",
+        extra=None,
+        task=ModelTask.DEFAULT,
+        previous_response_id=None,
+        api_mode="responses",
+        use_response_format=True,
+    )
+
+    assert quick.payload["reasoning"]["effort"] == "minimal"
+    assert quick.payload["verbosity"] == "low"
+    assert quick.payload["max_output_tokens"] == 321
+
+    monkeypatch.setattr(payload_module, "get_reasoning_mode", lambda: "precise")
+    precise = _prepare_payload(
+        [{"role": "user", "content": "hi"}],
+        model=GPT51_NANO,
+        temperature=None,
+        max_completion_tokens=222,
+        json_schema=None,
+        tools=None,
+        tool_choice=None,
+        tool_functions=None,
+        reasoning_effort="minimal",
+        verbosity="medium",
+        extra=None,
+        task=ModelTask.DEFAULT,
+        previous_response_id=None,
+        api_mode="responses",
+        use_response_format=True,
+    )
+
+    assert precise.payload["reasoning"]["effort"] == "low"
+    assert precise.payload["verbosity"] == "medium"
+    assert precise.payload["max_output_tokens"] == 222

@@ -62,6 +62,17 @@ This repository is being optimized for a **strict GPT-5-nano-only runtime** for 
    - Add or preserve explicit capability guards in routing / payload assembly.
 
 8. **One change at a time.**
+
+9. **Tools default and guards.**
+   - `RESPONSES_ALLOW_TOOLS` may remain enabled by default when guardrails are active.
+   - Explicitly reject unsupported GPT-5-nano tool types (`tool_search`, `computer_use`, `hosted_shell`, `apply_patch`, `skills`).
+   - Keep tool-enabled flows Responses-first and schema-constrained.
+
+10. **Troubleshooting reminders.**
+   - If a non-nano model appears, verify `STRICT_NANO_ONLY=true`, effective env/secrets values, and task-routing overrides.
+   - For structured output failures in Responses mode, validate payload shape under `text.format` first before touching model routing.
+   - Keep timeout/retry behavior explicit and avoid silent endpoint drift.
+
    - When migrating prompts or payloads, change one variable at a time:
      - model routing,
      - reasoning effort,

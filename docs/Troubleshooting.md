@@ -1,22 +1,18 @@
 # Troubleshooting
 
-## "missing ScriptRunContext" warnings
+## Missing API key
+Set `OPENAI_API_KEY` via `.env` or Streamlit secrets.
 
-**What it means:** Streamlit emits this warning when background threads or async tasks try to
-access session- or UI-bound state (e.g. `st.session_state`, widgets, or `st.*` rendering)
-outside the main ScriptRunContext.
+## Non-nano model shows up unexpectedly
+- Ensure `STRICT_NANO_ONLY=true`.
+- Restart the running process.
+- Check env/secrets overrides for model names; strict mode should normalize non-embedding routes back to `gpt-5-nano`.
 
-**What to do:** Keep background tasks limited to pure computation or I/O and pass results
-back to the main thread before touching Streamlit state. If you see this warning after a
-change, check any new threaded/async code paths for UI access.
+## Structured output fails
+- Confirm Responses payload uses `text.format`.
+- Confirm schema contract is strict and serializable.
+- Avoid mixing legacy `response_format` guidance into Responses payloads.
 
-## "OTLP endpoint not configured" telemetry message
-
-**What it means:** Telemetry setup is enabled, but `OTEL_EXPORTER_OTLP_ENDPOINT` is not set,
-so the exporter is skipped. This is expected in local development when no collector is
-configured.
-
-**What to do:**
-- For local dev: ignore it, or keep the log level at debug.
-- For telemetry: set `OTEL_EXPORTER_OTLP_ENDPOINT` (and optionally protocol/headers) as
-  documented in `docs/telemetry.md`.
+## Timeouts and retries
+- Increase `OPENAI_REQUEST_TIMEOUT` only if needed.
+- Verify retry behavior in logs; fallback behavior should be explicit, not silent.

@@ -349,13 +349,12 @@ agent:
 generators:
   job_ad:
     system:
-      de: Du bist eine erfahrene Stellenanzeigen-Autorin. Skizziere vor dem Schreiben
-        kurz die Gliederung (Überschrift, Teaser, Abschnitte, CTA), schreibe einen
-        inklusiven, faktenbasierten Text auf Grundlage der gelieferten strukturierten
-        Daten und liefere nur JSON nach Schema.
-      en: You are an experienced recruitment copywriter. Briefly outline the headline,
-        teaser, sections, and CTA before writing. Produce an inclusive, factual
-        advertisement that mirrors the structured inputs and return JSON only.
+      de: Du erstellst strukturierte Stellenanzeigen aus Vacancy-JSON. Antworte nur
+        im geforderten Schema und prüfe vor der Ausgabe kurz Vollständigkeit (Abschnitte,
+        CTA, keine erfundenen Inhalte).
+      en: You generate structured job advertisements from vacancy JSON. Return only
+        the requested schema and run a brief completeness check before finalising
+        (sections covered, CTA present, no invented facts).
     instructions:
       de:
       - Schreibe eine wirkungsvolle Stellenanzeige in Markdown basierend auf den folgenden Daten.
@@ -395,18 +394,14 @@ generators:
         criteria or promises.
   interview_guide:
     system:
-      de: 'Du entwickelst kompetenzbasierte Interviewleitfäden aus dem Vacancy-JSON. Plane kurz abgedeckte Kompetenzen, leitet
-        guide.competencies und guide.focus_areas direkt aus den Daten ab, decke jede Kompetenz mit mindestens einer Frage ab
-        (questions[].focus) und kennzeichne den Fragetyp in questions[].type. Sorge für einen ausgewogenen Mix aus technischen,
-        verhaltens- und kulturellen Fragen. Jede Frage enthält mindestens zwei Bewertungskriterien im Feld evaluation, bleibt
-        kontextreich (Titel, Seniorität, Kultur) und vermeidet Ein-Wort-Antworten. Passe Ton und Seniorität an, nutze inklusive,
-        rechtssichere Sprache, halte die gewünschte Fragenanzahl ein und liefere nur JSON nach Schema.'
-      en: 'You build competency-based interview guides from the vacancy JSON. Sketch the covered competencies first, derive
-        guide.competencies and guide.focus_areas directly from the data, cover each competency with at least one question via
-        questions[].focus, and label question types in questions[].type. Provide a balanced mix of technical, behavioural, and
-        cultural questions. Each question needs at least two evaluation criteria in the evaluation field, should cite the role
-        context (title, seniority, culture), and must avoid one-word answers. Match tone and seniority, use inclusive and
-        compliant language, respect the requested question count, and return JSON matching the schema.'
+      de: 'Du erzeugst kompetenzbasierte Interviewleitfäden aus Vacancy-JSON. Leite
+        Kompetenzen direkt aus den Daten ab, decke jede Kernkompetenz mit mindestens
+        einer Frage ab und liefere nur JSON exakt nach Schema. Prüfe vor Ausgabe:
+        Fragenanzahl eingehalten, Bewertungsfelder gesetzt, keine erfundenen Annahmen.'
+      en: 'You create competency-based interview guides from vacancy JSON. Derive
+        competencies directly from the data, cover each core competency with at least
+        one question, and return JSON exactly matching the schema. Verify before
+        output: requested question count, evaluation fields present, no invented assumptions.'
 pipelines:
   profile_summary:
     system: 'Du analysierst den Lebenslauf gegen die Zielrolle und lieferst nur JSON.
