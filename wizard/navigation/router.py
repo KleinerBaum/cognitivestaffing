@@ -11,7 +11,11 @@ from constants.keys import StateKeys
 from state.autosave import persist_session_snapshot
 from utils.i18n import tr
 import wizard.metadata as wizard_metadata
-from wizard import step_registry
+from wizard.step_registry_runtime import (
+    resolve_active_step_keys_for_version,
+    resolve_nearest_active_step_key_for_version,
+    resolve_wizard_version,
+)
 from wizard.navigation.keys import WizardSessionKeys
 from wizard.navigation.state import bootstrap_navigation_state
 from wizard.navigation_types import StepRenderer, WizardContext
@@ -118,6 +122,9 @@ class NavigationController:
         self._session_state = cast(
             MutableMapping[str, object], st.session_state if session_state is None else session_state
         )
+        self._wizard_version = resolve_wizard_version(
+            query_params=self._query_params, session_state=self._session_state
+        )
         self._wizard_id = wizard_id
         self._session_keys = WizardSessionKeys(wizard_id=wizard_id)
         self._use_legacy_state = wizard_id == "default"
@@ -222,7 +229,8 @@ class NavigationController:
             desired = normalized_param
         elif step_param:
             desired = (
-                step_registry.resolve_nearest_active_step_key(
+                resolve_nearest_active_step_key_for_version(
+                    self._wizard_version,
                     normalized_param or step_param,
                     active_keys,
                 )
@@ -490,8 +498,8 @@ class NavigationController:
 
     def _resolve_active_pages(self) -> list[WizardPage]:
         profile = self._get_profile()
-        active_keys = step_registry.resolve_active_step_keys(profile, self._session_state)
-        registry_keys = set(step_registry.step_keys())
+        active_keys = resolve_active_step_keys_for_version(self._wizard_version, profile, self._session_state)
+        registry_keys = {page.key for page in self._all_pages}
         page_map = {page.key: page for page in self._all_pages}
         ordered: list[WizardPage] = [page_map[key] for key in active_keys if key in page_map]
         ordered_keys = {page.key for page in ordered}
@@ -513,7 +521,7 @@ class NavigationController:
     def _resolve_nearest_active_key(self, current: object) -> str:
         active_keys = tuple(page.key for page in self._pages)
         key = _normalize_step_key(current) if isinstance(current, str) else ""
-        return step_registry.resolve_nearest_active_step_key(key, active_keys) or self._pages[0].key
+        return resolve_nearest_active_step_key_for_version(self._wizard_version, key, active_keys) or self._pages[0].key
 
     def _history_stack(self) -> list[str]:
         raw_history = self.state.get("history")

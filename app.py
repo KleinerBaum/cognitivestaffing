@@ -72,10 +72,11 @@ from ui.wizard_uxkit_guidedflow_20260110 import (  # noqa: E402
     render_saved_badge_if_recent,
     render_stepper,
 )
-from wizard.step_registry import (  # noqa: E402
-    WIZARD_STEPS,
-    resolve_active_step_keys,
-    resolve_nearest_active_step_key,
+from wizard.step_registry_runtime import (  # noqa: E402
+    get_wizard_steps,
+    resolve_active_step_keys_for_version,
+    resolve_nearest_active_step_key_for_version,
+    resolve_wizard_version,
 )
 from wizard._logic import get_in  # noqa: E402
 import sidebar  # noqa: E402
@@ -229,12 +230,14 @@ def _required_validator(step_key: str, msg: str) -> Callable[[Wizard], tuple[boo
 
 
 def _build_display_wizard(
+    wizard_version: str,
     active_keys: Sequence[str],
     lang: str,
     profile: Mapping[str, object],
 ) -> Wizard:
     steps: list[WizardStep] = []
-    step_map = {step.key: step for step in WIZARD_STEPS}
+    wizard_steps = get_wizard_steps(wizard_version)
+    step_map = {step.key: step for step in wizard_steps}
     required_map: dict[str, Sequence[str]] = {}
     for key in active_keys:
         step = step_map.get(key)
@@ -279,9 +282,9 @@ def _build_display_wizard(
                 if step.required_fields
                 else None,
             )
-            for step in WIZARD_STEPS
+            for step in wizard_steps
         ]
-        required_map = {step.key: step.required_fields for step in WIZARD_STEPS if step.required_fields}
+        required_map = {step.key: step.required_fields for step in wizard_steps if step.required_fields}
     wiz = Wizard(WIZARD_ID, steps)
     for step_key, required_fields in required_map.items():
         missing_required = [path for path in required_fields if not _has_value(profile, path)]
@@ -289,10 +292,10 @@ def _build_display_wizard(
     return wiz
 
 
-def _sync_display_wizard(wiz: Wizard, active_keys: Sequence[str]) -> None:
+def _sync_display_wizard(wiz: Wizard, active_keys: Sequence[str], *, wizard_version: str) -> None:
     target = st.session_state.get(StateKeys.WIZARD_LAST_STEP)
     if isinstance(target, str) and active_keys:
-        resolved = resolve_nearest_active_step_key(target, active_keys)
+        resolved = resolve_nearest_active_step_key_for_version(wizard_version, target, active_keys)
         target = resolved or active_keys[0]
     elif active_keys:
         target = active_keys[0]
@@ -327,9 +330,11 @@ sidebar_plan = sidebar.render_sidebar(
 lang = st.session_state.get("lang", "de")
 profile = st.session_state.get(StateKeys.PROFILE)
 profile_data = profile if isinstance(profile, Mapping) else {}
-active_keys = resolve_active_step_keys(profile_data, st.session_state)
-origin_wiz = _build_display_wizard(active_keys, lang, profile_data)
-_sync_display_wizard(origin_wiz, active_keys)
+wizard_version = resolve_wizard_version(query_params=st.query_params, session_state=st.session_state)
+st.session_state["wizard_version"] = wizard_version
+active_keys = resolve_active_step_keys_for_version(wizard_version, profile_data, st.session_state)
+origin_wiz = _build_display_wizard(wizard_version, active_keys, lang, profile_data)
+_sync_display_wizard(origin_wiz, active_keys, wizard_version=wizard_version)
 origins_key = origin_wiz.k("_origins")
 st.session_state.setdefault(StateKeys.WIZARD_ORIGINS_KEY, origins_key)
 st.session_state.setdefault(origins_key, {})
@@ -348,9 +353,9 @@ else:
 lang = st.session_state.get("lang", "de")
 profile = st.session_state.get(StateKeys.PROFILE)
 profile_data = profile if isinstance(profile, Mapping) else {}
-active_keys = resolve_active_step_keys(profile_data, st.session_state)
-display_wiz = _build_display_wizard(active_keys, lang, profile_data)
-_sync_display_wizard(display_wiz, active_keys)
+active_keys = resolve_active_step_keys_for_version(wizard_version, profile_data, st.session_state)
+display_wiz = _build_display_wizard(wizard_version, active_keys, lang, profile_data)
+_sync_display_wizard(display_wiz, active_keys, wizard_version=wizard_version)
 saved_key = _mark_saved_if_profile_changed(display_wiz)
 
 legend = tr("🔎 extrahiert · 🤖 vorgeschlagen", "🔎 extracted · 🤖 suggested", lang=lang)

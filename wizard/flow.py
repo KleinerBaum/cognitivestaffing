@@ -143,7 +143,7 @@ from core.confidence import ConfidenceTier, DEFAULT_AI_TIER
 from core.extraction import mark_low_confidence
 from core.rules import apply_rules, matches_to_patch, build_rule_metadata
 from core.preview import build_prefilled_sections
-from wizard_pages import WIZARD_PAGES, WizardPage
+from wizard_pages import WizardPage, pages_for_version
 from wizard_router import StepRenderer, WizardContext, WizardRouter
 from wizard.interview_step import render_interview_guide_section
 from wizard.types import LangPair
@@ -158,7 +158,11 @@ from wizard.sections.compensation_assistant import render_compensation_assistant
 from wizard.sections import followups as followup_sections
 from wizard.services.gaps import detect_missing_critical_fields
 from wizard.ai_skip import render_skip_cta, render_skipped_banner
-from wizard.step_registry import WIZARD_STEPS, resolve_active_step_keys, step_keys as _step_registry_keys
+from wizard.step_registry_runtime import (
+    get_wizard_steps,
+    resolve_active_step_keys_for_version,
+    step_keys_for_version,
+)
 from wizard._widget_state import _ensure_widget_state
 
 REQUIRED_PREFIX = followup_sections.REQUIRED_PREFIX
@@ -818,7 +822,26 @@ ensure_state()
 
 WIZARD_TITLE = "Cognitive Staffing — Recruitment Need Analysis"
 
-PAGE_LOOKUP: dict[str, WizardPage] = {page.key: page for page in WIZARD_PAGES}
+
+def _wizard_version() -> str:
+    value = st.session_state.get("wizard_version", "v1")
+    return value if isinstance(value, str) else "v1"
+
+
+def _wizard_steps_runtime() -> tuple:
+    return get_wizard_steps(_wizard_version())
+
+
+def _wizard_pages_runtime() -> tuple[WizardPage, ...]:
+    return pages_for_version(_wizard_version())
+
+
+def _page_lookup_runtime() -> dict[str, WizardPage]:
+    pages = _wizard_pages_runtime()
+    return {page.key: page for page in pages}
+
+
+PAGE_LOOKUP: dict[str, WizardPage] = _page_lookup_runtime()
 PREFILL_STYLE_KEY = "_ai_prefill_styles_v1"
 
 MAX_INLINE_VALUE_CHARS = CHIP_INLINE_VALUE_LIMIT
@@ -12632,7 +12655,7 @@ def _step_summary(_schema: dict, _critical: list[str]) -> None:
 
     def _render_summary_warnings(profile_data: Mapping[str, Any]) -> None:
         missing_by_step: list[tuple[WizardPage, StepMissing]] = []
-        for page in WIZARD_PAGES:
+        for page in _wizard_pages_runtime():
             missing = compute_step_missing(profile_data, page)
             if missing.required or missing.critical:
                 missing_by_step.append((page, missing))
@@ -13210,9 +13233,12 @@ def _render_skills_review_step() -> None:
         )
 
 
-STEP_RENDERERS: dict[str, StepRenderer] = {
-    step.key: StepRenderer(step.renderer, legacy_index=index) for index, step in enumerate(WIZARD_STEPS)
-}
+def _step_renderers_runtime() -> dict[str, StepRenderer]:
+    wizard_steps = _wizard_steps_runtime()
+    return {step.key: StepRenderer(step.renderer, legacy_index=index) for index, step in enumerate(wizard_steps)}
+
+
+STEP_RENDERERS: dict[str, StepRenderer] = _step_renderers_runtime()
 
 
 def _resolve_single_page_steps(
@@ -13224,10 +13250,10 @@ def _resolve_single_page_steps(
     """Return active wizard pages ordered by the shared step registry."""
 
     page_map = {page.key: page for page in pages}
-    active_keys = resolve_active_step_keys(profile, session_state)
+    active_keys = resolve_active_step_keys_for_version(_wizard_version(), profile, session_state)
     ordered: list[WizardPage] = [page_map[key] for key in active_keys if key in page_map]
     ordered_keys = {page.key for page in ordered}
-    registry_keys = set(_step_registry_keys())
+    registry_keys = set(step_keys_for_version(_wizard_version()))
     ordered.extend(page for page in pages if page.key not in registry_keys and page.key not in ordered_keys)
     return ordered
 
@@ -13346,7 +13372,7 @@ def _run_wizard_v2(schema: Mapping[str, object], critical: Sequence[str]) -> Non
     st.session_state["_schema"] = dict(schema)
     profile = _get_profile_state()
     active_pages = _resolve_single_page_steps(
-        WIZARD_PAGES,
+        _wizard_pages_runtime(),
         profile=profile if isinstance(profile, Mapping) else {},
         session_state=cast(Mapping[str, object], st.session_state),
     )
@@ -13363,15 +13389,15 @@ def _run_wizard_v2(schema: Mapping[str, object], critical: Sequence[str]) -> Non
         missing_fields = get_missing_critical_fields()
         _update_section_progress(missing_fields)
         _render_single_page_wizard(
-            pages=WIZARD_PAGES,
-            renderers=STEP_RENDERERS,
+            pages=_wizard_pages_runtime(),
+            renderers=_step_renderers_runtime(),
             context=context,
             missing_fields=missing_fields,
         )
     else:
         router = WizardRouter(
-            pages=WIZARD_PAGES,
-            renderers=STEP_RENDERERS,
+            pages=_wizard_pages_runtime(),
+            renderers=_step_renderers_runtime(),
             context=context,
             value_resolver=get_in,
         )
@@ -13457,8 +13483,9 @@ def _render_flow_diagram_panel() -> None:
 
     current_step = st.session_state.get(StateKeys.WIZARD_LAST_STEP)
     current_step_id = current_step if isinstance(current_step, str) else None
-    mermaid = build_mermaid_flowchart(WIZARD_PAGES, current_step_id=current_step_id)
-    warnings = validate_router_graph(WIZARD_PAGES)
+    runtime_pages = _wizard_pages_runtime()
+    mermaid = build_mermaid_flowchart(runtime_pages, current_step_id=current_step_id)
+    warnings = validate_router_graph(runtime_pages)
 
     with st.expander(tr("Debug: Ablaufdiagramm", "Debug: Flow diagram")):
         st.caption(
