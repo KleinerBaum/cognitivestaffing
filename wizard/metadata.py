@@ -51,6 +51,13 @@ PAGE_FOLLOWUP_PREFIXES: Final[dict[str, tuple[str, ...]]] = {
     "summary": ("summary.",),
 }
 
+DECISION_CATEGORY_STEP_MAP: Final[dict[str, str]] = {
+    "search": "skills",
+    "selection": "interview",
+    "candidate_communication": "interview",
+    "other": "summary",
+}
+
 VIRTUAL_PAGE_FIELD_PREFIX: Final[str] = "__page__."
 
 _CRITICAL_SECTION_KEYS: Final[tuple[str, ...]] = (
@@ -167,8 +174,21 @@ def resolve_section_for_field(field: str) -> int:
     return COMPANY_STEP_INDEX
 
 
-def resolve_step_key_for_field_path(field: str) -> str:
-    """Return the owning wizard step key for a field path."""
+def resolve_step_key_for_decision_category(category: str | None) -> str | None:
+    """Return step key mapped to a decision category."""
+
+    normalized = str(category or "").strip().lower()
+    if not normalized:
+        return None
+    return DECISION_CATEGORY_STEP_MAP.get(normalized)
+
+
+def resolve_step_key_for_field_path(field: str, *, decision_category: str | None = None) -> str:
+    """Return the owning wizard step key for a field path or decision category."""
+
+    category_page = resolve_step_key_for_decision_category(decision_category)
+    if category_page:
+        return category_page
 
     mapped_page = PAGE_FIELD_MAP.get(field)
     if mapped_page:
@@ -377,6 +397,7 @@ def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
 __all__ = [
     "COMPANY_STEP_INDEX",
     "CRITICAL_SECTION_ORDER",
+    "DECISION_CATEGORY_STEP_MAP",
     "filter_followups_by_context",
     "FIELD_SECTION_MAP",
     "PAGE_FIELD_MAP",
@@ -388,6 +409,7 @@ __all__ = [
     "get_missing_critical_fields",
     "field_belongs_to_page",
     "resolve_section_for_field",
+    "resolve_step_key_for_decision_category",
     "resolve_step_key_for_field_path",
     "validate_required_fields_by_page",
     "validate_step_metadata_consistency",

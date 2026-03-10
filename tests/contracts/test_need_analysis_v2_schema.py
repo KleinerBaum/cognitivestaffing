@@ -53,6 +53,10 @@ def test_decision_state_enum_is_enforced_in_schema() -> None:
             "decision_state": "invalid",
             "proposed_value": "Engineer",
             "rationale": "n/a",
+            "category": "selection",
+            "impact_area": "Selection",
+            "blocking_exports": [],
+            "suggested_resolution_options": [],
         }
     ]
 

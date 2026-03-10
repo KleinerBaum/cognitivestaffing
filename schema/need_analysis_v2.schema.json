@@ -19,35 +19,83 @@
     "intake": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["source_language", "raw_input", "target_locale"],
+      "required": [
+        "source_language",
+        "raw_input",
+        "target_locale"
+      ],
       "properties": {
-        "source_language": {"type": "string"},
-        "raw_input": {"type": "string"},
-        "target_locale": {"type": "string"}
+        "source_language": {
+          "type": "string"
+        },
+        "raw_input": {
+          "type": "string"
+        },
+        "target_locale": {
+          "type": "string"
+        }
       }
     },
     "role": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["title", "summary", "seniority", "department", "team", "reports_to"],
+      "required": [
+        "title",
+        "summary",
+        "seniority",
+        "department",
+        "team",
+        "reports_to"
+      ],
       "properties": {
-        "title": {"type": "string"},
-        "summary": {"type": "string"},
-        "seniority": {"type": "string"},
-        "department": {"type": "string"},
-        "team": {"type": "string"},
-        "reports_to": {"type": "string"}
+        "title": {
+          "type": "string"
+        },
+        "summary": {
+          "type": "string"
+        },
+        "seniority": {
+          "type": "string"
+        },
+        "department": {
+          "type": "string"
+        },
+        "team": {
+          "type": "string"
+        },
+        "reports_to": {
+          "type": "string"
+        }
       }
     },
     "work": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["responsibilities", "location", "work_policy", "travel_required"],
+      "required": [
+        "responsibilities",
+        "location",
+        "work_policy",
+        "travel_required"
+      ],
       "properties": {
-        "responsibilities": {"type": "array", "items": {"type": "string"}},
-        "location": {"type": "string"},
-        "work_policy": {"type": "string"},
-        "travel_required": {"type": ["boolean", "null"]}
+        "responsibilities": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "location": {
+          "type": "string"
+        },
+        "work_policy": {
+          "type": "string"
+        },
+        "travel_required": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        }
       }
     },
     "requirements": {
@@ -62,59 +110,155 @@
         "certifications"
       ],
       "properties": {
-        "hard_skills_required": {"type": "array", "items": {"type": "string"}},
-        "hard_skills_optional": {"type": "array", "items": {"type": "string"}},
-        "soft_skills_required": {"type": "array", "items": {"type": "string"}},
-        "soft_skills_optional": {"type": "array", "items": {"type": "string"}},
-        "languages_required": {"type": "array", "items": {"type": "string"}},
-        "certifications": {"type": "array", "items": {"type": "string"}}
+        "hard_skills_required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "hard_skills_optional": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "soft_skills_required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "soft_skills_optional": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "languages_required": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "certifications": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "constraints": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["visa_sponsorship", "salary_min", "salary_max", "currency", "timeline"],
+      "required": [
+        "visa_sponsorship",
+        "salary_min",
+        "salary_max",
+        "currency",
+        "timeline"
+      ],
       "properties": {
-        "visa_sponsorship": {"type": ["boolean", "null"]},
-        "salary_min": {"type": ["number", "null"]},
-        "salary_max": {"type": ["number", "null"]},
-        "currency": {"type": "string"},
-        "timeline": {"type": "string"}
+        "visa_sponsorship": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "salary_min": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "salary_max": {
+          "type": [
+            "number",
+            "null"
+          ]
+        },
+        "currency": {
+          "type": "string"
+        },
+        "timeline": {
+          "type": "string"
+        }
       }
     },
     "selection": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["process_steps", "stakeholders"],
+      "required": [
+        "process_steps",
+        "stakeholders"
+      ],
       "properties": {
-        "process_steps": {"type": "array", "items": {"type": "string"}},
-        "stakeholders": {"type": "array", "items": {"type": "string"}}
+        "process_steps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "stakeholders": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "evidence": {
       "type": "array",
-      "items": {"$ref": "#/$defs/EvidenceItem"}
+      "items": {
+        "$ref": "#/$defs/EvidenceItem"
+      }
     },
     "open_decisions": {
       "type": "array",
-      "items": {"$ref": "#/$defs/DecisionCard"}
+      "items": {
+        "$ref": "#/$defs/DecisionCard"
+      }
     },
     "warnings": {
       "type": "array",
-      "items": {"type": "string"}
+      "items": {
+        "type": "string"
+      }
     }
   },
   "$defs": {
     "EvidenceItem": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["field_path", "value", "source", "confidence", "excerpt"],
+      "required": [
+        "field_path",
+        "value",
+        "source",
+        "confidence",
+        "excerpt"
+      ],
       "properties": {
-        "field_path": {"type": "string"},
+        "field_path": {
+          "type": "string"
+        },
         "value": {},
-        "source": {"type": "string", "enum": ["user", "llm", "heuristic", "import"]},
-        "confidence": {"type": "number", "minimum": 0, "maximum": 1},
-        "excerpt": {"type": "string"}
+        "source": {
+          "type": "string",
+          "enum": [
+            "user",
+            "llm",
+            "heuristic",
+            "import"
+          ]
+        },
+        "confidence": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1
+        },
+        "excerpt": {
+          "type": "string"
+        }
       }
     },
     "DecisionCard": {
@@ -126,15 +270,63 @@
         "field_path",
         "decision_state",
         "proposed_value",
-        "rationale"
+        "rationale",
+        "category",
+        "impact_area",
+        "blocking_exports",
+        "suggested_resolution_options"
       ],
       "properties": {
-        "decision_id": {"type": "string"},
-        "title": {"type": "string"},
-        "field_path": {"type": "string"},
-        "decision_state": {"type": "string", "enum": ["proposed", "confirmed", "rejected"]},
+        "decision_id": {
+          "type": "string"
+        },
+        "title": {
+          "type": "string"
+        },
+        "field_path": {
+          "type": "string"
+        },
+        "decision_state": {
+          "type": "string",
+          "enum": [
+            "proposed",
+            "confirmed",
+            "rejected"
+          ]
+        },
         "proposed_value": {},
-        "rationale": {"type": "string"}
+        "rationale": {
+          "type": "string"
+        },
+        "category": {
+          "type": "string",
+          "enum": [
+            "search",
+            "selection",
+            "candidate_communication",
+            "other"
+          ]
+        },
+        "impact_area": {
+          "type": "string",
+          "enum": [
+            "Search",
+            "Selection",
+            "Candidate-Communication"
+          ]
+        },
+        "blocking_exports": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "suggested_resolution_options": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     }
   }
