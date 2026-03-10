@@ -484,7 +484,7 @@ def test_skill_suggestions_fetches_on_button(monkeypatch: pytest.MonkeyPatch) ->
     st.session_state[StateKeys.SKILL_BOARD_STATE] = {}
     st.session_state[StateKeys.SKILL_BOARD_META] = {}
     st.session_state[StateKeys.ESCO_SKILLS] = ["ESCO Analytics"]
-    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
+    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = {}
     st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] = True
 
     monkeypatch.setattr("wizard._render_prefilled_preview", lambda *_, **__: None)
@@ -741,7 +741,7 @@ def test_skill_board_moves_esco_skills(monkeypatch: pytest.MonkeyPatch) -> None:
         assert meta[first_identifier]["category"] == "hard"
     assert requirements["hard_skills_required"] == ["Machine Learning"]
     assert st.session_state[StateKeys.SKILL_BUCKETS]["must"] == ["Machine Learning"]
-    assert st.session_state[StateKeys.ESCO_MISSING_SKILLS] == []
+    assert st.session_state[StateKeys.ESCO_MISSING_SKILLS] == {}
 
 
 def test_skill_board_rehydrates_legacy_state(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -793,7 +793,7 @@ def test_skill_board_rehydrates_legacy_state(monkeypatch: pytest.MonkeyPatch) ->
         "must": ["Python", "Teamwork"],
         "nice": ["Storytelling"],
     }
-    assert st.session_state[StateKeys.ESCO_MISSING_SKILLS] == []
+    assert st.session_state[StateKeys.ESCO_MISSING_SKILLS] == {}
     board_state = st.session_state[StateKeys.SKILL_BOARD_STATE]
     meta = st.session_state[StateKeys.SKILL_BOARD_META]
     esco_items = board_state["source_esco"]

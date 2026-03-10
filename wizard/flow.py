@@ -761,8 +761,10 @@ from ingest.heuristics import is_soft_skill
 from core.esco_utils import (
     classify_occupation,
     get_essential_skills,
+    normalize_skill_map,
     normalize_skills,
     search_occupations,
+    skill_casefold_key,
 )
 from core.job_ad import (
     JOB_AD_FIELDS,
@@ -1295,7 +1297,10 @@ def _apply_skill_choice(skill: str, *, required: bool, requirements: dict[str, A
         merged = merge_unique_items(requirements.get("certificates", []), [cleaned])
         _set_requirement_certificates(requirements, merged)
     else:
-        merged = merge_unique_items(requirements.get(target_key, []), [cleaned])
+        normalized_map = normalize_skill_map(
+            [*(requirements.get(target_key, []) or []), cleaned], lang=st.session_state.get("lang", "en")
+        )
+        merged = list(normalized_map.values())
         requirements[target_key] = merged
 
     state_root = f"requirements.{target_key}"
@@ -1326,6 +1331,82 @@ def _related_skill_suggestions(existing: Collection[str], *, lang: str) -> list[
                     }
                 )
     return suggestions
+
+
+_ESCO_SKILL_TARGET_PATHS: tuple[str, ...] = (
+    "requirements.hard_skills_required",
+    "requirements.hard_skills_optional",
+    "requirements.soft_skills_required",
+    "requirements.soft_skills_optional",
+)
+
+
+def _esco_missing_skill_map() -> dict[str, list[str]]:
+    """Return ESCO missing skills keyed by requirement field path."""
+
+    raw = st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, {})
+    if isinstance(raw, Mapping):
+        result: dict[str, list[str]] = {}
+        for path, values in raw.items():
+            if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
+                continue
+            normalized = unique_normalized(str(value).strip() for value in values if str(value).strip())
+            if normalized:
+                result[str(path)] = normalized
+        return result
+    if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes)):
+        values = unique_normalized(str(value).strip() for value in raw if str(value).strip())
+        return {"requirements.hard_skills_required": values} if values else {}
+    return {}
+
+
+def _esco_missing_skills_for(path: str) -> list[str]:
+    """Return ESCO missing skills for one target path."""
+
+    return list(_esco_missing_skill_map().get(path, []))
+
+
+def _remove_esco_missing_skill(path: str, skill: str) -> None:
+    """Remove one skill from ESCO missing map for a given path."""
+
+    target_key = skill_casefold_key(skill)
+    if not target_key:
+        return
+    mapping = _esco_missing_skill_map()
+    values = mapping.get(path, [])
+    filtered = [value for value in values if skill_casefold_key(value) != target_key]
+    if filtered:
+        mapping[path] = filtered
+    elif path in mapping:
+        mapping.pop(path, None)
+    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = mapping
+
+
+def _recompute_missing_critical_status(profile: Mapping[str, Any]) -> None:
+    """Recompute missing/critical section status after direct profile updates."""
+
+    missing_fields = detect_missing_critical_fields(profile if isinstance(profile, Mapping) else {})
+    _update_section_progress(missing_fields)
+
+
+def _apply_esco_skill_for_target(
+    *,
+    data: dict[str, Any],
+    requirements: dict[str, Any],
+    target_path: str,
+    skill: str,
+    lang: str,
+) -> None:
+    """Apply one ESCO skill to a concrete target requirement field."""
+
+    key = target_path.replace("requirements.", "", 1)
+    current_values = requirements.get(key, []) or []
+    normalized_map = normalize_skill_map([*current_values, skill], lang=lang)
+    requirements[key] = list(normalized_map.values())
+    _update_skill_multiselect_state(skill, target_path)
+    _remove_esco_missing_skill(target_path, skill)
+    _update_profile(target_path, requirements[key])
+    _recompute_missing_critical_status(data)
 
 
 def _prepare_skill_expander_suggestions(
@@ -1374,8 +1455,8 @@ def _prepare_skill_expander_suggestions(
                 suggestion_entries.append({"name": cleaned, "reason": reason})
                 existing_markers.add(marker)
 
-    esco_missing = st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, [])
-    for value in esco_missing or []:
+    esco_missing = _esco_missing_skills_for("requirements.hard_skills_required")
+    for value in esco_missing:
         cleaned = _normalize_skill_name(value)
         if not cleaned:
             continue
@@ -1871,6 +1952,59 @@ def _resolve_skill_identifier(
     legacy_map.setdefault(trimmed, identifier)
     legacy_map.setdefault(label, identifier)
     return identifier
+
+
+def _render_esco_target_suggestion_blocks(
+    *,
+    data: dict[str, Any],
+    requirements: dict[str, Any],
+    lang: str,
+) -> None:
+    """Render compact ESCO suggestion rows per target requirements field."""
+
+    label_map = {
+        "requirements.hard_skills_required": tr("Pflicht-Hard-Skills", "Required hard skills", lang=lang),
+        "requirements.hard_skills_optional": tr("Optionale Hard-Skills", "Optional hard skills", lang=lang),
+        "requirements.soft_skills_required": tr("Pflicht-Soft-Skills", "Required soft skills", lang=lang),
+        "requirements.soft_skills_optional": tr("Optionale Soft-Skills", "Optional soft skills", lang=lang),
+    }
+
+    mapping = _esco_missing_skill_map()
+    has_entries = any(mapping.get(path) for path in _ESCO_SKILL_TARGET_PATHS)
+    if not has_entries:
+        return
+
+    with st.expander(
+        tr("ESCO Skill-Vorschläge nach Zielfeld", "ESCO skill suggestions by target field", lang=lang),
+        expanded=False,
+    ):
+        for target_path in _ESCO_SKILL_TARGET_PATHS:
+            values = mapping.get(target_path, [])
+            if not values:
+                continue
+            st.caption(f"**{label_map[target_path]}**")
+            for index, skill in enumerate(values[:8]):
+                row = st.columns((4, 1, 1))
+                row[0].write(skill)
+                if row[1].button(
+                    tr("Übernehmen", "Add", lang=lang),
+                    key=f"esco_target_add.{target_path}.{index}.{skill}",
+                ):
+                    _apply_esco_skill_for_target(
+                        data=data,
+                        requirements=requirements,
+                        target_path=target_path,
+                        skill=skill,
+                        lang=lang,
+                    )
+                    st.rerun()
+                if row[2].button(
+                    tr("Ignorieren", "Ignore", lang=lang),
+                    key=f"esco_target_ignore.{target_path}.{index}.{skill}",
+                ):
+                    _remove_esco_missing_skill(target_path, skill)
+                    _recompute_missing_critical_status(data)
+                    st.rerun()
 
 
 def _render_skill_board(
@@ -6896,7 +7030,7 @@ def _reset_esco_state(*, clear_query: bool = False) -> None:
     st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = []
     st.session_state[UIKeys.POSITION_ESCO_OCCUPATION] = []
     st.session_state[StateKeys.ESCO_SKILLS] = []
-    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
+    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = {}
     st.session_state.pop(StateKeys.UI_ESCO_OCCUPATION_OVERRIDE, None)
     st.session_state.pop(UIKeys.POSITION_ESCO_OCCUPATION_WIDGET, None)
     if clear_query:
@@ -6975,7 +7109,7 @@ def _refresh_esco_skills(
     normalized_aggregated = unique_normalized(aggregated)
     st.session_state[StateKeys.ESCO_SKILLS] = normalized_aggregated
     if not normalized_aggregated:
-        st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
+        st.session_state[StateKeys.ESCO_MISSING_SKILLS] = {}
 
 
 def _apply_esco_selection(
@@ -7013,7 +7147,7 @@ def _apply_esco_selection(
         _refresh_esco_skills(resolved, lang=lang)
     else:
         st.session_state[StateKeys.ESCO_SKILLS] = []
-        st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
+        st.session_state[StateKeys.ESCO_MISSING_SKILLS] = {}
 
 
 def _render_requirements_esco_search(
@@ -8510,7 +8644,7 @@ def _step_requirements() -> None:
                 st.session_state[StateKeys.REQUIREMENTS_ESCO_OPT_IN] = new_value
                 if not new_value:
                     st.session_state[StateKeys.ESCO_SKILLS] = []
-                    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
+                    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = {}
                 st.rerun()
 
     st.session_state[StateKeys.SKILL_SUGGESTION_HINTS] = focus_selection
@@ -9048,11 +9182,10 @@ def _step_requirements() -> None:
             ]
         )
         missing_esco_skills = unique_normalized(
-            [
-                str(skill).strip()
-                for skill in st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
-                if isinstance(skill, str) and str(skill).strip()
-            ]
+            skill
+            for values in _esco_missing_skill_map().values()
+            for skill in values
+            if isinstance(skill, str) and str(skill).strip()
         )
 
         _render_skill_board(
@@ -9063,6 +9196,7 @@ def _step_requirements() -> None:
         )
 
         _render_skill_expander_assistant(focus_terms=focus_selection, lang=lang)
+        _render_esco_target_suggestion_blocks(data=data, requirements=requirements, lang=lang)
 
         with requirement_panel(
             icon="🔒",
@@ -10395,7 +10529,8 @@ def _summary_requirements() -> None:
     requirements: dict[str, Any] = data.setdefault("requirements", {})
     missing_esco = [
         str(skill).strip()
-        for skill in st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
+        for values in _esco_missing_skill_map().values()
+        for skill in values
         if isinstance(skill, str) and str(skill).strip()
     ]
     if missing_esco:
@@ -11316,7 +11451,7 @@ def _collect_skill_entries(data: Mapping[str, Any], lang: str) -> list[SkillInsi
     requirements = data.get("requirements", {}) if isinstance(data, Mapping) else {}
     if not isinstance(requirements, Mapping):
         return []
-    missing_raw = st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
+    missing_raw = [skill for values in _esco_missing_skill_map().values() for skill in values]
     missing = {str(item).strip().casefold() for item in missing_raw if isinstance(item, str) and str(item).strip()}
     is_de = str(lang or "").lower().startswith("de")
     entries: list[SkillInsightEntry] = []

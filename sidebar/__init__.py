@@ -1267,10 +1267,17 @@ def _render_requirements_context(context: SidebarContext) -> None:
         st.markdown(f"**{tr('Must-haves', 'Must-haves')}**: {', '.join(must[:12])}")
     if nice:
         st.markdown(f"**{tr('Nice-to-haves', 'Nice-to-haves')}**: {', '.join(nice[:12])}")
+    esco_missing_raw = st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, {}) or {}
+    esco_missing_values: list[str] = []
+    if isinstance(esco_missing_raw, dict):
+        for bucket in esco_missing_raw.values():
+            if isinstance(bucket, list):
+                esco_missing_values.extend(bucket)
+    elif isinstance(esco_missing_raw, list):
+        esco_missing_values = esco_missing_raw
+
     missing_esco = [
-        str(skill).strip()
-        for skill in st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, []) or []
-        if isinstance(skill, str) and str(skill).strip()
+        str(skill).strip() for skill in esco_missing_values if isinstance(skill, str) and str(skill).strip()
     ]
     if missing_esco:
         outstanding = ", ".join(dict.fromkeys(missing_esco))
