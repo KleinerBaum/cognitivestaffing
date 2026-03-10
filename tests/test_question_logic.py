@@ -81,6 +81,7 @@ def test_esco_missing_skills_trigger_followup(monkeypatch) -> None:
         }
     ]
     st.session_state[StateKeys.ESCO_SKILLS] = ["Python", "Data analysis"]
+    monkeypatch.setattr("question_logic.lookup_esco_skill", lambda label, **_kwargs: {"preferredLabel": label})
 
     profile = {
         "position": {"job_title": "Data Analyst"},
@@ -93,10 +94,10 @@ def test_esco_missing_skills_trigger_followup(monkeypatch) -> None:
     assert hard_skill_question["priority"] == "critical"
     assert hard_skill_question["suggestions"] == ["Data analysis"]
     assert st.session_state[StateKeys.ESCO_MISSING_SKILLS] == {
-        "requirements.hard_skills_required": ["Data analysis"],
-        "requirements.hard_skills_optional": ["Python", "Data analysis"],
-        "requirements.soft_skills_required": ["Python", "Data analysis"],
-        "requirements.soft_skills_optional": ["Python", "Data analysis"],
+        "requirements.hard_skills_required": [{"label": "Data analysis"}],
+        "requirements.hard_skills_optional": [{"label": "Python"}, {"label": "Data analysis"}],
+        "requirements.soft_skills_required": [{"label": "Python"}, {"label": "Data analysis"}],
+        "requirements.soft_skills_optional": [{"label": "Python"}, {"label": "Data analysis"}],
     }
 
 

@@ -1,6 +1,7 @@
 
 ## Unreleased
 
+- ESCO occupation and skill references are now persisted as optional structured metadata (`position.occupation_reference`, `requirements.skill_mappings[].esco_uri/skill_type`), reused by follow-up reruns, and included in generator export payload metadata (`meta.esco_references`).
 - ESCO missing-skill state is now field-scoped (`requirements.hard_skills_*`, `requirements.soft_skills_*`) with centralized skill de-duplication (`normalize_skills` + casefold keys) across user input, AI suggestions, and ESCO imports.
 - Requirements UI now renders compact per-target ESCO suggestion blocks with bilingual **Add/Ignore** actions; accepted skills update `requirements.*` immediately and trigger missing/critical progress recomputation.
 - Sidebar/summary/export suggestion plumbing now consumes field-scoped ESCO missing skills so JSON/Markdown artifacts remain consistent after ESCO skill adoption.

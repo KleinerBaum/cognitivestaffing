@@ -28,10 +28,33 @@ def _sequence_has_content(values: Any) -> bool:
     return any(_normalized_text(item) for item in values)
 
 
+def _inject_esco_references(payload: dict[str, Any]) -> dict[str, Any]:
+    """Attach optional machine-readable ESCO references for downstream tooling."""
+
+    position_raw = payload.get("position")
+    requirements_raw = payload.get("requirements")
+    position: Mapping[str, Any] = position_raw if isinstance(position_raw, Mapping) else {}
+    requirements: Mapping[str, Any] = requirements_raw if isinstance(requirements_raw, Mapping) else {}
+    refs = {
+        "occupation": {
+            "label": position.get("occupation_label"),
+            "uri": position.get("occupation_uri"),
+            "group": position.get("occupation_group"),
+        },
+        "skill_mappings": requirements.get("skill_mappings"),
+    }
+    meta_raw = payload.get("meta")
+    meta: dict[str, Any] = dict(meta_raw) if isinstance(meta_raw, Mapping) else {}
+    meta["esco_references"] = refs
+    payload["meta"] = meta
+    return payload
+
+
 def _prepare_job_ad_payload(vacancy_json: Mapping[str, Any]) -> dict[str, Any]:
     """Apply V2 export decision filtering before prompting the model."""
 
-    return build_v2_export_payload(vacancy_json, artifact_key="job_ad_markdown")
+    prepared = build_v2_export_payload(vacancy_json, artifact_key="job_ad_markdown")
+    return _inject_esco_references(prepared)
 
 
 def _validate_job_ad_sections(payload: Mapping[str, Any]) -> None:

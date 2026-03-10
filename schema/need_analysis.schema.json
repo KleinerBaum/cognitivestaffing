@@ -301,6 +301,38 @@
                         "string",
                         "null"
                     ]
+                },
+                "occupation_reference": {
+                    "type": [
+                        "object",
+                        "null"
+                    ],
+                    "additionalProperties": false,
+                    "properties": {
+                        "preferred_label": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        },
+                        "uri": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        },
+                        "group": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        }
+                    },
+                    "required": [
+                        "preferred_label",
+                        "uri",
+                        "group"
+                    ]
                 }
             },
             "required": [
@@ -320,7 +352,8 @@
                 "key_projects",
                 "team_size",
                 "customer_contact_required",
-                "customer_contact_details"
+                "customer_contact_details",
+                "occupation_reference"
             ]
         },
         "department": {
@@ -579,12 +612,19 @@
                                             "number",
                                             "null"
                                         ]
+                                    },
+                                    "skill_type": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
                                     }
                                 },
                                 "required": [
                                     "name",
                                     "normalized_name",
                                     "esco_uri",
+                                    "skill_type",
                                     "weight"
                                 ]
                             }
@@ -615,12 +655,19 @@
                                             "number",
                                             "null"
                                         ]
+                                    },
+                                    "skill_type": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
                                     }
                                 },
                                 "required": [
                                     "name",
                                     "normalized_name",
                                     "esco_uri",
+                                    "skill_type",
                                     "weight"
                                 ]
                             }
@@ -651,12 +698,19 @@
                                             "number",
                                             "null"
                                         ]
+                                    },
+                                    "skill_type": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
                                     }
                                 },
                                 "required": [
                                     "name",
                                     "normalized_name",
                                     "esco_uri",
+                                    "skill_type",
                                     "weight"
                                 ]
                             }
@@ -687,12 +741,19 @@
                                             "number",
                                             "null"
                                         ]
+                                    },
+                                    "skill_type": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
                                     }
                                 },
                                 "required": [
                                     "name",
                                     "normalized_name",
                                     "esco_uri",
+                                    "skill_type",
                                     "weight"
                                 ]
                             }
@@ -723,12 +784,19 @@
                                             "number",
                                             "null"
                                         ]
+                                    },
+                                    "skill_type": {
+                                        "type": [
+                                            "string",
+                                            "null"
+                                        ]
                                     }
                                 },
                                 "required": [
                                     "name",
                                     "normalized_name",
                                     "esco_uri",
+                                    "skill_type",
                                     "weight"
                                 ]
                             }

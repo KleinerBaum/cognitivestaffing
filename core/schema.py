@@ -1134,7 +1134,7 @@ def _normalise_skill_requirements(payload: dict[str, Any]) -> None:
     requirements.update(normalized)
 
     existing_mappings = requirements.get("skill_mappings")
-    generated_mappings = build_skill_mappings(normalized)
+    generated_mappings = build_skill_mappings(normalized, lang=lang)
     if isinstance(existing_mappings, Mapping):
         try:
             validated_mappings = SkillMappings.model_validate(existing_mappings)

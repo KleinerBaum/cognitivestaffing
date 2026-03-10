@@ -756,6 +756,7 @@ from utils.normalization import (
     country_to_iso2,
 )
 from utils.export import prepare_clean_json, prepare_download_data
+from utils.skill_taxonomy import build_skill_mappings
 from nlp.bias import scan_bias_language
 from ingest.heuristics import is_soft_skill
 from core.esco_utils import (
@@ -1341,40 +1342,64 @@ _ESCO_SKILL_TARGET_PATHS: tuple[str, ...] = (
 )
 
 
-def _esco_missing_skill_map() -> dict[str, list[str]]:
+def _esco_missing_skill_map() -> dict[str, list[dict[str, str]]]:
     """Return ESCO missing skills keyed by requirement field path."""
 
     raw = st.session_state.get(StateKeys.ESCO_MISSING_SKILLS, {})
     if isinstance(raw, Mapping):
-        result: dict[str, list[str]] = {}
+        result: dict[str, list[dict[str, str]]] = {}
         for path, values in raw.items():
             if not isinstance(values, Sequence) or isinstance(values, (str, bytes)):
                 continue
-            normalized = unique_normalized(str(value).strip() for value in values if str(value).strip())
-            if normalized:
-                result[str(path)] = normalized
+            normalized_entries: list[dict[str, str]] = []
+            seen: set[str] = set()
+            for value in values:
+                if isinstance(value, Mapping):
+                    label = str(value.get("label") or "").strip()
+                    uri = str(value.get("uri") or "").strip()
+                    skill_type = str(value.get("skill_type") or "").strip()
+                else:
+                    label = str(value).strip()
+                    uri = ""
+                    skill_type = ""
+                if not label:
+                    continue
+                marker = skill_casefold_key(uri or label)
+                if marker in seen:
+                    continue
+                seen.add(marker)
+                entry: dict[str, str] = {"label": label}
+                if uri:
+                    entry["uri"] = uri
+                if skill_type:
+                    entry["skill_type"] = skill_type
+                normalized_entries.append(entry)
+            if normalized_entries:
+                result[str(path)] = normalized_entries
         return result
     if isinstance(raw, Sequence) and not isinstance(raw, (str, bytes)):
-        values = unique_normalized(str(value).strip() for value in raw if str(value).strip())
+        values = [{"label": str(value).strip()} for value in raw if str(value).strip()]
         return {"requirements.hard_skills_required": values} if values else {}
     return {}
 
 
-def _esco_missing_skills_for(path: str) -> list[str]:
+def _esco_missing_skills_for(path: str) -> list[dict[str, str]]:
     """Return ESCO missing skills for one target path."""
 
     return list(_esco_missing_skill_map().get(path, []))
 
 
-def _remove_esco_missing_skill(path: str, skill: str) -> None:
+def _remove_esco_missing_skill(path: str, skill: str, *, uri: str | None = None) -> None:
     """Remove one skill from ESCO missing map for a given path."""
 
-    target_key = skill_casefold_key(skill)
+    target_key = skill_casefold_key(uri or skill)
     if not target_key:
         return
     mapping = _esco_missing_skill_map()
     values = mapping.get(path, [])
-    filtered = [value for value in values if skill_casefold_key(value) != target_key]
+    filtered = [
+        value for value in values if skill_casefold_key(str(value.get("uri") or value.get("label") or "")) != target_key
+    ]
     if filtered:
         mapping[path] = filtered
     elif path in mapping:
@@ -1455,9 +1480,9 @@ def _prepare_skill_expander_suggestions(
                 suggestion_entries.append({"name": cleaned, "reason": reason})
                 existing_markers.add(marker)
 
-    esco_missing = _esco_missing_skills_for("requirements.hard_skills_required")
-    for value in esco_missing:
-        cleaned = _normalize_skill_name(value)
+    esco_missing_entries = _esco_missing_skills_for("requirements.hard_skills_required")
+    for esco_entry in esco_missing_entries:
+        cleaned = _normalize_skill_name(esco_entry.get("label", ""))
         if not cleaned:
             continue
         marker = cleaned.casefold()
@@ -1983,7 +2008,10 @@ def _render_esco_target_suggestion_blocks(
             if not values:
                 continue
             st.caption(f"**{label_map[target_path]}**")
-            for index, skill in enumerate(values[:8]):
+            for index, skill_entry in enumerate(values[:8]):
+                skill = str(skill_entry.get("label") or "").strip()
+                if not skill:
+                    continue
                 row = st.columns((4, 1, 1))
                 row[0].write(skill)
                 if row[1].button(
@@ -2002,7 +2030,7 @@ def _render_esco_target_suggestion_blocks(
                     tr("Ignorieren", "Ignore", lang=lang),
                     key=f"esco_target_ignore.{target_path}.{index}.{skill}",
                 ):
-                    _remove_esco_missing_skill(target_path, skill)
+                    _remove_esco_missing_skill(target_path, skill, uri=skill_entry.get("uri"))
                     _recompute_missing_critical_status(data)
                     st.rerun()
 
@@ -6176,6 +6204,24 @@ def _render_review_skills_tab(profile: dict[str, Any]) -> None:
     )
     _render_inline_followups((ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED,), profile, container=languages_container)
 
+    lang_code = str(st.session_state.get("lang", "en") or "en")
+    requirements["skill_mappings"] = build_skill_mappings(requirements, lang=lang_code)
+    _update_profile("requirements.skill_mappings", requirements["skill_mappings"])
+
+    with st.expander(tr("Technische ESCO-Referenzen", "Technical ESCO references"), expanded=False):
+        for bucket, entries in requirements["skill_mappings"].items():
+            if not entries:
+                continue
+            st.caption(bucket)
+            for entry in entries:
+                label = str(entry.get("name") or "").strip()
+                uri = str(entry.get("esco_uri") or "").strip()
+                skill_type = str(entry.get("skill_type") or "").strip()
+                if not label:
+                    continue
+                if uri or skill_type:
+                    st.caption(f"- {label} · uri={uri or '-'} · type={skill_type or '-'}")
+
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -7073,12 +7119,15 @@ def _write_occupation_to_profile(meta: Mapping[str, Any] | None) -> None:
     _update_profile(ProfilePaths.POSITION_OCCUPATION_LABEL, label or None)
     _update_profile(ProfilePaths.POSITION_OCCUPATION_URI, uri or None)
     _update_profile(ProfilePaths.POSITION_OCCUPATION_GROUP, group or None)
+    reference = {"preferred_label": label or None, "uri": uri or None, "group": group or None} if meta else None
+    _update_profile("position.occupation_reference", reference)
 
     raw_profile = st.session_state.get(StateKeys.EXTRACTION_RAW_PROFILE)
     if isinstance(raw_profile, dict):
         set_in(raw_profile, "position.occupation_label", label or None)
         set_in(raw_profile, "position.occupation_uri", uri or None)
         set_in(raw_profile, "position.occupation_group", group or None)
+        set_in(raw_profile, "position.occupation_reference", reference)
         st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = raw_profile
 
 
@@ -7399,6 +7448,11 @@ def _render_esco_occupation_selector(
 
     selected_ids = list(st.session_state.get(widget_key, []))
     selected_labels = [format_map.get(opt, opt) for opt in selected_ids]
+    if selected_ids:
+        selected_uris = ", ".join(selected_ids)
+        render_target.caption(
+            tr("Technische URI(s): {uris}", "Technical URI(s): {uris}", lang=lang_code).format(uris=selected_uris)
+        )
     available_ids = [opt for opt in option_ids if opt not in selected_ids]
     available_labels = [format_map.get(opt, opt) for opt in available_ids]
 
@@ -9182,10 +9236,10 @@ def _step_requirements() -> None:
             ]
         )
         missing_esco_skills = unique_normalized(
-            skill
+            str(skill.get("label") or "").strip()
             for values in _esco_missing_skill_map().values()
             for skill in values
-            if isinstance(skill, str) and str(skill).strip()
+            if str(skill.get("label") or "").strip()
         )
 
         _render_skill_board(
@@ -11451,8 +11505,8 @@ def _collect_skill_entries(data: Mapping[str, Any], lang: str) -> list[SkillInsi
     requirements = data.get("requirements", {}) if isinstance(data, Mapping) else {}
     if not isinstance(requirements, Mapping):
         return []
-    missing_raw = [skill for values in _esco_missing_skill_map().values() for skill in values]
-    missing = {str(item).strip().casefold() for item in missing_raw if isinstance(item, str) and str(item).strip()}
+    missing_raw = [entry.get("label", "") for values in _esco_missing_skill_map().values() for entry in values]
+    missing = {str(item).strip().casefold() for item in missing_raw if str(item).strip()}
     is_de = str(lang or "").lower().startswith("de")
     entries: list[SkillInsightEntry] = []
     seen: set[str] = set()
