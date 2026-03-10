@@ -31,6 +31,7 @@ from wizard import (
     _step_onboarding,
     _extract_and_summarize,
     _prime_widget_state_from_profile,
+    _sync_summary_widget_state_from_profile,
 )
 
 
@@ -611,11 +612,28 @@ def test_extract_and_summarize_does_not_enrich_skills(
         "requirements": {"hard_skills_required": ["Python"]},
     }
 
-    _patch_runner_attr(monkeypatch, "extract_json", lambda *a, **k: json.dumps(sample_data))
+    _patch_runner_attr(
+        monkeypatch,
+        "_cached_extract_profile",
+        lambda *a, **k: ExtractionResult(
+            raw_json=json.dumps(sample_data),
+            data=sample_data,
+            recovered=False,
+            issues=[],
+        ),
+    )
     _patch_runner_attr(monkeypatch, "coerce_and_fill", NeedAnalysisProfile.model_validate)
     _patch_runner_attr(monkeypatch, "apply_basic_fallbacks", lambda p, _t, **_: p)
-    _patch_runner_attr(monkeypatch, "classify_occupation", lambda *a, **k: None)
-    _patch_runner_attr(monkeypatch, "search_occupations", lambda *a, **k: [])
+    _patch_runner_attr(
+        monkeypatch,
+        "classify_occupation",
+        lambda *a, **k: {"preferredLabel": "ML Engineer", "uri": "urn:occupation:ml", "group": "ICT"},
+    )
+    _patch_runner_attr(
+        monkeypatch,
+        "search_occupations",
+        lambda *a, **k: [{"preferredLabel": "ML Engineer", "uri": "urn:occupation:ml", "group": "ICT"}],
+    )
     _patch_runner_attr(monkeypatch, "get_essential_skills", lambda *a, **k: [])
     _extract_and_summarize("Job text", {})
 
@@ -724,6 +742,81 @@ def test_extract_and_summarize_marks_ai_confidence(
     assert field_conf["position.job_title"]["source"] == "llm"
     assert field_conf["company.name"]["tier"] == ConfidenceTier.AI_ASSISTED.value
     assert field_conf["company.name"]["source"] == "llm"
+
+
+def test_summary_sync_prefers_profile_values_for_empty_summary_widgets() -> None:
+    """Summary widgets should be backfilled from profile when widget values are empty."""
+
+    st.session_state.clear()
+    st.session_state[StateKeys.PROFILE] = {
+        "position": {"job_title": "Senior Data Engineer"},
+        "company": {"name": "Acme GmbH"},
+        "team": {"name": "Platform"},
+        "requirements": {"hard_skills_required": ["Python", "SQL"]},
+        "employment": {"job_type": "full_time"},
+        "process": {"hiring_process": ["Screen", "Interview"]},
+    }
+    st.session_state["ui.summary.position.job_title"] = ""
+    st.session_state["ui.summary.company.name"] = ""
+    st.session_state["ui.summary.requirements.hard_skills_required"] = ""
+    st.session_state["ui.summary.process.hiring_process"] = ""
+
+    _sync_summary_widget_state_from_profile()
+
+    assert st.session_state["ui.summary.position.job_title"] == "Senior Data Engineer"
+    assert st.session_state["ui.summary.company.name"] == "Acme GmbH"
+    assert st.session_state["ui.summary.requirements.hard_skills_required"] == "Python, SQL"
+    assert st.session_state["ui.summary.process.hiring_process"] == "Screen\nInterview"
+
+
+def test_extract_and_summarize_overwrites_stale_summary_widget_values(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A fresh extraction run should overwrite stale summary widget values."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state.model = "gpt"
+    st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
+    st.session_state["ui.summary.position.job_title"] = "Outdated title"
+    st.session_state["ui.summary.company.name"] = "Outdated company"
+    st.session_state["ui.summary.compensation.salary_range"] = (1.0, 2.0)
+
+    sample_data = {
+        "position": {"job_title": "ML Engineer"},
+        "company": {"name": "New Corp"},
+        "compensation": {"salary_min": 70000, "salary_max": 90000},
+    }
+
+    _patch_runner_attr(
+        monkeypatch,
+        "_cached_extract_profile",
+        lambda *a, **k: ExtractionResult(
+            raw_json=json.dumps(sample_data),
+            data=sample_data,
+            recovered=False,
+            issues=[],
+        ),
+    )
+    _patch_runner_attr(monkeypatch, "coerce_and_fill", NeedAnalysisProfile.model_validate)
+    _patch_runner_attr(monkeypatch, "apply_basic_fallbacks", lambda p, _t, **_: p)
+    _patch_runner_attr(
+        monkeypatch,
+        "classify_occupation",
+        lambda *a, **k: {"preferredLabel": "ML Engineer", "uri": "urn:occupation:ml", "group": "ICT"},
+    )
+    _patch_runner_attr(
+        monkeypatch,
+        "search_occupations",
+        lambda *a, **k: [{"preferredLabel": "ML Engineer", "uri": "urn:occupation:ml", "group": "ICT"}],
+    )
+    _patch_runner_attr(monkeypatch, "get_essential_skills", lambda *a, **k: [])
+
+    _extract_and_summarize("Job text", {})
+
+    assert st.session_state["ui.summary.position.job_title"] == "ML Engineer"
+    assert st.session_state["ui.summary.company.name"] == "New Corp"
+    assert st.session_state["ui.summary.compensation.salary_range"] == (70000.0, 90000.0)
 
 
 @pytest.mark.parametrize(
@@ -953,7 +1046,7 @@ def test_extract_and_summarize_passes_locked_context(
         source="https://example.com/job",
     )
 
-    captured: dict[str, str | None] = {}
+    captured: dict[str, Any] = {}
 
     def fake_extract_json(
         text: str,

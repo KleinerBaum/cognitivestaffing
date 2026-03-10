@@ -16,6 +16,7 @@
 - Added required-skills post-validation for `requirements.hard_skills_required` and `requirements.soft_skills_required` with forced retry when source cues exist.
 - Added bilingual low-confidence UI warning to prompt manual review/completion when required skills remain uncertain.
 - Added a dedicated second extraction pass for list-heavy fields (`requirements.hard_skills_required`, `requirements.soft_skills_required`, `responsibilities.items`) with cue-guided prompts and explicit append-only merge behavior.
+- Summary tabs now hydrate `ui.summary.*` widget state from canonical `StateKeys.PROFILE` values and refresh these keys after each successful extraction run to avoid stale values while preserving manual edits between rerenders.
 
 
 ---
