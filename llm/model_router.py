@@ -14,27 +14,12 @@ from config import models as model_config
 PREF_ENV = "COGNITIVE_PREFERRED_MODEL"
 FB_ENV = "COGNITIVE_MODEL_FALLBACKS"
 
-DEFAULT_CANDIDATES = [
-    model_config.GPT41_MINI,
-    model_config.GPT51_MINI,
-    model_config.GPT51_NANO,
-]
+DEFAULT_CANDIDATES = [model_config.GPT51_NANO]
 
 TIER_FALLBACKS: Mapping[str, Sequence[str]] = {
-    "FAST": (
-        model_config.GPT51_NANO,
-        model_config.GPT41_NANO,
-        model_config.GPT4O_MINI,
-    ),
-    "QUALITY": (
-        model_config.GPT51_MINI,
-        model_config.GPT41_MINI,
-        model_config.GPT4O,
-    ),
-    "LONG_CONTEXT": (
-        model_config.GPT41_NANO,
-        model_config.GPT41_MINI,
-    ),
+    "FAST": (model_config.GPT51_NANO,),
+    "QUALITY": (model_config.GPT51_NANO,),
+    "LONG_CONTEXT": (model_config.GPT51_NANO,),
 }
 
 
@@ -89,8 +74,8 @@ def _resolve_candidates(
     if resolved_candidates:
         return resolved_candidates[0]
 
-    if model_config.GPT41_MINI in available:
-        return model_config.GPT41_MINI
+    if model_config.GPT51_NANO in available:
+        return model_config.GPT51_NANO
 
     sample = sorted(list(available))[:10]
     raise RuntimeError("No usable model found. Tried: %s; Available sample: %s" % (candidates, sample))
@@ -106,6 +91,8 @@ def _env_candidates(extra_candidates: Sequence[str] | None = None) -> list[str]:
         candidates.extend(candidate.strip() for candidate in fallbacks.split(",") if candidate.strip())
     if extra_candidates:
         candidates.extend(list(extra_candidates))
+    if model_config.STRICT_NANO_ONLY:
+        return [model_config.GPT51_NANO]
     return candidates
 
 
