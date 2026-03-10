@@ -12,11 +12,13 @@ import streamlit as st
 import config as app_config
 from config import APIMode, OPENAI_REQUEST_TIMEOUT, REASONING_EFFORT, resolve_api_mode
 from config.models import (
+    GPT51_NANO,
     ModelTask,
     get_first_available_model,
     get_model_candidates,
     get_reasoning_mode,
     requires_chat_completions,
+    normalise_model_name,
     normalise_reasoning_effort,
     select_model,
 )
@@ -33,6 +35,7 @@ from .tools import (
     _convert_tools_to_functions,
     _normalise_tool_choice_spec,
     _normalise_tool_spec,
+    reject_unsupported_nano_tools,
 )
 
 logger = logging.getLogger("cognitive_needs.openai")
@@ -208,15 +211,13 @@ def _convert_responses_payload_to_chat(payload: Mapping[str, Any]) -> dict[str, 
 
 
 def _map_reasoning_effort_for_api(effort: str | None) -> str | None:
-    """Coerce legacy reasoning hints to GPT-5.2 compatible values."""
+    """Return a validated reasoning effort hint for Responses payloads."""
 
     if not isinstance(effort, str):
         return None
     candidate = effort.strip().lower()
     if not candidate:
         return None
-    if candidate == "minimal":
-        return "none"
     return candidate
 
 
@@ -226,6 +227,13 @@ def _build_chat_fallback_payload(
     schema_bundle: SchemaFormatBundle | None,
 ) -> dict[str, Any]:
     """Construct a Chat Completions payload mirroring ``payload``."""
+
+    if app_config.STRICT_NANO_ONLY:
+        payload_model = normalise_model_name(str(payload.get("model") or ""))
+        if payload_model and payload_model != GPT51_NANO:
+            raise RuntimeError(
+                "Strict nano mode blocks Responses->Chat fallback when the payload model is not gpt-5-nano."
+            )
 
     converted = _convert_responses_payload_to_chat(payload)
     if converted is not None:
@@ -396,6 +404,16 @@ def _prepare_payload(
     use_classic_api = active_mode.is_classic
 
     selected_task = task or ModelTask.DEFAULT
+    if app_config.STRICT_NANO_ONLY and model is not None:
+        normalised_override = normalise_model_name(model)
+        if normalised_override != GPT51_NANO:
+            logger.warning(
+                "STRICT_NANO_ONLY enabled: overriding explicit model '%s' with '%s'.",
+                model,
+                GPT51_NANO,
+            )
+            model = GPT51_NANO
+
     cost_saver_enabled = _is_cost_saver_enabled()
     router_estimate: PromptCostEstimate | None = None
     candidate_override = model
@@ -483,6 +501,7 @@ def _prepare_payload(
         used_names.add(fallback_name)
 
     combined_tools = converted_tools
+    reject_unsupported_nano_tools(combined_tools)
 
     messages_payload = [dict(message) for message in messages]
     if json_schema is not None and not use_response_format:

@@ -319,3 +319,9 @@ def test_env_default_model_override_is_neutralised_in_strict_mode(
         else:
             monkeypatch.setenv("DEFAULT_MODEL", previous_env)
         importlib.reload(config)
+
+
+def test_responses_allow_tools_defaults_to_true(monkeypatch):
+    monkeypatch.delenv("RESPONSES_ALLOW_TOOLS", raising=False)
+    reloaded_config = importlib.reload(config)
+    assert reloaded_config.RESPONSES_ALLOW_TOOLS is True

@@ -12,11 +12,34 @@ import json
 from collections import deque
 from collections.abc import Callable, Iterable, Mapping, Sequence
 from copy import deepcopy
-from typing import Any, cast
+from typing import Any, Final, cast
 
 from prompts import prompt_registry
 from core.schema_guard import guard_no_additional_properties
 from .client import ToolCallPayload, ToolMessagePayload
+
+
+_UNSUPPORTED_NANO_TOOL_TYPES: Final[set[str]] = {
+    "tool_search",
+    "computer_use",
+    "hosted_shell",
+    "apply_patch",
+    "skills",
+}
+
+
+def reject_unsupported_nano_tools(tool_specs: Sequence[Mapping[str, Any]]) -> None:
+    """Raise when ``tool_specs`` include unsupported GPT-5 nano tool types."""
+
+    blocked: list[str] = []
+    for tool in tool_specs:
+        tool_type = str(tool.get("type") or "").strip().lower()
+        if tool_type in _UNSUPPORTED_NANO_TOOL_TYPES:
+            blocked.append(tool_type)
+
+    if blocked:
+        blocked_types = ", ".join(sorted(set(blocked)))
+        raise ValueError(f"Unsupported tool type(s) requested for GPT-5 nano runtime: {blocked_types}.")
 
 
 def _prepare_schema(obj: dict[str, Any], *, require_all: bool) -> dict[str, Any]:
@@ -470,4 +493,9 @@ def build_file_search_tool(
     return payload
 
 
-__all__ = ["build_extraction_tool", "build_function_tools", "build_file_search_tool"]
+__all__ = [
+    "build_extraction_tool",
+    "build_function_tools",
+    "build_file_search_tool",
+    "reject_unsupported_nano_tools",
+]

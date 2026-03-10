@@ -10,6 +10,7 @@ from typing import Any, Mapping, Sequence
 
 from openai import OpenAIError
 
+from config import APIMode
 from config.models import ModelTask
 from openai_utils.api import (
     SchemaFormatBundle,
@@ -230,6 +231,8 @@ def call_responses(
         task=task,
         include_raw_response=True,
         use_response_format=True,
+        api_mode=APIMode.RESPONSES,
+        allow_legacy_fallback=False,
     )
 
     content = (chat_result.content or "").strip()
@@ -283,7 +286,7 @@ def call_responses_safe(
         if is_unrecoverable_schema_error(exc):
             raise UnrecoverableSchemaShortCircuitError(str(exc)) from exc
         active_logger.error(
-            "Structured chat call for %s failed: %s",
+            "Structured Responses call for %s failed: %s",
             context,
             exc,
         )
