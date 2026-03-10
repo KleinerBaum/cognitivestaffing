@@ -1,299 +1,57 @@
-# Cognitive Staffing (Recruitment Need Analysis Wizard)
+# Cognitive Staffing
 
-A multi-step **Streamlit wizard** that turns unstructured job ads (PDF, DOCX, URLs, pasted text) into a structured **NeedAnalysisProfile** JSON plus recruiter-ready outputs (job ad draft, interview guide, Boolean search, etc.).
+A bilingual **Streamlit recruitment wizard** that turns unstructured job ads into a structured **NeedAnalysisProfile** and recruiter-ready outputs such as a job ad draft, interview guide, Boolean search, and exports.
 
-**Live app(s)**  
-- Production / Primary: https://gerriserfolgstracker.streamlit.app/ *(your deployment; may redirect depending on Streamlit settings)*  
-- Reference / Demo: https://cognitivestaffing.streamlit.app/
+**Live app**  
+- https://cognitivestaffing.streamlit.app/
 
 ---
 
-- Wizard step metadata now defines minimal per-step `required_fields` for Company, Team, Role Tasks, and Skills; Next gating combines these with step-owned critical follow-ups without double-counting global critical fields.
-- Added an opt-in Wizard V2 runtime (`?wizard=v2` or `ENABLE_WIZARD_V2=1`) with a dedicated V2 step registry (`intake`, `hiring_goal`, `real_work`, `requirements_board`, `constraints`, `selection`, `review`) while keeping V1 unchanged as default.
-- Added intake diagnostics service (`wizard/services/intake_diagnostics.py`) to score coverage, detect ambiguities/contradictions, and recommend fast-path routing (`review` vs focused `decision_board`).
-- Structured extraction now enforces a strict validation chain (primary output → model validation → focused retry prompts → JSON repair). If required skill lists stay empty despite source cues, the wizard flags low confidence and prompts for manual review in DE/EN.
-- Extraction results now expose explicit repair metadata (`repair_applied`, `repair_confidence`) so downstream pipeline/UI code can surface degraded-state handling deterministically.
-- Missing-section recovery now includes a dedicated second pass for `requirements.hard_skills_required`, `requirements.soft_skills_required`, and `responsibilities.items`, guided by DE/EN cue snippets and list-focused normalization/merge rules.
-- Field-level provenance metadata (`meta.field_metadata`) now tracks `source` (`llm|heuristic|user`), `confidence`, optional `evidence_snippet`, and confirmation status; low-confidence heuristic values are surfaced as “Vorgeschlagen / Suggested” with per-step confirmation and can block Next when critical.
-- Follow-up generation now prioritizes unconfirmed low-confidence heuristic critical fields, and Summary exports can mark or exclude unconfirmed heuristic estimates in JSON output.
-- NeedAnalysis V2 contract introduced (`schema/need_analysis_v2.schema.json`) with explicit blocks (`intake`, `role`, `work`, `requirements`, `constraints`, `selection`, `evidence`, `open_decisions`, `warnings`) and decision-state export gating (`confirmed` only).
-- Export mapping now normalizes V1/V2 export inputs through confirmed-only decision gating: only `open_decisions[].decision_state == "confirmed"` are applied to generator payload fields, while blocking non-confirmed decisions emit `warnings[]` entries for the affected artifact export.
-- Decision cards now include `category`, `impact_area`, `blocking_exports`, and `suggested_resolution_options`; follow-up generation supports a `decision-first` mode that asks a small, impact-prioritized backlog from `open_decisions` (Search → Selection → Candidate-Communication) instead of broad field-gap micro-questions.
-- Step confidence now uses field-level scoring (schema validity, extraction source, cue coverage, consistency checks) with reason codes (e.g. `REQ_LIST_MISSING`, `JSON_REPAIRED`, `HEURISTIC_ONLY`) to drive hints, forced follow-ups, and critical Next blocking.
-- `wizard.flow` now emits structured `flow_event` JSON logs for extraction/follow-up lifecycle events plus a compact `structured_extraction.summary` payload (`missing_required_count`, `repair_count`, `heuristic_critical_count`, `degraded`, `degraded_reasons`) to simplify Streamlit-Cloud filtering.
-- Extraction runs are marked `degraded` when alert criteria are hit (currently: more than one JSON repair attempt or required fields still missing after retry), and the wizard surfaces this state as a bilingual warning for manual review.
-- Normalization logs are deduplicated per run to reduce repeated identical `Normalized ...` entries while preserving field/rule context in structured log attributes.
+## What this project does
 
-## Table of Contents
-- [What it does](#what-it-does)
-- [Wizard flow (UX contract)](#wizard-flow-ux-contract)
-- [Architecture (high level)](#architecture-high-level)
-- [Repository map (where to change what)](#repository-map-where-to-change-what)
-- [Setup & run locally](#setup--run-locally)
-- [LLM configuration](#llm-configuration)
-- [Testing](#testing)
-- [Common development tasks](#common-development-tasks)
+Cognitive Staffing helps recruiters and hiring teams move from messy input to a structured hiring brief:
+
+1. **Ingest** a job ad from PDF, DOCX, URL, or pasted text
+2. **Extract** structured data into the canonical `NeedAnalysisProfile`
+3. **Guide** the user through a fixed bilingual wizard to validate and fill gaps
+4. **Generate** recruiter-ready outputs and exports
+
+This repository is designed around:
+
+- a fixed **8-step wizard flow**
+- a canonical **schema + model contract**
+- bilingual **DE/EN** UI and generation behavior
+- an **OpenAI Responses API** pipeline optimized for **GPT-5-nano**
+- deterministic downstream outputs and exports
+
+---
+
+## Table of contents
+
+- [Quickstart](#quickstart)
+- [Architecture overview](#architecture-overview)
+- [Wizard flow](#wizard-flow)
+- [Repository map](#repository-map)
+- [Configuration](#configuration)
+- [OpenAI runtime rules](#openai-runtime-rules)
+- [Development workflow](#development-workflow)
+- [i18n and schema rules](#i18n-and-schema-rules)
 - [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 - [License](#license)
 
 ---
 
-## What it does
-
-1) **Ingest & parse** job ads (PDF/DOCX/URL/text).  
-2) **Extract** structured data into a canonical NeedAnalysisProfile (schema + Pydantic models).  
-3) **Guide the user** through an 8-step bilingual wizard to review + enrich missing information.  
-4) **Generate outputs** (job ad, Boolean search, interview guide, summaries, exports).
-
-The wizard supports German and English job ads and maps common DE/EN section headings (“Ihre Aufgaben / Your Tasks”, “Ihr Profil / Your Profile”, “Benefits / Wir bieten”, …) into the correct fields.
-
----
-
-## Wizard flow (UX contract)
-
-> This section is the **source of truth** for how steps must behave.
-> If a step feels “unstructured”, it is violating this contract.
-
-### The 8 steps (fixed order)
-
-A dedicated bilingual **landing screen** appears before step 1 to capture role basics (title, location, tasks, skills, benefits) and unlock the guided flow with a single Continue action.
-The landing location input persists only to the canonical schema key `location.primary_city` (no legacy `location.city` write path).
-On this landing view, the global stepper, context bar, and progress microcopy stay hidden; they reappear unchanged once users move into the numbered wizard steps.
-On this landing view, the sidebar also suppresses the numbered step-overview accordion and shows a compact bilingual **"What happens next? / Wie geht es weiter?"** helper instead.
-
-1. Onboarding / Job Ad
-2. Company details
-3. Department & Team
-4. Tasks
-5. Skills & requirements
-6. Benefits
-7. Recruitment process
-8. Summary (Final Review + Exports)
-
-The onboarding step starts with a single hero block (logo + eyebrow/headline/subheadline) plus a primary CTA and a compact three-step timeline, followed immediately by a two-panel URL vs. upload call-to-action with an explicit OR divider so the first screen is focused and uncluttered. The hero copy stays bilingual and directs users to the onboarding source anchor (`#onboarding-source`) to keep the value prop → action flow clear. The onboarding details expander reinforces the extraction process, privacy handling, and accuracy expectations in bilingual copy. Subsequent steps keep the layout focused on the form without any global hero/banner. Secondary messaging stays in helper text or expanders.
-
-Navigation defaults to **linear Back/Next**, but steps can optionally resolve a dynamic next step for branching flows. “Next” is **disabled** until required fields for the current step are filled, with inline validation messaging below the controls (critical fields remain highlighted without blocking navigation).
-The navigation footer also shows an emoji stepper that mirrors the localized step labels, highlighting active/done/upcoming states for quick context.
-Validation errors render in a dedicated area below the navigation controls when errors are present, keeping bilingual messaging consistent without showing an empty warning container.
-Field labels can include origin markers (🔎 extracted / 🤖 suggested / ✍️ manual) so reviewers can immediately see where a value came from.
-Steps can be conditionally inactive based on the profile or schema (for example, the Team step may be skipped if the team data model is disabled); navigation and deep links must always land on the nearest active step.
-
-The sidebar Flow mode setting defaults to the single-page view, which renders all steps in order inside expanders with a top-level missing-fields summary to validate everything at once. Multi-step sessions remain supported when `StateKeys.FLOW_MODE` is set to `FlowMode.MULTI_STEP`; set `WIZARD_SINGLE_PAGE_LEGACY=1` only if you need to force the previous single-page-only behavior.
-In single-page mode, the global missing-fields list now uses progressive disclosure: users first see a neutral hint and only reveal the full list after selecting **Validate all steps** (or automatically when the Summary step is reached).
-
-The sidebar step overview shows only canonical profile values; when extraction fails, warning entries are marked as `(raw)` to distinguish unconfirmed extraction output from reviewed profile data.
-
-The Company details step captures the business domain plus core company/location/contact information, while department/team inputs now live in the Department & Team step so missing-field badges appear where inputs live.
-When the onboarding source context is set to agency, the Company details step uses client-facing labels while staying in the same step position.
-Location follow-ups (`location.*`) are routed to the Company details step to ensure missing prompts surface alongside the location inputs.
-Department follow-ups (`department.*`) are routed to the Department & Team step to match where those inputs are rendered.
-
-The Summary step is organized into tabs for **Overview**, **Edit (core company/team/role/skills/compensation/process fields)**, **Exports**, and **Warnings** to keep review, export, and validation in one place. The Exports tab now includes a compact artifact list that centralizes downloads.
-Compensation benefit chips are intentionally keyed per view (`step_compensation` vs. `summary_compensation`) while sharing the same profile state path (`compensation.benefits`) so data stays synchronized without Streamlit duplicate widget-key collisions.
-
-### Per-step UI pattern (mandatory)
-
-Every step MUST render in the same top-down pattern:
-
-1) **Known** (readable & optionally editable)  
-   - Show what we already have (extraction + previous edits).
-   - Keep it compact: summary cards, 2-column layout.
-
-2) **Missing** (dynamic, user-friendly collection)  
-   - Ask only what’s missing for THIS step.
-   - Use short questions, helpful defaults, and inline explanations.
-   - Optional: AI assistants/tools belong in a dedicated “Tools” area (see below).
-
-3) **Validate** (required/critical fields)  
-   - Clearly highlight missing required fields.
-   - “Next” triggers validation and keeps the user on the step if required fields are missing.
-
-4) **Next / Back navigation**  
-   - One primary action: continue.
-
-Missing prompts should not duplicate inputs that are already editable in the Known section; inline fields (for example, the Team reporting line) are edited once to avoid conflicting updates.
-For Skills & requirements, ESCO occupation search/selection is treated as a supporting tool inside the Tools area (expander) and committed through explicit **Apply/Übernehmen** actions so Missing fields stay visually primary.
-
-The baseline UX uses the guided-flow UI kit in `app.py` (emoji stepper, context bar, progress microcopy, and inline saved feedback) to keep navigation stable without layout shifts.
-Wizard widget keys should always be generated via `wiz.k(...)` so session state remains namespaced for multi-wizard and multi-repo safety.
-
-The Company details step now uses the shared `render_step_layout` helper to align with the Known/Missing/Validate/Tools structure (`wizard/step_layout.py`).
-The Department & Team step now uses the shared `render_step_layout` helper to align with the Known/Missing/Validate/Tools structure (`wizard/step_layout.py`).
-
-### Tools & assistants (UX rule)
-
-AI tools / assistants must NEVER compete with the main “Missing” form.
-They should be placed in an **expander** (e.g., “Assistants & Tools”) or a secondary side-panel.
-
----
-
-## Architecture (high level)
-
-The repo is organized so schema, domain logic, LLM integration, and UI are separated.
-
-- Entry & routing  
-  - `app.py` – Streamlit entry + global layout  
-  - `wizard_router.py` – wizard routing + navigation guards  
-  - `wizard/navigation/` – navigation state machine, UI controls, and session/query param sync
-
-- Wizard UI  
-  - `wizard/`, `wizard_pages/`, `wizard_tools/` – step UIs + wizard utilities (legacy `wizard_pages` proxies the step registry; `WIZARD_PAGES` is fully derived from `WIZARD_STEPS`, including `00_landing.py` as proxy module)  
-  - `wizard_tools/experimental/` – opt-in stage graph tooling for agent workflows (`ENABLE_AGENT_GRAPH=1`)  
-  - `ui/` – shared Streamlit wizard UX kit modules (including compatibility shims)  
-  - `wizard/step_registry.py` – canonical step definitions (metadata + renderers + ordering)  
-  - `wizard/metadata.py` – canonical field ownership (`resolve_step_key_for_field_path`) and section resolution used by wizard, follow-ups, and sidebar  
-  - `docs/dev/wizard-steps.md` – developer guide for adding new steps safely  
-  - `sidebar/`, `ui_views/`, `components/` – shared UI components  
-  - `styles/`, `images/` – styling and assets (including onboarding hero CTA/timeline styles, sidebar hero/stepper theme CSS instead of inline `app.py`, `.onboarding-source-inputs` layout rules, and text-based previews for key UX elements such as steppers, origin markers, and validation areas)  
-  - `docs/design-system.md` – theme tokens plus onboarding hero CTA/timeline, source input panels, and motion rules for dark/light UI
-
-- Data contract  
-  - `schema/need_analysis.schema.json` – canonical schema  
-  - `schemas.py`, `models/` – Pydantic/data models
-  - The persisted schema is generated from the Pydantic model and enforces Responses-compatible `required` arrays for every object.
-
-- Missing info & follow-up logic  
-  - `critical_fields.json` – critical fields per step  
-  - `question_logic.py` + `questions/` – follow-up questions & logic  
-  - `role_field_map.json` – role-dependent field priorities
-  - `wizard/services/followups.py` – canonical follow-up generation (LLM + fallback)
-  - Follow-up responses are schema-validated with JSON repair heuristics, a schema-guided repair retry, and redacted logging before falling back to defaults.
-  - Summary follow-up inputs now deduplicate duplicate field paths before rendering to avoid Streamlit duplicate widget keys and keep answer mapping deterministic (`field_path -> latest value`).
-  - `wizard/missing_fields.py` – pure helpers for missing-field detection
-  - `wizard/services/` – canonical gap, validation, and job description services shared by UI and agent tools
-  - `wizard/step_status.py` – step-level missing required/critical status helpers
-
-- LLM & pipelines  
-  - `openai_utils/` – OpenAI client wrapper (Responses vs Chat, retries, fallbacks)  
-  - `llm/` – response schemas, prompt assembly  
-  - `pipelines/` – ingest → extraction → repair → exports  
-  - Structured extraction enforces JSON-only outputs, performs a schema-guided repair retry, and records low-confidence recovery metadata for the wizard flow.
-  - Missing-section retries now prioritise business-critical fields (`position.job_title`, `company.name`, `location.primary_city`, `company.website`, `company.contact_email`, `requirements.hard_skills_required`, `requirements.soft_skills_required`) and only patch values when the original extraction left them empty.
-  - ESCO lookups plus extraction/follow-up LLM results are cached per session (keyed by input hashes) to avoid re-running expensive steps on Streamlit reruns.
-  - `ingest/`, `nlp/` – parsing + heuristics
-
-- Outputs  
-  - `generators/`, `exports/` – job ads, interview guides, Boolean search, etc.  
-  - `artifacts/` – generated files / caches
-
----
-
-## LLM configuration
-
-- **Cost saver toggle (sidebar)**: when enabled, the wizard keeps FAST on `gpt-4o-mini`, downgrades QUALITY (`gpt-4o`) for non-critical tasks where possible, and clamps `max_completion_tokens` to a tighter ceiling for cheaper, faster responses. Critical tasks (job ads, document refinement, final explanations) retain the default quality tier, and explicit model overrides still take priority if a caller sets one directly.
-- **Quick vs. Precise mode**: Quick lowers reasoning effort and keeps fast paths on `gpt-4o-mini`; Genau/Precise raises reasoning effort and routes toward the PRECISE tier (`o3-mini`). Both modes still respect the cost saver toggle.
-- **Tier defaults**: FAST (`gpt-4o-mini`) handles quick/standard paths (including extraction baselines), QUALITY (`gpt-4o`) handles richer reasoning prompts, LONG_CONTEXT (`gpt-4.1-mini`) powers long-document refinement, and PRECISE (`o3-mini`) activates for the Genau/Precise mode.
-- **Startup model map**: on launch the app selects and stores one model per tier in `st.session_state["model_map"]`, using realistic fallback chains: FAST → `gpt-4o-mini`, `gpt-4o`, `o3-mini`; QUALITY → `gpt-4o`, `gpt-4o-mini`, `o3-mini`; LONG_CONTEXT → `gpt-4.1-mini`, `gpt-4o`, `gpt-4o-mini`.
-- **Responses fallbacks**: suggestion helpers only log chat fallback usage when the Responses client returns a structured `ResponsesCallResult` to avoid type mismatches during tests or mocking.
-- **Skill suggestion parsing**: prompts demand JSON-only output, and parsing validates against the skill suggestion schema with local repair before optional LLM repair/fallbacks.
-- **Structured fallback behavior**: task fallback chains are now reordered so JSON-schema-capable models are attempted first for structured tasks; text-only capable routes are only used as final rescue options.
-- **Schema short-circuit behavior**: unrecoverable schema errors (including `BadRequestError` with `param=response_format` and `Invalid schema for response_format`) short-circuit retries and model rotation, then switch directly to a non-strict reduced fallback path with explicit telemetry (`schema_unrecoverable_short_circuit=true`) and a bilingual in-app warning.
-- **Tool-aware routing**: prompts that request web/file search tools prefer GPT-5 tiers, while ultra-long prompts (>300k estimated tokens) route to LONG_CONTEXT (`gpt-4.1-nano`).
-
-### Cost controls
-
-Use these environment variables (or Streamlit secrets) to cap spend and steer model choices:
-
-- **`OPENAI_SESSION_TOKEN_LIMIT` / `OPENAI_TOKEN_BUDGET`**: session-wide token budget guard. Once the limit is exceeded, OpenAI calls stop with a bilingual warning.
-- **`REASONING_EFFORT`**: hint for reasoning depth (`none`/`minimal`/`low`/`medium`/`high`). None/low stick to FAST, medium selects QUALITY, and high activates PRECISE.
-- **`MODEL_ROUTING__<task>` overrides**: per-task model routing overrides (task keys match `ModelTask` in `config/models.py`, e.g. `job_ad`, `interview_guide`, `profile_summary`, `salary_estimate`, `follow_up_questions`).
-
-The sidebar includes a token usage summary with a per-request table (see `sidebar/__init__.py`) so you can review spend while running the wizard. The table reads nested totals from Responses-style usage payloads as well as legacy input/output counters.
-
-**Example `.env` (low-cost defaults):**
-
-```bash
-OPENAI_SESSION_TOKEN_LIMIT=12000
-REASONING_EFFORT=minimal
-MODEL_ROUTING__job_ad=gpt-4o-mini
-MODEL_ROUTING__interview_guide=gpt-4o-mini
-```
-
-**Example `.streamlit/secrets.toml`:**
-
-```toml
-OPENAI_TOKEN_BUDGET = "12000"
-REASONING_EFFORT = "minimal"
-MODEL_ROUTING__job_ad = "gpt-4o-mini"
-MODEL_ROUTING__interview_guide = "gpt-4o-mini"
-```
-
----
-
-## Repository map (where to change what)
-
-### “I want to change the wizard flow / UX”
-- Step order, step ownership, required fields:
-  - `wizard_router.py`
-  - `wizard/navigation/`
-  - `wizard_pages/` (step definitions / metadata)
-  - `docs/refactor/wizard-unification-audit.md` (maintainability audit + refactor plan)
-- Sidebar stepper/progress:
-  - `sidebar/`
-  - Feature flag: set `st.session_state["feature.sidebar_stepper_v1"] = True` to preview the sidebar stepper.
-  - Navigation flag: set `st.session_state["feature.sidebar_stepper_nav_v1"] = True` to allow clicking previous steps in the sidebar stepper.
-  - Step-panel fade: set `WIZARD_STEP_FORM_FADE=1` (env/secrets) or `st.session_state["wizard.step_form_fade"] = True` to enable the optional step fade wrapper.
-  - Legacy single-page override: set `WIZARD_SINGLE_PAGE_LEGACY=1` to coerce `FlowMode.MULTI_STEP` sessions back to single-page rendering (default `0`).
-  - Form-based fade mode: toggle `USE_FORM_PANEL_FADE` in `app.py` to render wizard steps inside a `st.form` with submit-based navigation.
-- Sidebar settings (language, theme, intro banner, advanced LLM options):
-  - `sidebar/__init__.py`
-- Shared step layout pattern (recommended):
-  - `wizard/step_layout.py` *(Known → Missing → Validate sections with optional tools expander)*
-  - `wizard/step_scaffold.py` *(add if not present; centralize Known/Missing/Validate/Nav)*
-  - `render_step_layout` accepts localized strings or `(de, en)` tuples for titles/intro copy.
-
-### “I want to change which fields are required/critical”
-- Required fields (UI gating):
-  - Step definitions in `wizard_pages/` and/or step modules
-  - Register required-field input validators only in `wizard/validators/registry.py` (single extension point shared by router + metadata)
-  - Ensure `PAGE_FOLLOWUP_PREFIXES` + `validate_required_fields_by_page` stay aligned (`wizard/metadata.py`, `tests/test_required_fields_mapping.py`)
-- Critical fields (follow-up prompts + missing badges):
-  - `critical_fields.json`
-  - `question_logic.py` / `questions/`
-
-### “I want to add a new field to the profile”
-1) Update schema:
-   - `schema/need_analysis.schema.json`
-2) Update Pydantic/models:
-   - `schemas.py` and/or `models/`
-3) Ensure normalization defaults:
-   - `core/` and/or `utils/`
-4) Add it to the correct step:
-   - `wizard_pages/<step>.py` + step UI in `wizard_pages/` or `wizard/`
-5) Add follow-up question (optional):
-   - `questions/` + `question_logic.py`
-
-### “I want to adjust LLM behavior / models”
-- Model routing + capabilities:
-  - `config/models.py`
-- Prompts:
-  - `prompts/`
-  - Benefits prompt wording lives in `prompts/registry.yaml` under `llm.extraction.benefits.user`.
-- Client behavior (Responses/Chat, retries, fallbacks):
-  - `openai_utils/`
-  - `ALLOW_LEGACY_FALLBACKS=0` disables legacy Chat Completions fallbacks, leaving static benefit shortlists as the last-resort suggestion source.
-- JSON repair and schema-guided fallback retries:
-  - `llm/json_repair.py`
-
-### “I want to add a new export / generator”
-- Implement generator:
-  - `generators/`
-- Wire into export UI:
-  - Summary step (final review) in `wizard_pages/` / `ui_views/`
-- Write artifact handling:
-  - `exports/` and/or `artifacts/`
-
----
-
-## Setup & run locally
+## Quickstart
 
 ### Requirements
-- Python ≥ 3.11
-- OpenAI API key
-- (Optional) Poetry
 
-### Install (recommended with Poetry)
+- Python `>=3.11,<4.0`
+- Poetry
+- OpenAI API key
+
+### 1) Clone and install
+
 ```bash
 git clone https://github.com/KleinerBaum/cognitivestaffing.git
 cd cognitivestaffing
@@ -301,85 +59,655 @@ cd cognitivestaffing
 python -m venv .venv
 source .venv/bin/activate  # Windows: .venv\Scripts\activate
 
-poetry install
-```
+poetry install --with dev
+2) Configure secrets
 
----
+You can use either a local .env file or Streamlit secrets.
 
-## Testing
+Option A — .env
 
-```bash
-poetry run pytest
-```
+Create a .env file in the repo root:
 
-Streamlit AppTest regression checks (including the ESCO selector state guard) run in the same
-`pytest` suite and do not require network access.
+OPENAI_API_KEY=<your-key>
+OPENAI_BASE_URL=https://api.openai.com/v1
+OPENAI_REQUEST_TIMEOUT=120
 
-Some wizard tests stub Streamlit containers/columns, so stubs should mimic context-manager
-behavior and three-column layouts.
+# Strict GPT-5-nano runtime
+OPENAI_MODEL=gpt-5-nano
+DEFAULT_MODEL=gpt-5-nano
+LIGHTWEIGHT_MODEL=gpt-5-nano
+MEDIUM_REASONING_MODEL=gpt-5-nano
+HIGH_REASONING_MODEL=gpt-5-nano
+STRICT_NANO_ONLY=true
 
-The test suite also validates that rule-based extraction fields stay aligned with the canonical
-NeedAnalysis schema, so rule path drift fails fast in CI.
+# GPT-5-nano defaults
+REASONING_EFFORT=minimal
+VERBOSITY=low
 
-Job ad fixtures live under `tests/fixtures/job_ads/`. Use the helper in
-`tests/fixtures/job_ads/__init__.py` to load UTF-8 fixture text for regression
-tests.
-Extraction goldenset fixtures for deterministic core-field evaluation live under `tests/fixtures/extraction/`; `tests/test_e2e_extraction.py::test_extraction_goldenset_field_accuracy` writes a machine-readable report to `artifacts/extraction_eval_report.json` and fails CI on required-field regressions.
+# Optional guards / retrieval
+OPENAI_TOKEN_BUDGET=12000
+VECTOR_STORE_ID=
+OPENAI_ORGANIZATION=
+OPENAI_PROJECT=
+Option B — .streamlit/secrets.toml
+[openai]
+OPENAI_API_KEY = "<set-in-runtime-or-secrets-manager>"
+OPENAI_BASE_URL = "https://api.openai.com/v1"
 
----
+OPENAI_MODEL = "gpt-5-nano"
+DEFAULT_MODEL = "gpt-5-nano"
+LIGHTWEIGHT_MODEL = "gpt-5-nano"
+MEDIUM_REASONING_MODEL = "gpt-5-nano"
+HIGH_REASONING_MODEL = "gpt-5-nano"
 
-## Troubleshooting
+STRICT_NANO_ONLY = true
+REASONING_EFFORT = "minimal"
+VERBOSITY = "low"
+OPENAI_REQUEST_TIMEOUT = 120
+OPENAI_TOKEN_BUDGET = "12000"
 
-- Optional flow helpers (for example, company autofill suggestions) may be unavailable in slim flow
-  variants; missing optional dependencies are expected and only logged at debug level.
-- To enable the wizard flow diagram for debugging, set `DEBUG_FLOW_DIAGRAM=true` in the environment
-  (or Streamlit secrets) and refresh the app. The Mermaid output appears under the
-  “Debug: Flow diagram” expander in the wizard UI for easy copy/paste.
-- If you encounter “missing ScriptRunContext” warnings, ensure background tasks only compute data
-  and keep Streamlit UI/session-state updates on the main thread.
-- Expected bare-mode `missing ScriptRunContext` warnings from Streamlit internals are filtered in app logging; if new warnings appear, treat them as regressions and keep worker threads Streamlit-free.
-- The onboarding extraction/follow-up workflow already snapshots cache/session inputs before launching worker threads; keep that pattern for new threaded tasks by passing immutable context payloads into `WorkflowRunner` tasks.
-- If you see the “OTLP endpoint not configured” telemetry message, either set the
-  `OTEL_EXPORTER_OTLP_ENDPOINT` env var or ignore it during local development. See
-  `docs/Troubleshooting.md` for details.
-- Dependency constraints for `requests`, `urllib3`, `chardet`, and `charset-normalizer` are intentionally pinned to compatible ranges in `pyproject.toml` to prevent Streamlit Cloud startup warnings caused by resolver drift. Regenerate `poetry.lock` after changing these constraints and commit both files together for reproducible deploys.
-- Recoverable wizard failures now surface a retry button and a UI-only reset option; prefer UI
-  resets before clearing the full profile to avoid losing captured data.
-- Repeated recoverable errors now trigger a session-local degradation mode: follow-up helpers are temporarily hidden and a bilingual warning is shown so users can continue with core fields without rerun loops.
-- ESCO occupation selector state is split between widget and profile keys to avoid Streamlit
-  session-state mutation errors; initialize namespaced widget keys before render (for example
-  `ui.position.esco_occupation_widget.<suffix>`) and sync selections back into the shared profile
-  key (`ui.position.esco_occupation`).
-- Avoid committing binary screenshots in PRs; add any required images manually after review to
-  keep diffs lightweight.
-- For `Invalid schema for response_format` errors, enable debug logs and inspect the
-  `response_format meta-schema probe` entry emitted by `openai_utils.client` before the API call.
-  Verify `meta.properties` and `meta.required` list exactly the same keys (especially
-  `field_metadata`), then restart app workers to drop any stale in-memory schema caches.
+VECTOR_STORE_ID = ""
+OPENAI_ORGANIZATION = ""
+OPENAI_PROJECT = ""
+3) Run the app
+poetry run streamlit run app.py
+4) Verify the runtime
 
+At minimum, confirm:
 
-## Quality metrics and degraded-run interpretation
+the app starts without missing-secret errors
 
-- `missing_required_count`: Number of critical/required profile paths that are still empty after structured extraction validation.
-- `repair_count`: Number of JSON repair passes applied during extraction parsing/validation.
-- `heuristic_critical_count`: Number of critical fields that were completed via heuristic rules (from `metadata.field_sources`).
-- `degraded`: Boolean health marker set when alert criteria indicate reduced extraction reliability.
-- `degraded_reasons`: Machine-readable reason codes used by support/operations for triage.
+extraction works from pasted text or a sample file
 
-Operational interpretation:
-- `degraded=false` with low missing counts usually indicates normal automated extraction quality.
-- `degraded=true` means support should prioritize manual verification in Summary step and inspect `degraded_reasons` in logs.
-- Repeated `missing_required_fields_after_retry` suggests prompt/schema drift or atypical source documents and should be tracked as a quality regression.
+the wizard advances only when required fields are present
 
+generated outputs still render and export correctly
 
-### Canonical follow-up field mapping
+logs show gpt-5-nano as the resolved model for non-embedding tasks
 
-Legacy follow-up keys must be normalized to canonical schema paths:
+Architecture overview
+High-level flow
+Input (PDF / DOCX / URL / text)
+  -> ingest / parsing
+  -> structured extraction
+  -> schema validation
+  -> JSON repair / retry if needed
+  -> NeedAnalysisProfile
+  -> wizard review + gap filling
+  -> generators / exports / artifacts
+Core design principles
 
-| Legacy key | Canonical key(s) |
-|---|---|
-| `position.location` | `location.primary_city` (and optionally `location.country` when needed) |
-| `position.context` | `position.role_summary` |
-| `compensation.salary_range` | `compensation.salary_min` + `compensation.salary_max` |
+Schema-first: the canonical schema drives extraction, validation, UI behavior, and exports
 
-`question_logic.py`, `wizard/services/followups.py`, and `role_field_map.json` should only emit canonical schema-compatible keys.
+Responses-first: OpenAI integrations should use the Responses API by default
+
+Nano-only runtime: all non-embedding generation tasks should resolve to gpt-5-nano
+
+Bilingual consistency: DE and EN labels, follow-ups, and generation outputs must stay aligned
+
+Reviewable UX: the wizard must make known vs missing information obvious and editable
+
+Wizard flow
+
+The wizard has a fixed 8-step order:
+
+Onboarding / Job Ad
+
+Company
+
+Team & Structure
+
+Role & Tasks
+
+Skills & Requirements
+
+Compensation / Benefits
+
+Hiring Process
+
+Summary
+
+UX contract
+
+Every canonical step should follow the same structure:
+
+Known — show what is already known, compact and readable
+
+Missing — ask only what is still missing for that step
+
+Validate — show required / critical gaps and enforce gating
+
+Nav — Back / Next
+
+Rules:
+
+Navigation is linear: Back / Next
+
+Next stays disabled until required fields for the current step are satisfied
+
+AI tools must not compete with the main Missing form
+
+Assistants belong in an expander or dedicated Tools area, not inline with required inputs
+
+Repository map
+Entry and routing
+
+app.py — Streamlit entry point
+
+wizard_router.py — step routing and navigation guards
+
+wizard/navigation/ — navigation state and session/query sync
+
+Wizard UI
+
+wizard/ — canonical wizard implementation
+
+wizard_pages/ — step definitions / metadata / legacy proxies
+
+wizard_tools/ — assistant and tool panels
+
+wizard/step_registry.py — canonical step ordering and renderers
+
+wizard/step_layout.py — shared step layout helpers
+
+sidebar/, ui_views/, components/, ui/ — shared UI elements
+
+styles/, images/ — assets and styling
+
+Data contract
+
+schema/need_analysis.schema.json — canonical JSON schema
+
+schemas.py, models/ — Pydantic/data models
+
+Follow-up and missing-field logic
+
+critical_fields.json — critical fields by step
+
+question_logic.py, questions/ — follow-up orchestration
+
+role_field_map.json — role-dependent priority mapping
+
+wizard/services/followups.py — canonical follow-up generation
+
+wizard/missing_fields.py — missing-field helpers
+
+wizard/step_status.py — step-level status helpers
+
+wizard/metadata.py — field ownership and step mapping
+
+LLM, extraction, and pipelines
+
+openai_utils/ — OpenAI client wrappers, payload assembly, retries
+
+llm/ — prompt assembly, response schemas, JSON repair
+
+pipelines/ — ingest -> extraction -> repair -> exports
+
+ingest/, nlp/ — parsing and heuristics
+
+prompts/ — prompt templates and prompt fragments
+
+Outputs
+
+generators/ — job ad, interview guide, Boolean search, summaries
+
+exports/ — export wiring
+
+artifacts/ — generated files and cached artifacts
+
+Tests and tooling
+
+tests/
+
+pyproject.toml
+
+pytest.ini
+
+.env.example
+
+AGENTS.md
+
+Configuration
+Required variables
+Variable	Required	Purpose
+OPENAI_API_KEY	Yes	OpenAI API authentication
+OPENAI_BASE_URL	No	Custom / regional endpoint
+OPENAI_REQUEST_TIMEOUT	No	Request timeout in seconds
+STRICT_NANO_ONLY	Yes (recommended)	Enforce gpt-5-nano for all non-embedding tasks
+OPENAI_MODEL	Yes	Primary generation model
+DEFAULT_MODEL	Yes	Default routing model
+LIGHTWEIGHT_MODEL	Yes	Lightweight tier model
+MEDIUM_REASONING_MODEL	Yes	Medium tier model
+HIGH_REASONING_MODEL	Yes	High tier model
+REASONING_EFFORT	No	Default reasoning effort
+VERBOSITY	No	Default output verbosity
+OPENAI_TOKEN_BUDGET	No	Optional session/request budget guard
+VECTOR_STORE_ID	No	Optional retrieval / RAG store
+OPENAI_ORGANIZATION	No	Optional OpenAI org
+OPENAI_PROJECT	No	Optional OpenAI project
+Recommended defaults for this repo
+
+For a strict nano-only runtime:
+
+OPENAI_MODEL = gpt-5-nano
+
+DEFAULT_MODEL = gpt-5-nano
+
+LIGHTWEIGHT_MODEL = gpt-5-nano
+
+MEDIUM_REASONING_MODEL = gpt-5-nano
+
+HIGH_REASONING_MODEL = gpt-5-nano
+
+STRICT_NANO_ONLY = true
+
+REASONING_EFFORT = minimal
+
+VERBOSITY = low
+
+Retrieval
+
+Set VECTOR_STORE_ID only if retrieval is enabled.
+If it is empty, the app should run without RAG.
+
+Task-specific overrides
+
+If task routing overrides are supported in the codebase, they must still respect strict nano-only mode.
+In other words: per-task tuning may change effort, verbosity, or token limits, but should not silently switch model families.
+
+OpenAI runtime rules
+
+This repo should follow these rules:
+
+Use the Responses API by default
+
+Use text.format for structured outputs
+
+Use strict function schemas for callable application tools
+
+Reuse previous_response_id in multi-turn / tool flows where appropriate
+
+Keep prompts compact and explicit
+
+Do not silently route to other model families
+
+Do not request unsupported GPT-5-nano tools
+
+GPT-5-nano guidance for this project
+
+Use gpt-5-nano for:
+
+extraction support
+
+follow-up generation
+
+recruiter helper text
+
+job ad generation
+
+interview guide generation
+
+profile summaries
+
+structured transformations
+
+classification / normalization tasks
+
+Prefer:
+
+compact prompts
+
+exact JSON / Markdown contracts
+
+low verbosity
+
+minimal reasoning effort as baseline
+
+Avoid using model escalation as a band-aid for:
+
+prompt drift
+
+schema drift
+
+weak validation
+
+missing repair logic
+
+UI / model key mismatches
+
+Tooling policy
+
+Allowed only if explicitly supported in the runtime path:
+
+function calling
+
+structured outputs
+
+web search
+
+file search
+
+image generation
+
+code interpreter
+
+MCP (if intentionally integrated)
+
+Do not introduce or rely on:
+
+tool search
+
+computer use
+
+hosted shell
+
+apply patch
+
+skills
+
+Development workflow
+Local quality checks
+
+Run these before opening a PR:
+
+poetry run ruff format .
+poetry run ruff check .
+poetry run mypy .
+poetry run pytest -q
+
+For local app verification:
+
+poetry run streamlit run app.py
+Recommended branch naming
+
+Use short, reviewable branches such as:
+
+feat/nano-routing
+
+fix/schema-propagation
+
+refactor/followup-layout
+
+docs/readme-refresh
+
+Pull request expectations
+
+Keep PRs small and cohesive.
+
+A good PR should include:
+
+problem statement
+
+repro steps
+
+expected vs actual behavior
+
+files changed
+
+verification commands
+
+screenshots only if they add real value
+
+notes on schema/i18n impact
+
+notes on model/tool-routing impact
+
+Agent / coding-assistant workflow
+
+Before editing code, read:
+
+AGENTS.md
+
+README.md
+
+the closest relevant module(s)
+
+For model and prompt changes, inspect first:
+
+config/
+
+openai_utils/
+
+llm/
+
+prompts/
+
+generators/
+
+wizard/services/followups.py
+
+i18n and schema rules
+Bilingual rules
+
+This project is bilingual (DE / EN).
+
+Whenever you change:
+
+labels
+
+help text
+
+validation text
+
+warning text
+
+follow-up phrasing
+
+generated headings
+
+summary/export wording
+
+verify both languages.
+
+Do not update only one language path unless the feature is explicitly language-specific.
+
+Schema propagation rules
+
+If you add, remove, rename, or move a field, propagate it across all affected layers:
+
+schema/need_analysis.schema.json
+
+schemas.py / models/
+
+wizard/ / wizard_pages/ / ui_views/
+
+question_logic.py / questions/ / wizard/services/followups.py
+
+wizard/metadata.py
+
+critical_fields.json
+
+generators/ / exports/
+
+tests
+
+Do not leave dangling keys where:
+
+schema != model != UI != followups != exports
+Canonical field ownership
+
+Keep missing prompts where their inputs live.
+
+If field ownership changes, update:
+
+step UI
+
+step metadata
+
+missing-field mapping
+
+follow-up routing
+
+tests
+
+Troubleshooting
+OPENAI_API_KEY missing
+
+Symptoms:
+
+startup failure
+
+extraction/generation unavailable
+
+authentication errors
+
+Fix:
+
+set OPENAI_API_KEY in .env or .streamlit/secrets.toml
+
+restart the Streamlit app after changing secrets
+
+Wrong model still appears in logs
+
+Symptoms:
+
+requests resolve to gpt-4o-mini, gpt-5-mini, o3-mini, or another non-nano model
+
+Fix:
+
+verify STRICT_NANO_ONLY=true
+
+verify all tier variables point to gpt-5-nano
+
+inspect config/models.py, llm/model_router.py, and llm/cost_router.py
+
+search the repo for legacy model literals before assuming the config is enough
+
+API timeouts
+
+Symptoms:
+
+slow generation
+
+request timeout errors
+
+repeated retries
+
+Fix:
+
+raise OPENAI_REQUEST_TIMEOUT if necessary
+
+reduce prompt size
+
+reduce output size
+
+keep prompts contract-driven
+
+avoid re-sending large conversation histories when previous_response_id can be reused
+
+Structured output / schema errors
+
+Symptoms:
+
+invalid structured response
+
+schema mismatch
+
+JSON repair loops
+
+parsing failures
+
+Fix:
+
+verify the schema matches the parser and the UI keys
+
+keep output contracts explicit
+
+use strict schemas for function tools
+
+ensure Responses structured outputs are configured via text.format
+
+inspect repair logs before changing models
+
+Invalid schema for response_format
+
+Symptoms:
+
+bad request from OpenAI
+
+schema rejected before generation
+
+Fix:
+
+remove legacy Chat-style response_format usage from Responses payloads
+
+use Responses-compatible structured output configuration
+
+compare required keys and properties carefully
+
+inspect schema-generation and payload-assembly code together
+
+missing ScriptRunContext
+
+Symptoms:
+
+Streamlit warnings during worker/background execution
+
+Fix:
+
+keep Streamlit UI/session-state mutations on the main thread
+
+pass immutable payloads into background work
+
+do not call Streamlit UI functions from worker threads
+
+Telemetry / OTLP warning
+
+Symptoms:
+
+OTLP endpoint not configured
+
+Fix:
+
+set OTEL_EXPORTER_OTLP_ENDPOINT if telemetry is needed
+
+otherwise ignore during local development
+
+Dependency drift on Streamlit Cloud
+
+Symptoms:
+
+startup warnings
+
+resolver conflicts
+
+environment mismatch between local and deployed runs
+
+Fix:
+
+keep pyproject.toml and poetry.lock in sync
+
+regenerate the lockfile when dependency constraints change
+
+commit both files together
+
+Contributing
+
+Please keep changes:
+
+small
+
+reviewable
+
+schema-safe
+
+bilingual
+
+testable
+
+For all substantial changes:
+
+update or add tests
+
+preserve the wizard UX contract
+
+preserve the schema contract
+
+document any new config variables
+
+update README.md and AGENTS.md when behavior changes
+
+License
+
+MIT. See LICENSE.
