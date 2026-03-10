@@ -31,6 +31,11 @@ The format roughly follows [Keep a Changelog](https://keepachangelog.com/en/1.1.
 
 ## [Unreleased]
 
+### Changed
+- Sidebar step overview now renders prefilled values strictly from `StateKeys.PROFILE` to prevent phantom values from raw extraction state.
+- Extraction warning summaries are explicitly marked with `(raw)` labels in the sidebar when LLM extraction errors are present, making unconfirmed values visible.
+- `_extract_and_summarize` now keeps `StateKeys.PROFILE` canonical and schema-conformant while storing unconfirmed extraction payloads separately in `StateKeys.EXTRACTION_RAW_PROFILE`.
+
 ### Added
 - Shared wizard required-field validator registry (`wizard/validators/registry.py`) now centralizes mappings (including `company.contact_email` and `location.primary_city`) for router and metadata consumers.
 - Reproducible extraction goldenset fixtures (`tests/fixtures/extraction/`) plus a core-field evaluator that emits `artifacts/extraction_eval_report.json` for CI regression gating.

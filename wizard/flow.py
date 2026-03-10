@@ -4517,6 +4517,7 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
     for field, match in rule_matches.items():
         set_in(extracted_data, field, match.value)
 
+    raw_profile_payload = deepcopy(extracted_data)
     profile = coerce_and_fill(extracted_data)
     _apply_branding_to_profile(profile)
     profile = apply_basic_fallbacks(profile, text, metadata=metadata)
@@ -4638,7 +4639,7 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
         mark_low_confidence(metadata, data, issues=extraction_issues, repaired=recovered)
     st.session_state[StateKeys.PROFILE] = data
     _prime_widget_state_from_profile(data)
-    st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = data
+    st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = raw_profile_payload
     if extraction_warning is None:
         summary: dict[str, str] = {}
         if profile.position.job_title:

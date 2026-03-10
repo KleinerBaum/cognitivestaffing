@@ -77,6 +77,8 @@ Steps can be conditionally inactive based on the profile or schema (for example,
 The sidebar Flow mode setting defaults to the single-page view, which renders all steps in order inside expanders with a top-level missing-fields summary to validate everything at once. Multi-step sessions remain supported when `StateKeys.FLOW_MODE` is set to `FlowMode.MULTI_STEP`; set `WIZARD_SINGLE_PAGE_LEGACY=1` only if you need to force the previous single-page-only behavior.
 In single-page mode, the global missing-fields list now uses progressive disclosure: users first see a neutral hint and only reveal the full list after selecting **Validate all steps** (or automatically when the Summary step is reached).
 
+The sidebar step overview shows only canonical profile values; when extraction fails, warning entries are marked as `(raw)` to distinguish unconfirmed extraction output from reviewed profile data.
+
 The Company details step captures the business domain plus core company/location/contact information, while department/team inputs now live in the Department & Team step so missing-field badges appear where inputs live.
 When the onboarding source context is set to agency, the Company details step uses client-facing labels while staying in the same step position.
 Location follow-ups (`location.*`) are routed to the Company details step to ensure missing prompts surface alongside the location inputs.

@@ -37,12 +37,9 @@ def build_prefilled_sections(
     exclude_prefixes = tuple(exclude_prefixes or ())
 
     profile = st.session_state.get(StateKeys.PROFILE)
-    raw_profile = st.session_state.get(StateKeys.EXTRACTION_RAW_PROFILE)
 
     flattened: dict[str, Any] = {}
 
-    if isinstance(raw_profile, Mapping):
-        flattened.update(_flatten(raw_profile))
     if isinstance(profile, Mapping):
         flattened.update(_flatten(profile))
 
