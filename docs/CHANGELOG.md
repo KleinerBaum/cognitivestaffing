@@ -1,6 +1,7 @@
 
 ## Unreleased
 
+- Requirements step: ESCO occupation search now lives in a dedicated **Tools** expander, returns enriched match metadata (`label`, `uri`, `group`, rank/score hints), and applies occupations only via explicit **Übernehmen / Apply** action with consistent reset when job titles change.
 - Added confirmed-only V2 export mapping for artifact inputs: non-confirmed decisions are excluded from export payload fields, blocking items emit `warnings[]`, and generator prompts now consume the normalized V2 payload.
 - Added Wizard V2 scaffolding with separate step modules/registry and explicit V1↔V2 routing via query parameter/feature flag, plus intake fast-path diagnostics and tests for high/medium coverage behavior.
 - Added a decision-backlog engine for `open_decisions` with impact-prioritized ordering (Search, Selection, Candidate-Communication), enriched `DecisionCard` metadata (`category`, `impact_area`, `blocking_exports`, `suggested_resolution_options`), and a new follow-up `decision-first` mode that asks fewer targeted clarification questions.
