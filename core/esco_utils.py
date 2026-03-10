@@ -549,3 +549,21 @@ def normalize_skills(skills: List[str], lang: str = "en") -> List[str]:
         seen.add(key)
         deduped.append(display_label or preferred_label)
     return deduped
+
+
+def skill_casefold_key(value: str) -> str:
+    """Return a normalized casefold key for skill de-duplication."""
+
+    return str(value or "").strip().casefold()
+
+
+def normalize_skill_map(skills: Sequence[str], lang: str = "en") -> dict[str, str]:
+    """Return a normalized ``casefold -> display label`` mapping for skills."""
+
+    normalized = normalize_skills([str(skill) for skill in skills], lang=lang)
+    result: dict[str, str] = {}
+    for value in normalized:
+        key = skill_casefold_key(value)
+        if key and key not in result:
+            result[key] = value
+    return result

@@ -38,7 +38,7 @@ def _base_requirements_profile() -> dict[str, Any]:
 def test_summary_requirements_mirrors_compliance_toggles(monkeypatch: pytest.MonkeyPatch) -> None:
     profile = _base_requirements_profile()
     st.session_state[StateKeys.PROFILE] = profile
-    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
+    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = {}
     st.session_state["lang"] = "en"
 
     checkbox_calls: list[dict[str, Any]] = []
@@ -57,8 +57,10 @@ def test_summary_requirements_mirrors_compliance_toggles(monkeypatch: pytest.Mon
                 "key": key,
             }
         )
-        assert key in checkbox_values
-        return checkbox_values[key]
+        assert key is not None
+        normalized_key = key.removeprefix("ui.summary.requirements.")
+        assert normalized_key in checkbox_values
+        return checkbox_values[normalized_key]
 
     def fake_text_area(_label: str, *, value: str, **__: Any) -> str:
         return value
@@ -105,7 +107,7 @@ def test_summary_requirements_mirrors_compliance_toggles(monkeypatch: pytest.Mon
 def test_compliance_toggles_share_single_source(monkeypatch: pytest.MonkeyPatch) -> None:
     profile = _base_requirements_profile()
     st.session_state[StateKeys.PROFILE] = profile
-    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = []
+    st.session_state[StateKeys.ESCO_MISSING_SKILLS] = {}
     st.session_state["lang"] = "en"
 
     profile_requirements = st.session_state[StateKeys.PROFILE]["requirements"]
@@ -133,13 +135,14 @@ def test_compliance_toggles_share_single_source(monkeypatch: pytest.MonkeyPatch)
         **_: Any,
     ) -> bool:
         assert key is not None
-        assert key in scripted_values, f"Unexpected checkbox key {key} ({label})"
-        index = call_counts[key]
-        call_counts[key] += 1
-        scripted = scripted_values[key][index]
+        normalized_key = key.removeprefix("ui.summary.requirements.")
+        assert normalized_key in scripted_values, f"Unexpected checkbox key {key} ({label})"
+        index = call_counts[normalized_key]
+        call_counts[normalized_key] += 1
+        scripted = scripted_values[normalized_key][index]
         if scripted is None:
             # Second render should reuse the canonical state without diverging labels.
-            assert value is expected_state[key]
+            assert value is expected_state[normalized_key]
             st.session_state[key] = value
             return value
         st.session_state[key] = scripted
