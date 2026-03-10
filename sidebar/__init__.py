@@ -1049,6 +1049,15 @@ def _render_hero(context: SidebarContext) -> None:
     current_index = summary_payload[0] if summary_payload else 0
 
     step_order, step_entries = _build_initial_extraction_entries(context)
+    metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {})
+    has_llm_error = isinstance(metadata, Mapping) and isinstance(metadata.get("llm_errors"), Mapping)
+    if has_llm_error:
+        st.caption(
+            tr(
+                "Einträge mit (raw) stammen aus der fehlgeschlagenen Extraktion und sind noch unbestätigt.",
+                "Entries marked with (raw) come from failed extraction and are unconfirmed.",
+            )
+        )
     label_lookup = {page.key: page.label_for(lang) for page in WIZARD_PAGES}
     if step_order:
         active_index = min(max(current_index, 0), len(step_order) - 1)
@@ -1116,6 +1125,15 @@ def _build_initial_extraction_entries(
 
     step_entries: dict[str, list[tuple[str, str]]] = {key: [] for key in step_order}
 
+    metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {})
+    has_llm_error = isinstance(metadata, Mapping) and isinstance(metadata.get("llm_errors"), Mapping)
+    summary = context.extraction_summary
+    has_warning_summary = isinstance(summary, Mapping) and any(
+        str(key).strip().lower() == "status" and "⚠️" in str(value) for key, value in summary.items()
+    )
+    mark_raw_summary = has_llm_error or has_warning_summary
+    raw_label_suffix = f" {tr('(raw)', '(raw)')}" if mark_raw_summary else ""
+
     def _expanded_entries(label: str, value: Any) -> list[tuple[str, str]]:
         if isinstance(value, Mapping):
             return [(label, preview) for preview in (preview_value_to_text(item) for item in value.values()) if preview]
@@ -1143,11 +1161,11 @@ def _build_initial_extraction_entries(
                     continue
                 entries = step_entries[mapped_key]
                 for label, value in values.items():
-                    entries.extend(_expanded_entries(str(label), value))
+                    entries.extend(_expanded_entries(f"{label}{raw_label_suffix}", value))
         else:
             entries = step_entries.setdefault("jobad", [])
             for label, value in summary.items():
-                entries.extend(_expanded_entries(str(label), value))
+                entries.extend(_expanded_entries(f"{label}{raw_label_suffix}", value))
 
     for _, items in context.prefilled_sections:
         for path, value in items:

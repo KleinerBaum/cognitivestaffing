@@ -18,6 +18,7 @@ from core.errors import ExtractionError
 from core.rules import RuleMatch
 from models.need_analysis import NeedAnalysisProfile
 from ingest.types import ContentBlock, StructuredDocument
+from pipelines.need_analysis import ExtractionResult
 
 
 pytestmark = pytest.mark.integration
@@ -65,7 +66,7 @@ def _prepare_minimal_extraction(monkeypatch: pytest.MonkeyPatch) -> None:
 
     sample_payload = NeedAnalysisProfile().model_dump()
 
-    _patch_runner_attr(monkeypatch, "apply_rules", lambda *_: {})
+    _patch_runner_attr(monkeypatch, "apply_rules", lambda *a, **k: {})
     _patch_runner_attr(monkeypatch, "matches_to_patch", lambda *_: {})
     _patch_runner_attr(monkeypatch, "build_rule_metadata", lambda *_: {})
     _patch_runner_attr(monkeypatch, "_annotate_rule_metadata", lambda *a, **k: {})
@@ -708,7 +709,7 @@ def test_extract_and_summarize_marks_ai_confidence(
         "company": {"name": "ACME"},
     }
 
-    _patch_runner_attr(monkeypatch, "apply_rules", lambda *_: {})
+    _patch_runner_attr(monkeypatch, "apply_rules", lambda *a, **k: {})
     _patch_runner_attr(monkeypatch, "extract_json", lambda *a, **k: json.dumps(sample_data))
     _patch_runner_attr(monkeypatch, "coerce_and_fill", NeedAnalysisProfile.model_validate)
     _patch_runner_attr(monkeypatch, "apply_basic_fallbacks", lambda p, _t, **_: p)
@@ -890,7 +891,7 @@ def test_extract_and_summarize_warns_about_repaired_payload(
     st.session_state[StateKeys.FOLLOWUPS] = []
     st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] = False
 
-    _patch_runner_attr(monkeypatch, "apply_rules", lambda *_: {})
+    _patch_runner_attr(monkeypatch, "apply_rules", lambda *a, **k: {})
     _patch_runner_attr(monkeypatch, "matches_to_patch", lambda *_: {})
     _patch_runner_attr(monkeypatch, "build_rule_metadata", lambda *_: {})
     _patch_runner_attr(monkeypatch, "_annotate_rule_metadata", lambda *a, **k: {})
@@ -1048,3 +1049,55 @@ def test_queue_extraction_rerun_sets_flag_and_clears_hash() -> None:
 
     assert "__last_extracted_hash__" not in st.session_state
     assert st.session_state["__run_extraction__"] is True
+
+
+def test_extract_and_summarize_keeps_raw_payload_separate_from_canonical_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """PROFILE must stay canonical while EXTRACTION_RAW_PROFILE keeps unconfirmed raw keys."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state.model = "gpt"
+    st.session_state.auto_reask = False
+    st.session_state.vector_store_id = ""
+    st.session_state[StateKeys.RAW_BLOCKS] = []
+    st.session_state[StateKeys.PROFILE_METADATA] = {}
+    st.session_state[StateKeys.FOLLOWUPS] = []
+    st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] = False
+
+    _patch_runner_attr(monkeypatch, "apply_rules", lambda *a, **k: {})
+    _patch_runner_attr(monkeypatch, "matches_to_patch", lambda *_: {})
+    _patch_runner_attr(monkeypatch, "build_rule_metadata", lambda *_: {})
+    _patch_runner_attr(monkeypatch, "_annotate_rule_metadata", lambda *a, **k: {})
+    _patch_runner_attr(monkeypatch, "_ensure_mapping", lambda value: dict(value or {}))
+    _patch_runner_attr(
+        monkeypatch,
+        "_cached_extract_profile",
+        lambda *a, **k: ExtractionResult(
+            raw_json="{}",
+            data={
+                "position": {"job_title": ""},
+                "company": {"name": "Acme"},
+                "unexpected_section": {"foo": "bar"},
+            },
+            recovered=False,
+            issues=[],
+        ),
+    )
+    _patch_runner_attr(monkeypatch, "search_occupations", lambda *a, **k: [])
+    _patch_runner_attr(monkeypatch, "classify_occupation", lambda *a, **k: None)
+    _patch_runner_attr(monkeypatch, "get_essential_skills", lambda *a, **k: [])
+    _patch_runner_attr(monkeypatch, "_refresh_esco_skills", lambda *a, **k: None)
+    _patch_runner_attr(monkeypatch, "ask_followups", lambda *a, **k: {"questions": []})
+    _patch_runner_attr(monkeypatch, "apply_basic_fallbacks", lambda profile, *_args, **_kwargs: profile)
+    _patch_runner_attr(monkeypatch, "_update_section_progress", lambda: (None, []))
+
+    _extract_and_summarize("Job text", {})
+
+    profile = st.session_state[StateKeys.PROFILE]
+    raw_profile = st.session_state[StateKeys.EXTRACTION_RAW_PROFILE]
+
+    assert "unexpected_section" not in profile
+    assert raw_profile["unexpected_section"] == {"foo": "bar"}
+    assert profile["company"]["name"] == "Acme"

@@ -37,6 +37,20 @@ def test_prefilled_preview_hidden_until_data_present() -> None:
     )
 
 
+def test_prefilled_sections_ignore_raw_phantom_values() -> None:
+    """Sidebar prefilled sections must only expose canonical profile data."""
+
+    st.session_state.clear()
+    st.session_state[StateKeys.PROFILE] = NeedAnalysisProfile().model_dump()
+    st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = {
+        "company": {"name": "Raw Corp"},
+    }
+
+    sections = build_prefilled_sections()
+
+    assert sections == []
+
+
 def test_extraction_entries_expand_iterable_summary_values() -> None:
     """List-valued summary fields should expand into multiple data points."""
 
@@ -46,7 +60,7 @@ def test_extraction_entries_expand_iterable_summary_values() -> None:
         extraction_summary={"skills": {"Must-have skills": ["Python", "SQL"]}},
         skill_buckets={},
         missing_fields=set(),
-        missing_by_section={},
+        missing_by_step={},
         prefilled_sections=[],
     )
 
@@ -69,7 +83,7 @@ def test_prefilled_entries_expand_iterable_values() -> None:
         extraction_summary={},
         skill_buckets={},
         missing_fields=set(),
-        missing_by_section={},
+        missing_by_step={},
         prefilled_sections=[
             (
                 "Anforderungen",
@@ -95,7 +109,7 @@ def test_string_values_are_not_split_into_characters() -> None:
         extraction_summary={"skills": {"Notes": "Python, SQL"}},
         skill_buckets={},
         missing_fields=set(),
-        missing_by_section={},
+        missing_by_step={},
         prefilled_sections=[],
     )
 
@@ -164,3 +178,22 @@ def test_sidebar_hides_step_overview_on_landing(monkeypatch) -> None:
 
     assert calls["hero"] == 0
     assert calls["landing"] == 1
+
+
+def test_extraction_entries_mark_raw_on_llm_error() -> None:
+    """Extraction summary entries should be labeled as raw when LLM extraction fails."""
+
+    st.session_state.clear()
+    st.session_state[StateKeys.PROFILE_METADATA] = {"llm_errors": {"extraction": "boom"}}
+    context = SidebarContext(
+        profile={},
+        extraction_summary={"Status": "⚠️ AI extraction failed"},
+        skill_buckets={},
+        missing_fields=set(),
+        missing_by_step={},
+        prefilled_sections=[],
+    )
+
+    _, step_entries = _build_initial_extraction_entries(context)
+
+    assert step_entries["jobad"] == [("Status (raw)", "⚠️ AI extraction failed")]
