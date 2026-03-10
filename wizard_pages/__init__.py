@@ -7,9 +7,15 @@ from wizard.step_registry import WIZARD_STEPS
 from .base import WizardPage, page_from_step_definition
 
 
-# Deprecated: ``wizard_pages`` now proxies the step registry to avoid drift.
-# ``WIZARD_PAGES`` is intentionally fully derived from ``WIZARD_STEPS``.
-# TODO: Remove this module once downstream imports use ``wizard.step_registry`` directly.
 WIZARD_PAGES: tuple[WizardPage, ...] = tuple(page_from_step_definition(step) for step in WIZARD_STEPS)
 
-__all__ = ["WizardPage", "WIZARD_PAGES", "page_from_step_definition"]
+
+def pages_for_version(version: str) -> tuple[WizardPage, ...]:
+    """Return wizard pages for the requested version."""
+
+    from wizard.step_registry_runtime import get_wizard_steps
+
+    return tuple(page_from_step_definition(step) for step in get_wizard_steps(version))
+
+
+__all__ = ["WizardPage", "WIZARD_PAGES", "page_from_step_definition", "pages_for_version"]
