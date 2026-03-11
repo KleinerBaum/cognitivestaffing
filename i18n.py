@@ -39,6 +39,10 @@ STR = {
         "role_questions.civil_engineers.civil_project_types": "Welche Bauprojekte übernimmt die Ingenieur:in?",
         "role_questions.civil_engineers.engineering_software_tools": "Welche Ingenieur-Software ist erforderlich?",
         "role_questions.chefs.cuisine_specialties": "Welche Küchen-Schwerpunkte sollte der/die Chef:in mitbringen?",
+        "location_followups.country": "In welchem Land befindet sich die Stelle hauptsächlich?",
+        "location_followups.city": "Welche Stadt ist der primäre Arbeitsort?",
+        "location_followups.visa_sponsorship": "Wird Visa-Sponsoring für den Zielstandort angeboten?",
+        "location_followups.relocation": "Gibt es Unterstützung bei einem Umzug für diese Rolle?",
     },
     "en": {
         "suggestion_group_llm": "LLM suggestions",
@@ -76,6 +80,10 @@ STR = {
         "role_questions.civil_engineers.civil_project_types": "What types of civil projects will the engineer handle?",
         "role_questions.civil_engineers.engineering_software_tools": "Which engineering software tools are required?",
         "role_questions.chefs.cuisine_specialties": "Which cuisine specialities should the chef have?",
+        "location_followups.country": "Which country is the role primarily located in?",
+        "location_followups.city": "Which city is the primary work location?",
+        "location_followups.visa_sponsorship": "Is visa sponsorship available for the target location?",
+        "location_followups.relocation": "Is relocation support available for this role?",
     },
 }
 
