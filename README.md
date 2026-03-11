@@ -54,6 +54,11 @@ RESPONSES_ALLOW_TOOLS=true
 - **`response_format` vs `text.format` confusion:** use `text.format` for Responses payloads; `response_format` is legacy/compatibility only.
 - **Timeout/retry drift:** verify `OPENAI_REQUEST_TIMEOUT` and check runtime logs for explicit fallback mode markers.
 
+## Schema versioning
+
+- Canonical schema/model/adapters are registered in `core/schema_registry.py`.
+- Source-of-Truth and ownership rules are documented in `docs/SCHEMA_VERSIONING.md`.
+
 ## Quality checks
 
 ```bash
