@@ -162,6 +162,7 @@ from wizard.ai_skip import render_skip_cta, render_skipped_banner
 from wizard.step_registry_runtime import (
     get_wizard_steps,
     resolve_active_step_keys_for_version,
+    resolve_wizard_version,
     step_keys_for_version,
 )
 from wizard._widget_state import _ensure_widget_state
@@ -830,8 +831,10 @@ WIZARD_TITLE = "Cognitive Staffing — Recruitment Need Analysis"
 
 
 def _wizard_version() -> str:
-    value = st.session_state.get("wizard_version", "v1")
-    return value if isinstance(value, str) else "v1"
+    return resolve_wizard_version(
+        query_params=cast(Mapping[str, object], st.query_params),
+        session_state=cast(Mapping[str, object], st.session_state),
+    )
 
 
 def _wizard_steps_runtime() -> tuple:

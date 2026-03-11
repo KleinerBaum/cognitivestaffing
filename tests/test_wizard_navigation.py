@@ -1130,7 +1130,10 @@ def test_requirements_followup_blocks_skills(
 ) -> None:
     """Critical requirements follow-ups should disable Next on the skills step."""
 
-    st.session_state[StateKeys.PROFILE] = {"requirements": {"hard_skills_required": ["Python"]}, "responsibilities": {"items": ["Build services"]}}
+    st.session_state[StateKeys.PROFILE] = {
+        "requirements": {"hard_skills_required": ["Python"]},
+        "responsibilities": {"items": ["Build services"]},
+    }
     st.session_state[StateKeys.FOLLOWUPS] = [
         {"field": "requirements.background_check_required", "priority": "critical"}
     ]
@@ -1207,3 +1210,78 @@ def test_optional_followup_does_not_block(monkeypatch: pytest.MonkeyPatch, query
     summary_page = next(page for page in router._pages if page.key == "summary")
     missing = router._missing_required_fields(summary_page)
     assert missing == []
+
+
+def test_navigation_controller_rerun_stability_preserves_history_and_query_sync(
+    monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
+) -> None:
+    """Rerun bootstrap should keep current_step/history stable and query params aligned."""
+
+    st.session_state[StateKeys.PROFILE] = {"meta": {}}
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+
+    router._state["current_step"] = "company"
+    router._state["history"] = ["jobad"]
+    query_params["step"] = ["company"]
+
+    router._controller.ensure_state_defaults()
+    router._controller.sync_with_query_params()
+
+    assert router._state["current_step"] == "company"
+    assert router._state["history"] == ["jobad"]
+    assert query_params["step"] == ["company"]
+
+
+def test_navigation_controller_prunes_inactive_history_entries(
+    monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
+) -> None:
+    """History should be pruned to active step keys across reruns."""
+
+    st.session_state[StateKeys.PROFILE] = {"meta": {}, "position": {}}
+    st.session_state["_schema"] = {"properties": {"company": {}, "position": {}}}
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+
+    router._state["history"] = ["jobad", "team", "company"]
+    router._controller.ensure_state_defaults()
+
+    assert router._state["history"] == ["jobad", "company"]
+
+
+@pytest.mark.parametrize(
+    ("page_key", "required_field"),
+    [
+        ("company", "company.contact_email"),
+        ("team", "department.name"),
+        ("role_tasks", "responsibilities.items"),
+        ("skills", "requirements.hard_skills_required"),
+    ],
+)
+def test_next_button_is_disabled_for_missing_required_fields_per_step(
+    monkeypatch: pytest.MonkeyPatch,
+    query_params: Dict[str, List[str]],
+    page_key: str,
+    required_field: str,
+) -> None:
+    """Every required step should disable Next while required fields are missing."""
+
+    st.session_state[StateKeys.PROFILE] = {"meta": {}}
+    st.session_state[StateKeys.FOLLOWUPS] = []
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+
+    page = router._page_map[page_key]
+    missing = router._missing_required_fields(page)
+    assert required_field in missing
+
+    nav_state = wizard_router_module.build_navigation_state(
+        page=page,
+        missing=missing,
+        previous_key=router._controller.previous_key(page),
+        next_key=router._controller.next_key(page),
+        allow_skip=page.allow_skip,
+        navigate_factory=router._build_nav_callback,
+    )
+    assert nav_state.next is not None
+    assert nav_state.next.enabled is False

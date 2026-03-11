@@ -146,6 +146,16 @@ class NavigationController:
     def pending_validation_errors(self) -> dict[str, LocalizedText]:
         return self._pending_validation_errors
 
+    def renderer_for(self, step_key: str) -> StepRenderer | None:
+        return self._renderers.get(step_key)
+
+    def page_for_key(self, step_key: str) -> WizardPage | None:
+        self._refresh_active_pages()
+        return self._page_map.get(step_key)
+
+    def set_renderer(self, step_key: str, renderer: StepRenderer) -> None:
+        self._renderers[step_key] = renderer
+
     @property
     def state(self) -> dict[str, object]:
         raw_state = self._session_state.get(self._session_keys.navigation_state)

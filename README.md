@@ -43,6 +43,8 @@ RESPONSES_ALLOW_TOOLS=true
 
 ## Wizard UI notes
 
+- Multi-step navigation is owned by `wizard/navigation/router.py::NavigationController`; `wizard_router.py` only wraps rendering + control wiring.
+- Wizard version resolution (V1/V2) is centralized in `wizard/step_registry_runtime.py` for query/session/env handling.
 - In single-page mode, the global **Validate all steps** expander is hidden to reduce duplicate controls at the top of the page.
 - The introductory **Welcome** panel is also hidden in single-page mode, and step headers use text-only status labels (no warning emojis).
 
