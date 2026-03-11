@@ -7,6 +7,7 @@
 
 ## Unreleased
 
+- V2 ownership mappings are now wired end-to-end in wizard metadata, missing-field utilities, and follow-up normalization so V2 required/summary fields resolve to stable step ownership and gating semantics.
 - Wizard-V2 Pflichtfeldlogik nutzt jetzt `StepDefinition.required_fields` aus `wizard/step_registry_v2.py` als Single Source of Truth; statische Pflichtfeldlisten in `wizard/steps_v2/*_step.py` wurden entfernt und die Step-Validierung bleibt über den Router-Flow (`Next` deaktiviert bei fehlenden Pflichtfeldern) erhalten.
 - V2 wizard steps in `wizard/steps_v2/*_step.py` now use dedicated per-step render functions with concrete Streamlit forms, prioritized Top-Question cards (critical first), optional question expanders, explicit profile commits, summary chips, and a separate follow-up tools area.
 - Wizard-Versionsauflösung ist jetzt standardmäßig auf V2 gesetzt (`_DEFAULT_VERSION="v2"`), inklusive expliziter Prioritäts-Tests für Query > Session > Env > Default sowie README-Hinweisen zur Aktivierung über `?wizard=v2` und `ENABLE_WIZARD_V2=1`.

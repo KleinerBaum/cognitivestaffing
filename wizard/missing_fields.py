@@ -39,6 +39,29 @@ def is_blank(value: Any) -> bool:
     return False
 
 
+def resolve_missing_field_ownership(path: str) -> str | None:
+    """Resolve owning step key for a missing field path."""
+
+    normalized = str(path or "").strip()
+    if not normalized:
+        return None
+    from wizard.metadata import resolve_step_key_for_field_path
+
+    return resolve_step_key_for_field_path(normalized)
+
+
+def group_missing_fields_by_step(paths: Iterable[str]) -> dict[str, list[str]]:
+    """Group missing fields by their owning step while preserving order."""
+
+    grouped: dict[str, list[str]] = {}
+    for path in paths:
+        owner = resolve_missing_field_ownership(path)
+        if not owner:
+            continue
+        grouped.setdefault(owner, []).append(path)
+    return grouped
+
+
 # GREP:MISSING_FIELDS_V1
 
 

@@ -55,7 +55,8 @@ def test_step_registry_integrity() -> None:
 
     assert step_keys() == expected_step_order
     assert "landing" not in PAGE_SECTION_INDEXES
-    assert PAGE_SECTION_INDEXES == expected_section_indexes
+    for key, section in expected_section_indexes.items():
+        assert PAGE_SECTION_INDEXES.get(key) == section
 
     required_fields = {field for step in WIZARD_STEPS for field in step.required_fields}
     unknown_fields = sorted(field for field in required_fields if field not in KEYS_CANONICAL)

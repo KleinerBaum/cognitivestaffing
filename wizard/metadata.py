@@ -14,7 +14,7 @@ import streamlit as st
 
 from constants.keys import StateKeys
 from wizard._logic import get_in
-from wizard_pages import WIZARD_PAGES, WizardPage
+from wizard_pages import WIZARD_PAGES, WizardPage, pages_for_version
 from wizard.validators.registry import REQUIRED_FIELD_VALIDATORS
 from wizard.services.gaps import detect_missing_critical_fields, field_is_contextually_optional, load_critical_fields
 
@@ -23,7 +23,7 @@ CRITICAL_FIELDS: Final[tuple[str, ...]] = load_critical_fields()
 # Index of the first data-entry step ("Business-Kontext").
 COMPANY_STEP_INDEX: Final[int] = 1
 
-PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
+_V1_PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
     "jobad": 0,
     "company": COMPANY_STEP_INDEX,
     "team": COMPANY_STEP_INDEX + 1,
@@ -32,6 +32,21 @@ PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
     "benefits": COMPANY_STEP_INDEX + 4,
     "interview": COMPANY_STEP_INDEX + 5,
     "summary": COMPANY_STEP_INDEX + 6,
+}
+
+_V2_PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
+    "intake": 0,
+    "hiring_goal": 1,
+    "real_work": 2,
+    "requirements_board": 3,
+    "constraints": 4,
+    "selection": 5,
+    "review": 6,
+}
+
+PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
+    **_V1_PAGE_SECTION_INDEXES,
+    **_V2_PAGE_SECTION_INDEXES,
 }
 
 PAGE_FOLLOWUP_PREFIXES: Final[dict[str, tuple[str, ...]]] = {
@@ -49,6 +64,13 @@ PAGE_FOLLOWUP_PREFIXES: Final[dict[str, tuple[str, ...]]] = {
     "benefits": ("compensation.",),
     "interview": ("process.",),
     "summary": ("summary.",),
+    "intake": ("intake.",),
+    "hiring_goal": ("role.",),
+    "real_work": ("work.",),
+    "requirements_board": ("requirements.",),
+    "constraints": ("constraints.",),
+    "selection": ("selection.",),
+    "review": ("open_decisions", "warnings"),
 }
 
 DECISION_CATEGORY_STEP_MAP: Final[dict[str, str]] = {
@@ -69,6 +91,17 @@ _CRITICAL_SECTION_KEYS: Final[tuple[str, ...]] = (
     "interview",
 )
 
+
+def _all_wizard_pages() -> tuple[WizardPage, ...]:
+    """Return wizard pages across supported runtime versions."""
+
+    pages: dict[str, WizardPage] = {}
+    for page in (*WIZARD_PAGES, *pages_for_version("v2")):
+        pages.setdefault(page.key, page)
+    return tuple(pages.values())
+
+
+ALL_WIZARD_PAGES: Final[tuple[WizardPage, ...]] = _all_wizard_pages()
 _PAGE_EXTRA_FIELDS: dict[str, tuple[str, ...]] = {
     "company": (
         "business_context.domain",
@@ -98,9 +131,9 @@ def _build_page_progress_fields() -> dict[str, tuple[str, ...]]:
     """Assemble required/extra field mappings used to track page completion."""
 
     mapping: dict[str, tuple[str, ...]] = {}
-    for page in WIZARD_PAGES:
+    for page in ALL_WIZARD_PAGES:
         extras = _PAGE_EXTRA_FIELDS.get(page.key, ())
-        combined = tuple(dict.fromkeys((*page.required_fields, *extras)))
+        combined = tuple(dict.fromkeys((*page.required_fields, *page.summary_fields, *extras)))
         if not combined:
             combined = (f"{VIRTUAL_PAGE_FIELD_PREFIX}{page.key}",)
         mapping[page.key] = combined
@@ -135,7 +168,7 @@ PAGE_FIELD_MAP: dict[str, str] = {
     field: page_key for page_key, fields in PAGE_PROGRESS_FIELDS.items() for field in fields
 }
 SECTION_TO_STEP_KEY: Final[dict[int, str]] = {}
-for page in WIZARD_PAGES:
+for page in ALL_WIZARD_PAGES:
     section_index = PAGE_SECTION_INDEXES.get(page.key)
     if section_index is None:
         continue
@@ -235,7 +268,7 @@ def validate_required_fields_by_page(
     """
 
     errors: list[str] = []
-    for page in pages or WIZARD_PAGES:
+    for page in pages or ALL_WIZARD_PAGES:
         section_index = PAGE_SECTION_INDEXES.get(page.key)
         for field in page.required_fields:
             if not field_belongs_to_page(field, page.key):
@@ -259,8 +292,15 @@ def validate_step_metadata_consistency(
 ) -> list[str]:
     """Validate consistency between required fields, ownership prefixes and section mapping."""
 
-    selected_pages = tuple(pages or WIZARD_PAGES)
-    return validate_required_fields_by_page(selected_pages)
+    selected_pages = tuple(pages or ALL_WIZARD_PAGES)
+    errors = validate_required_fields_by_page(selected_pages)
+
+    for page in selected_pages:
+        for field in page.summary_fields:
+            if not field_belongs_to_page(field, page.key):
+                errors.append(f"{page.key}: summary field '{field}' is not mapped to this page.")
+
+    return errors
 
 
 def _field_is_contextually_optional(field: str, profile_data: Mapping[str, object]) -> bool:
@@ -395,6 +435,7 @@ def get_missing_critical_fields(*, max_section: int | None = None) -> list[str]:
 
 
 __all__ = [
+    "ALL_WIZARD_PAGES",
     "COMPANY_STEP_INDEX",
     "CRITICAL_SECTION_ORDER",
     "DECISION_CATEGORY_STEP_MAP",
