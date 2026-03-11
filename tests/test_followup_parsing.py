@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from utils.json_repair import JsonRepairStatus
+from wizard.planner.plan_context import PlanContext
 from wizard.services import followups as followups_mod
 
 
@@ -149,3 +150,34 @@ def test_prioritize_followups_is_deterministic_for_same_profile() -> None:
     assert [item["field"] + ":" + item["question"] for item in first] == [
         item["field"] + ":" + item["question"] for item in second
     ]
+
+
+def test_prioritize_followups_plan_context_changes_ordering(monkeypatch) -> None:
+    monkeypatch.setattr(followups_mod, "load_critical_fields", lambda: [])
+
+    class _Score:
+        def __init__(self) -> None:
+            self.ui_behavior = "ok"
+            self.score = 0.5
+
+    monkeypatch.setattr(followups_mod, "compute_field_score", lambda *args, **kwargs: _Score())
+    monkeypatch.setattr(followups_mod, "is_unconfirmed_low_confidence_heuristic", lambda *_args, **_kwargs: False)
+
+    profile = {
+        "meta": {"field_metadata": {}},
+    }
+    questions = [
+        {"field": "location.primary_city", "question": "Confirm city", "priority": "normal"},
+        {"field": "process.recruitment_timeline", "question": "Confirm timeline", "priority": "normal"},
+    ]
+
+    neutral = followups_mod._prioritize_heuristic_followups(list(questions), profile=profile)
+    urgency_context = PlanContext(hiring_urgency="urgent")
+    urgency = followups_mod._prioritize_heuristic_followups(
+        list(questions),
+        profile=profile,
+        plan_context=urgency_context,
+    )
+
+    assert [item["field"] for item in neutral] == ["location.primary_city", "process.recruitment_timeline"]
+    assert [item["field"] for item in urgency] == ["process.recruitment_timeline", "location.primary_city"]

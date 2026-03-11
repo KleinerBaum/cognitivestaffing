@@ -18,6 +18,7 @@ Cognitive Staffing ist ein zweisprachiger (DE/EN) Streamlit-Wizard zur strukturi
 - **Datenvertrag:** `schema/need_analysis.schema.json`, `schemas.py`, `models/`
 - **LLM/Runtime:** `openai_utils/`, `llm/`, `pipelines/`, `prompts/`
 - **Follow-ups & Missing Fields:** `questions/`, `question_logic.py`, `wizard/services/followups.py`
+- **Planning Context:** `wizard/planner/plan_context.py` provides a typed context envelope (role family, location, work policy, compliance, urgency, risk signals) shared by follow-up and decision prioritization.
 - **Role-Overlay Registry:** `questions/overlays/role_questions.json` + `questions/overlays/role_registry.py` für kanonische ESCO-/Role-Family-Schlüssel inkl. Alias-Normalisierung und Fallback-Dokumentation.
 - **Outputs/Exports:** `generators/`, `exports/`, `artifacts/`
 

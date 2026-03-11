@@ -25,6 +25,7 @@ from prompts import prompt_registry
 from utils.json_repair import JsonRepairStatus, parse_json_with_repair
 from wizard._openai_bridge import get_build_file_search_tool, get_call_chat_api
 from wizard.field_metadata import is_unconfirmed_low_confidence_heuristic
+from wizard.planner.plan_context import PlanContext, context_weight_for_field
 from wizard.step_status import compute_field_score
 from wizard.services.decision_engine import build_decision_backlog, decision_backlog_to_followups
 from wizard.services.gaps import load_critical_fields
@@ -163,16 +164,17 @@ def _prioritize_heuristic_followups(
     questions: Sequence[Mapping[str, Any]],
     *,
     profile: Mapping[str, Any],
+    plan_context: PlanContext | None = None,
 ) -> list[dict[str, Any]]:
     """Sort follow-up questions to front-load lowest-confidence fields first."""
 
     critical_fields = set(load_critical_fields())
 
-    def _score(item: Mapping[str, Any]) -> tuple[int, float, int, str, str]:
+    def _score(item: Mapping[str, Any]) -> tuple[int, int, float, int, str, str]:
         field = canonicalize_followup_field_path(str(item.get("field") or "").strip())
         question_text = str(item.get("question") or "").strip().casefold()
         if not field:
-            return (3, 1.0, 3, "", question_text)
+            return (3, 0, 1.0, 3, "", question_text)
 
         field_score = compute_field_score(profile, field, is_critical=field in critical_fields)
         if field_score.ui_behavior == "block_next":
@@ -188,7 +190,9 @@ def _prioritize_heuristic_followups(
         if is_unconfirmed_low_confidence_heuristic(field, profile=profile):
             priority_rank = min(priority_rank, 0)
 
-        return (band, field_score.score, priority_rank, field, question_text)
+        context_weight = context_weight_for_field(field, plan_context)
+
+        return (band, -context_weight, field_score.score, priority_rank, field, question_text)
 
     normalized = _enrich_followup_ownership(questions)
     return sorted(normalized, key=_score)
@@ -456,6 +460,7 @@ def generate_followups(
     role_context: str | None = None,
     followup_mode: str = "field-first",
     max_questions: int = 3,
+    plan_context: PlanContext | None = None,
 ) -> dict[str, Any]:
     """Generate prioritised follow-up questions for a vacancy profile."""
 
@@ -469,7 +474,11 @@ def generate_followups(
     if mode_value == "decision-first":
         open_decisions_raw = profile.get("open_decisions", []) if isinstance(profile, Mapping) else []
         if isinstance(open_decisions_raw, Sequence):
-            backlog = build_decision_backlog(open_decisions_raw, max_items=max_questions)
+            backlog = build_decision_backlog(
+                open_decisions_raw,
+                max_items=max_questions,
+                plan_context=plan_context,
+            )
             if backlog:
                 return {
                     "questions": decision_backlog_to_followups(backlog, locale=locale),
@@ -509,6 +518,8 @@ def generate_followups(
         user_payload["low_confidence_fields"] = low_confidence_fields
     if role_context:
         user_payload["role_context"] = role_context
+    if plan_context is not None:
+        user_payload["plan_context"] = plan_context.model_dump(mode="json", exclude_none=True)
 
     tools: list[dict[str, Any]] = []
     tool_choice: str | None = None
@@ -595,6 +606,7 @@ def generate_followups(
             parsed["questions"] = _prioritize_heuristic_followups(
                 parsed.get("questions", []),
                 profile=profile,
+                plan_context=plan_context,
             )
             parsed.setdefault("source", "llm")
             return parsed
