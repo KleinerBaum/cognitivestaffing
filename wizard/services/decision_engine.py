@@ -6,6 +6,7 @@ from collections.abc import Mapping, Sequence
 from typing import Any
 
 from models.decision_card import DecisionCard
+from wizard.planner.plan_context import PlanContext, context_weight_for_field
 
 _IMPACT_PRIORITY: dict[str, int] = {
     "Search": 0,
@@ -27,16 +28,18 @@ def _normalize_card(raw: DecisionCard | Mapping[str, Any]) -> DecisionCard | Non
         return None
 
 
-def _decision_rank(card: DecisionCard) -> tuple[int, int, str]:
+def _decision_rank(card: DecisionCard, *, plan_context: PlanContext | None = None) -> tuple[int, int, int, str]:
     blocking_weight = 0 if card.blocking_exports else 1
+    context_weight = context_weight_for_field(card.field_path, plan_context)
     impact_weight = _IMPACT_PRIORITY.get(card.impact_area, 3)
-    return (blocking_weight, impact_weight, card.decision_id)
+    return (blocking_weight, -context_weight, impact_weight, card.decision_id)
 
 
 def build_decision_backlog(
     open_decisions: Sequence[DecisionCard | Mapping[str, Any]],
     *,
     max_items: int = 3,
+    plan_context: PlanContext | None = None,
 ) -> list[DecisionCard]:
     """Return unresolved decisions prioritized by export impact area."""
 
@@ -49,7 +52,7 @@ def build_decision_backlog(
             continue
         unresolved.append(card)
 
-    prioritized = sorted(unresolved, key=_decision_rank)
+    prioritized = sorted(unresolved, key=lambda card: _decision_rank(card, plan_context=plan_context))
     if max_items <= 0:
         return []
     return prioritized[:max_items]

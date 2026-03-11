@@ -21,7 +21,7 @@ from __future__ import annotations
 import json
 import logging
 from pathlib import Path
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Set, Tuple, cast
 
 import streamlit as st
 from opentelemetry import trace
@@ -69,6 +69,7 @@ from config import (
     is_llm_enabled,
 )
 from prompts import prompt_registry
+from wizard.planner.plan_context import PlanContext
 from wizard.planner.role_overlays import canonicalize_role_key, get_role_overlay_questions
 from wizard.services.followups import FollowupModelConfig, generate_followups as generate_followups_service
 
@@ -633,6 +634,10 @@ def ask_followups(
         model_config = FollowupModelConfig(model_override=model)
 
         try:
+            plan_context = PlanContext.from_profile_and_session(
+                payload_profile or payload,
+                cast(Mapping[str, Any], st.session_state),
+            )
             result = generate_followups_service(
                 payload_profile or payload,
                 mode=mode,
@@ -642,6 +647,7 @@ def ask_followups(
                 call_llm=call_chat_api,
                 build_file_search_tool=build_file_search_tool,
                 previous_response_id=previous_response_id,
+                plan_context=plan_context,
             )
         except Exception as exc:  # pragma: no cover - network/SDK issues
             span.record_exception(exc)

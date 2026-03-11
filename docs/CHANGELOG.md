@@ -16,6 +16,8 @@
 ## Unreleased
 
 ### Changed
+- Introduced a typed `PlanContext` (`wizard/planner/plan_context.py`) and wired it through follow-up ranking (`question_logic.ask_followups` → `wizard/services/followups.generate_followups`) and decision backlog prioritization (`wizard/services/decision_engine.py`) so decision-first and field-first follow-ups share deterministic, context-aware weighting.
+- Added deterministic ranking tests for unchanged input and explicit context-shift behavior in follow-up and decision backlog ordering.
 - Harmonized Wizard V2 field paths to use `constants.keys.ProfilePaths` (including new constants for V2-only paths) and centralized profile path helpers for get/set + follow-up prefix handling.
 
 - V2 ownership mappings are now wired end-to-end in wizard metadata, missing-field utilities, and follow-up normalization so V2 required/summary fields resolve to stable step ownership and gating semantics.

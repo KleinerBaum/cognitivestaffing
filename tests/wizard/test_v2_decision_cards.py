@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from wizard.planner.plan_context import PlanContext
+from wizard.services.decision_engine import build_decision_backlog
 from wizard.services.followups import generate_followups
 
 
@@ -125,3 +127,60 @@ def test_decision_first_asks_few_targeted_questions_instead_of_microquestions() 
     selected_ids = {item["decision_id"] for item in result["questions"]}
     assert selected_ids == {"d-1", "d-3", "d-4"}
     assert "d-2" not in selected_ids
+
+
+def test_decision_backlog_is_deterministic_for_same_input() -> None:
+    decisions = [
+        {
+            "decision_id": "d-b",
+            "title": "Timeline",
+            "field_path": "process.recruitment_timeline",
+            "decision_state": "proposed",
+            "impact_area": "Selection",
+            "blocking_exports": [],
+        },
+        {
+            "decision_id": "d-a",
+            "title": "Location",
+            "field_path": "location.primary_city",
+            "decision_state": "proposed",
+            "impact_area": "Selection",
+            "blocking_exports": [],
+        },
+    ]
+
+    first = build_decision_backlog(decisions, max_items=2)
+    second = build_decision_backlog(decisions, max_items=2)
+
+    assert [card.decision_id for card in first] == [card.decision_id for card in second]
+
+
+def test_decision_backlog_plan_context_changes_order() -> None:
+    decisions = [
+        {
+            "decision_id": "d-timeline",
+            "title": "Timeline",
+            "field_path": "process.recruitment_timeline",
+            "decision_state": "proposed",
+            "impact_area": "Selection",
+            "blocking_exports": [],
+        },
+        {
+            "decision_id": "d-location",
+            "title": "Location",
+            "field_path": "location.primary_city",
+            "decision_state": "proposed",
+            "impact_area": "Selection",
+            "blocking_exports": [],
+        },
+    ]
+
+    neutral = build_decision_backlog(decisions, max_items=2)
+    urgent = build_decision_backlog(
+        decisions,
+        max_items=2,
+        plan_context=PlanContext(hiring_urgency="urgent"),
+    )
+
+    assert [card.decision_id for card in neutral] == ["d-location", "d-timeline"]
+    assert [card.decision_id for card in urgent] == ["d-timeline", "d-location"]
