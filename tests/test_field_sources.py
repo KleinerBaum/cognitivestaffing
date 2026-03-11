@@ -51,8 +51,8 @@ def test_field_lock_config_includes_rule_source_tooltip() -> None:
 
     assert "ℹ️" in config["label"]
     help_text = config.get("help_text", "")
-    assert "Job ad paragraph" in help_text
-    assert "Confidence: 93%" in help_text
+    assert "Job ad paragraph" in help_text or "Stellenanzeige – Absatz" in help_text
+    assert "Confidence: 93%" in help_text or "Vertrauen: 93%" in help_text
     assert "Telefon: +49 30 1234567" in help_text
 
 
@@ -79,8 +79,8 @@ def test_field_lock_config_marks_llm_inference() -> None:
 
     help_text = config.get("help_text", "")
     assert "ℹ️" in config["label"]
-    assert "Inferred by AI from Job ad snippet" in help_text
-    assert "Source: Job ad snippet" in help_text
+    assert "Inferred by AI from Job ad snippet" in help_text or "Von KI abgeleitet aus Stellenanzeige" in help_text
+    assert "Source: Job ad snippet" in help_text or "Quelle: Stellenanzeige" in help_text
 
 
 def test_summary_source_icon_uses_tooltip() -> None:
@@ -100,7 +100,7 @@ def test_summary_source_icon_uses_tooltip() -> None:
     html = _summary_source_icon_html("company.contact_phone")
     assert "ℹ️" in html
     assert "title=" in html
-    assert "Job ad paragraph" in html
+    assert "Job ad paragraph" in html or "Stellenanzeige – Absatz" in html
 
 
 def test_wizard_schema_contains_compliance_fields() -> None:

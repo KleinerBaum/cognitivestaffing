@@ -10,7 +10,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from core.critical_fields import load_critical_fields
-from core.confidence import DEFAULT_AI_TIER
+from core.confidence import ConfidenceMeta, DEFAULT_AI_TIER, adapt_legacy_metadata, export_metadata
 from core.schema import canonicalize_profile_payload, coerce_and_fill, merge_profile_with_defaults
 from llm.json_repair import parse_profile_json, repair_profile_payload, retry_profile_payload
 from models.need_analysis import NeedAnalysisProfile
@@ -554,38 +554,33 @@ def mark_low_confidence(
 ) -> None:
     """Annotate ``metadata`` to indicate low confidence extraction fields."""
 
-    field_confidence = metadata.setdefault("field_confidence", {})
-    if not isinstance(field_confidence, MutableMapping):
-        field_confidence = {}
-        metadata["field_confidence"] = field_confidence
+    canonical = adapt_legacy_metadata(metadata)
 
     for path in _iter_paths(data):
-        entry = field_confidence.setdefault(
-            path,
-            {
-                "tier": DEFAULT_AI_TIER.value,
-                "source": "llm",
-                "score": None,
-            },
-        )
-        entry["confidence"] = confidence
-        entry["note"] = "invalid_json_recovery"
+        if path not in canonical.confidence:
+            canonical.confidence[path] = ConfidenceMeta(
+                tier=DEFAULT_AI_TIER.value,
+                source="llm",
+                score=None,
+            )
+        entry = canonical.confidence[path]
+        entry.confidence = confidence
+        entry.note = "invalid_json_recovery"
 
-    metadata.setdefault("llm_recovery", {})
-    recovery_payload = metadata["llm_recovery"] if isinstance(metadata["llm_recovery"], MutableMapping) else {}
-    recovery_payload["invalid_json"] = True
-    recovery_payload["confidence"] = confidence
-    recovery_payload["repaired"] = repaired
+    canonical.recovery.invalid_json = True
+    canonical.recovery.confidence = confidence
+    canonical.recovery.repaired = repaired
     if issues:
         deduped_errors = _deduplicate_issues(list(issues))
-        recovery_payload["errors"] = deduped_errors
-        low_conf_fields: set[str] = set(recovery_payload.get("low_confidence_fields") or [])
+        canonical.recovery.errors = deduped_errors
+        low_conf_fields = set(canonical.recovery.low_confidence_fields)
         for item in deduped_errors:
             if item.startswith("requirements.required_skills"):
                 low_conf_fields.update({"requirements.hard_skills_required", "requirements.soft_skills_required"})
-        if low_conf_fields:
-            recovery_payload["low_confidence_fields"] = sorted(low_conf_fields)
-    metadata["llm_recovery"] = recovery_payload
+        canonical.recovery.low_confidence_fields = sorted(low_conf_fields)
+
+    metadata.clear()
+    metadata.update(export_metadata(canonical))
 
     logger.warning("Structured extraction returned invalid JSON; coerced result with low confidence.")
 

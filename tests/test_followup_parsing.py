@@ -130,3 +130,22 @@ def test_prioritize_followups_prefers_low_confidence_critical_fields() -> None:
     result = followups_mod._prioritize_heuristic_followups(questions, profile=profile)
 
     assert result[0]["field"] == "location.country"
+
+
+def test_prioritize_followups_is_deterministic_for_same_profile() -> None:
+    profile = {
+        "company": {"name": "ACME"},
+        "meta": {"field_metadata": {}},
+    }
+    questions = [
+        {"field": "company.name", "question": "Confirm company name", "priority": "normal"},
+        {"field": "company.name", "question": "confirm company name", "priority": "normal"},
+        {"field": "location.country", "question": "Confirm country", "priority": "normal"},
+    ]
+
+    first = followups_mod._prioritize_heuristic_followups(list(questions), profile=profile)
+    second = followups_mod._prioritize_heuristic_followups(list(questions), profile=profile)
+
+    assert [item["field"] + ":" + item["question"] for item in first] == [
+        item["field"] + ":" + item["question"] for item in second
+    ]

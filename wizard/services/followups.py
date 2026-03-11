@@ -145,10 +145,11 @@ def _prioritize_heuristic_followups(
 
     critical_fields = set(load_critical_fields())
 
-    def _score(item: Mapping[str, Any]) -> tuple[int, float, int]:
+    def _score(item: Mapping[str, Any]) -> tuple[int, float, int, str, str]:
         field = canonicalize_followup_field_path(str(item.get("field") or "").strip())
+        question_text = str(item.get("question") or "").strip().casefold()
         if not field:
-            return (3, 1.0, 3)
+            return (3, 1.0, 3, "", question_text)
 
         field_score = compute_field_score(profile, field, is_critical=field in critical_fields)
         if field_score.ui_behavior == "block_next":
@@ -164,7 +165,7 @@ def _prioritize_heuristic_followups(
         if is_unconfirmed_low_confidence_heuristic(field, profile=profile):
             priority_rank = min(priority_rank, 0)
 
-        return (band, field_score.score, priority_rank)
+        return (band, field_score.score, priority_rank, field, question_text)
 
     normalized: list[dict[str, Any]] = []
     for question in questions:

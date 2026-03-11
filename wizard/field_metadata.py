@@ -7,6 +7,7 @@ from typing import Any, Mapping
 import streamlit as st
 
 from constants.keys import StateKeys
+from state.ai_contributions import get_profile_metadata
 
 LOW_CONFIDENCE_THRESHOLD = 0.6
 
@@ -65,18 +66,14 @@ def get_field_metadata(path: str, *, profile: Mapping[str, Any] | None = None) -
     if isinstance(existing, Mapping):
         return dict(existing)
 
-    legacy_meta = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
-    rules_meta = legacy_meta.get("rules") if isinstance(legacy_meta, Mapping) else {}
-    confidence_map = legacy_meta.get("field_confidence") if isinstance(legacy_meta, Mapping) else {}
-    if isinstance(rules_meta, Mapping) and path in rules_meta:
-        confidence_entry = confidence_map.get(path) if isinstance(confidence_map, Mapping) else None
-        confidence_value = (
-            confidence_entry.get("score")
-            if isinstance(confidence_entry, Mapping) and "score" in confidence_entry
-            else confidence_entry.get("tier")
-            if isinstance(confidence_entry, Mapping)
-            else confidence_entry
-        )
+    canonical_metadata = get_profile_metadata()
+    if path in canonical_metadata.evidence:
+        confidence_entry = canonical_metadata.confidence.get(path)
+        confidence_value = None
+        if confidence_entry is not None:
+            confidence_value = (
+                confidence_entry.score if confidence_entry.score is not None else confidence_entry.confidence
+            )
         hydrated: FieldMetadataDict = {
             "source": "heuristic",
             "confidence": _coerce_confidence(confidence_value),
