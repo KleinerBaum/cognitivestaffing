@@ -95,15 +95,16 @@ def _sanitize_response_schema(name: str, schema: Mapping[str, Any]) -> dict[str,
 
 
 def _build_need_analysis_schema() -> Mapping[str, Any]:
-    from core.schema import build_need_analysis_responses_schema
+    from core.schema_registry import get_canonical_json_schema
 
-    return build_need_analysis_responses_schema()
+    return get_canonical_json_schema(schema_version="v1", artifact="need_analysis")
 
 
 def _build_followup_schema() -> Mapping[str, Any]:
-    from schemas import FOLLOW_UPS_SCHEMA
+    from core.schema_registry import get_canonical_json_schema
 
-    return guard_no_additional_properties(deepcopy(FOLLOW_UPS_SCHEMA))
+    schema = get_canonical_json_schema(schema_version="v1", artifact="followups")
+    return guard_no_additional_properties(deepcopy(schema))
 
 
 def _interview_guide_schema() -> Mapping[str, Any]:
