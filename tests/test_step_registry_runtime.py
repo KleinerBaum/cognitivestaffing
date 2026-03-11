@@ -21,6 +21,39 @@ def test_resolve_wizard_version_prefers_query_param_over_session_and_env(monkeyp
     assert version == "v2"
 
 
+def test_resolve_wizard_version_uses_session_when_query_missing(monkeypatch) -> None:
+    monkeypatch.setenv("ENABLE_WIZARD_V2", "0")
+
+    version = resolve_wizard_version(
+        query_params={},
+        session_state={"wizard_version": "v1"},
+    )
+
+    assert version == "v1"
+
+
+def test_resolve_wizard_version_uses_env_when_query_and_session_missing(monkeypatch) -> None:
+    monkeypatch.setenv("ENABLE_WIZARD_V2", "1")
+
+    version = resolve_wizard_version(
+        query_params={},
+        session_state={},
+    )
+
+    assert version == "v2"
+
+
+def test_resolve_wizard_version_falls_back_to_v2_default(monkeypatch) -> None:
+    monkeypatch.delenv("ENABLE_WIZARD_V2", raising=False)
+
+    version = resolve_wizard_version(
+        query_params={},
+        session_state={},
+    )
+
+    assert version == "v2"
+
+
 def test_step_keys_for_version_match_registries() -> None:
     assert step_keys_for_version("v1") == step_keys()
     assert step_keys_for_version("v2") == step_keys_v2()

@@ -18,7 +18,7 @@ from wizard.step_registry_v2 import WIZARD_STEPS_V2, get_step_v2, step_keys_v2
 
 WizardVersion = str
 
-_DEFAULT_VERSION: Final[WizardVersion] = "v1"
+_DEFAULT_VERSION: Final[WizardVersion] = "v2"
 
 
 def resolve_wizard_version(

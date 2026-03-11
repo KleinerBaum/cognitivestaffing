@@ -41,6 +41,23 @@ VERBOSITY=low
 RESPONSES_ALLOW_TOOLS=true
 ```
 
+## Wizard-Version aktivieren
+
+Die Runtime löst die aktive Wizard-Variante in dieser Reihenfolge auf: **Query-Param → Session-State → Env-Flag → Default**.
+
+- **Query-Param (höchste Priorität):** `?wizard=v2` (alternativ akzeptiert: `wizard_version`, `flow`).
+- **Env-Flag:** `ENABLE_WIZARD_V2=1` aktiviert V2, wenn kein Query/Session-Override gesetzt ist.
+
+Beispiele:
+
+```text
+http://localhost:8501/?wizard=v2
+```
+
+```bash
+ENABLE_WIZARD_V2=1 poetry run streamlit run app.py
+```
+
 ## Wizard UI notes
 
 - Multi-step navigation is owned by `wizard/navigation/router.py::NavigationController`; `wizard_router.py` only wraps rendering + control wiring.
