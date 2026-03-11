@@ -8,11 +8,39 @@ from typing import Any
 import streamlit as st
 
 from constants.keys import StateKeys
+from wizard.navigation_types import WizardContext
 from utils.i18n import tr
 
 
 LocalizedPair = tuple[str, str]
 QuestionItem = dict[str, str]
+
+
+def render_v2_step(
+    *,
+    context: WizardContext,
+    missing_paths: Sequence[str] | None = None,
+    step_key: str | None = None,
+) -> tuple[str, ...]:
+    """Resolve required fields for the active V2 step.
+
+    ``missing_paths`` can explicitly override the registry-based required fields.
+    """
+
+    del context
+    if missing_paths is not None:
+        return tuple(missing_paths)
+
+    active_step = step_key or st.session_state.get(StateKeys.WIZARD_LAST_STEP)
+    if not isinstance(active_step, str) or not active_step:
+        return ()
+
+    from wizard.step_registry_v2 import get_step_v2
+
+    definition = get_step_v2(active_step)
+    if definition is None:
+        return ()
+    return tuple(definition.required_fields)
 
 
 def get_profile_data() -> dict[str, Any]:
