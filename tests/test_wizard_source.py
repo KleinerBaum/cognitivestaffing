@@ -1,6 +1,7 @@
 import json
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any, Mapping
 
 import pytest
@@ -937,7 +938,7 @@ def test_extract_and_summarize_uses_rules_on_llm_failure(
         rule="test.title",
     )
 
-    def _matches(*_: Any) -> Mapping[str, RuleMatch]:
+    def _matches(*_: Any, **__: Any) -> Mapping[str, RuleMatch]:
         return {"company.name": company_match, "position.job_title": title_match}
 
     _patch_runner_attr(monkeypatch, "apply_rules", _matches)
@@ -947,8 +948,12 @@ def test_extract_and_summarize_uses_rules_on_llm_failure(
     def _raise_extraction(*_: Any, **__: Any) -> str:
         raise ExtractionError("LLM returned empty response")
 
-    _patch_runner_attr(monkeypatch, "extract_json", _raise_extraction)
-    _patch_runner_attr(monkeypatch, "search_occupations", lambda *a, **k: [])
+    monkeypatch.setattr("wizard.flow.extract_need_analysis_profile", _raise_extraction)
+    _patch_runner_attr(
+        monkeypatch,
+        "search_occupations",
+        lambda *a, **k: [{"uri": "esco:1", "preferredLabel": "AI Engineer", "group": "tech"}],
+    )
     _patch_runner_attr(monkeypatch, "classify_occupation", lambda *a, **k: None)
     _patch_runner_attr(monkeypatch, "get_essential_skills", lambda *a, **k: [])
     _patch_runner_attr(monkeypatch, "_refresh_esco_skills", lambda *a, **k: None)
@@ -962,13 +967,96 @@ def test_extract_and_summarize_uses_rules_on_llm_failure(
     assert profile["company"]["name"] == "ACME GmbH"
     assert profile["position"]["job_title"] == "AI Engineer"
     metadata = st.session_state[StateKeys.PROFILE_METADATA]
-    assert metadata["llm_errors"]["extraction"] == "LLM returned empty response"
+    assert "LLM returned empty response" in metadata["llm_errors"]["extraction"]
     assert "position.job_title" not in st.session_state[StateKeys.EXTRACTION_MISSING]
     warning_summary = st.session_state[StateKeys.EXTRACTION_SUMMARY]
     assert isinstance(warning_summary, dict)
     assert warning_summary.get("Status", "").startswith("⚠️")
-    assert "empty response" in warning_summary.get("Error details", "")
+    error_details = warning_summary.get("Error details", "") or warning_summary.get("Fehlerdetails", "")
+    assert "empty response" in error_details
     assert st.session_state[StateKeys.STEPPER_WARNING].startswith("⚠️")
+
+
+def test_extract_and_summarize_llm_failure_merges_heuristics_with_existing_profile(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """LLM fallback should retain existing manual values and enrich from heuristics."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state.model = "gpt"
+    st.session_state.auto_reask = False
+    st.session_state.vector_store_id = ""
+    st.session_state[StateKeys.RAW_BLOCKS] = []
+    st.session_state[StateKeys.PROFILE_METADATA] = {}
+    st.session_state[StateKeys.FOLLOWUPS] = []
+    st.session_state[StateKeys.RAG_CONTEXT_SKIPPED] = False
+    st.session_state[StateKeys.PROFILE] = {
+        "company": {
+            "website": "https://manual.example",
+            "contact_email": "jobs@manual.example",
+        },
+        "location": {"primary_city": "Hamburg"},
+    }
+
+    company_match = RuleMatch(
+        field="company.name",
+        value="ACME GmbH",
+        confidence=0.95,
+        source_text="ACME GmbH",
+        rule="test.company",
+    )
+
+    def _matches(*_: Any, **__: Any) -> Mapping[str, RuleMatch]:
+        return {"company.name": company_match}
+
+    _patch_runner_attr(monkeypatch, "apply_rules", _matches)
+    _patch_runner_attr(monkeypatch, "_annotate_rule_metadata", lambda *a, **k: {})
+    _patch_runner_attr(monkeypatch, "_ensure_mapping", lambda value: dict(value or {}))
+
+    def _raise_extraction(*_: Any, **__: Any) -> str:
+        raise ExtractionError("LLM unavailable")
+
+    monkeypatch.setattr("wizard.flow.extract_need_analysis_profile", _raise_extraction)
+    _patch_runner_attr(
+        monkeypatch,
+        "_heuristic_extraction_result",
+        lambda *_args, **_kwargs: SimpleNamespace(
+            data={
+                "company": {"contact_name": "Jane Recruiter"},
+                "location": {"country": "Germany"},
+            }
+        ),
+    )
+    _patch_runner_attr(monkeypatch, "search_occupations", lambda *a, **k: [])
+    _patch_runner_attr(monkeypatch, "classify_occupation", lambda *a, **k: None)
+    _patch_runner_attr(monkeypatch, "get_essential_skills", lambda *a, **k: [])
+    _patch_runner_attr(monkeypatch, "_refresh_esco_skills", lambda *a, **k: None)
+    _patch_runner_attr(monkeypatch, "ask_followups", lambda *a, **k: {"questions": []})
+    _patch_runner_attr(monkeypatch, "apply_basic_fallbacks", lambda profile, *_args, **_kwargs: profile)
+    _patch_runner_attr(monkeypatch, "_update_section_progress", lambda: (None, []))
+
+    warning_events: list[tuple[str, int, int]] = []
+
+    def _capture_warning(message: str, *args: Any, **_kwargs: Any) -> None:
+        rendered = message % args if args else message
+        if rendered.startswith("structured_extraction.fallback"):
+            warning_events.append((rendered, int(args[1]), int(args[2])))
+
+    monkeypatch.setattr("wizard.flow.logger.warning", _capture_warning)
+
+    _extract_and_summarize("Job text", {})
+
+    profile = st.session_state[StateKeys.PROFILE]
+    assert profile["company"]["name"] == "ACME GmbH"
+    assert profile["company"]["website"] == "https://manual.example"
+    assert profile["company"]["contact_email"] == "jobs@manual.example"
+    assert profile["company"]["contact_name"] == "Jane Recruiter"
+    assert profile["location"]["primary_city"] == "Hamburg"
+    assert profile["location"]["country"] == "Germany"
+    assert warning_events
+    _message, before_count, after_count = warning_events[0]
+    assert after_count >= before_count
 
 
 def test_extract_and_summarize_warns_about_repaired_payload(
@@ -1011,6 +1099,7 @@ def test_extract_and_summarize_warns_about_repaired_payload(
     _patch_runner_attr(monkeypatch, "classify_occupation", lambda *a, **k: None)
     _patch_runner_attr(monkeypatch, "get_essential_skills", lambda *a, **k: [])
     _patch_runner_attr(monkeypatch, "_refresh_esco_skills", lambda *a, **k: None)
+    _patch_runner_attr(monkeypatch, "_enrich_company_profile_via_web", lambda *a, **k: None)
     _patch_runner_attr(monkeypatch, "ask_followups", lambda *a, **k: {"questions": []})
     _patch_runner_attr(monkeypatch, "_update_section_progress", lambda: (None, []))
 
@@ -1182,6 +1271,7 @@ def test_extract_and_summarize_keeps_raw_payload_separate_from_canonical_profile
     _patch_runner_attr(monkeypatch, "classify_occupation", lambda *a, **k: None)
     _patch_runner_attr(monkeypatch, "get_essential_skills", lambda *a, **k: [])
     _patch_runner_attr(monkeypatch, "_refresh_esco_skills", lambda *a, **k: None)
+    _patch_runner_attr(monkeypatch, "_enrich_company_profile_via_web", lambda *a, **k: None)
     _patch_runner_attr(monkeypatch, "ask_followups", lambda *a, **k: {"questions": []})
     _patch_runner_attr(monkeypatch, "apply_basic_fallbacks", lambda profile, *_args, **_kwargs: profile)
     _patch_runner_attr(monkeypatch, "_update_section_progress", lambda: (None, []))
