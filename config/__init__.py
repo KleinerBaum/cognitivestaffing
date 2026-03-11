@@ -378,6 +378,10 @@ ALLOW_LEGACY_FALLBACKS = _normalise_bool(
     os.getenv("ALLOW_LEGACY_FALLBACKS"),
     default=True,
 )
+ALLOW_DEGRADED_EXTRACTION_ON_CONFIG_ERROR = _normalise_bool(
+    os.getenv("ALLOW_DEGRADED_EXTRACTION_ON_CONFIG_ERROR"),
+    default=False,
+)
 
 ADMIN_DEBUG_PANEL = _normalise_bool(
     os.getenv("ADMIN_DEBUG_PANEL"),
@@ -450,6 +454,11 @@ try:
                     openai_secrets.get("RESPONSES_ALLOW_TOOLS"),
                     default=RESPONSES_ALLOW_TOOLS,
                 )
+            )
+        if "ALLOW_DEGRADED_EXTRACTION_ON_CONFIG_ERROR" in openai_secrets:
+            ALLOW_DEGRADED_EXTRACTION_ON_CONFIG_ERROR = _normalise_bool(
+                openai_secrets.get("ALLOW_DEGRADED_EXTRACTION_ON_CONFIG_ERROR"),
+                default=ALLOW_DEGRADED_EXTRACTION_ON_CONFIG_ERROR,
             )
         if "ADMIN_DEBUG_PANEL" in openai_secrets:
             ADMIN_DEBUG_PANEL = _normalise_bool(

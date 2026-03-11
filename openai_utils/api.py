@@ -37,6 +37,7 @@ import streamlit as st
 from prompts import prompt_registry
 
 from config import (
+    ALLOW_DEGRADED_EXTRACTION_ON_CONFIG_ERROR,
     ALLOW_LEGACY_FALLBACKS,
     OPENAI_API_KEY,
     OPENAI_REQUEST_TIMEOUT,
@@ -437,6 +438,21 @@ def is_unrecoverable_schema_error(error: Exception) -> bool:
     return False
 
 
+def _is_sdk_contract_error(error: Exception) -> bool:
+    """Return ``True`` when ``error`` indicates an SDK/client contract mismatch."""
+
+    if not isinstance(error, TypeError):
+        return False
+    message = str(error).lower()
+    return "unexpected keyword argument" in message or "got an unexpected keyword argument" in message
+
+
+def is_non_retryable_configuration_error(error: Exception) -> bool:
+    """Return ``True`` for configuration failures that must not trigger fallback rotation."""
+
+    return is_unrecoverable_schema_error(error) or _is_sdk_contract_error(error)
+
+
 def _log_known_openai_error(error: OpenAIError, api_mode: str) -> None:
     """Record additional context for known, non-retriable OpenAI failures."""
 
@@ -463,7 +479,7 @@ def _should_abort_retry(error: Exception) -> bool:
             and "response_format" in str(getattr(error, "message", str(error))).lower()
         ):
             return True
-    return is_unrecoverable_schema_error(error) or isinstance(error, APITimeoutError)
+    return is_non_retryable_configuration_error(error) or isinstance(error, APITimeoutError)
 
 
 def _execute_response(
@@ -2026,7 +2042,8 @@ def _call_chat_api_single(
                     response = _execute_response(payload, current_model, api_mode=api_mode_override)
                 except OpenAIError as err:
                     schema_error = isinstance(err, BadRequestError) and is_unrecoverable_schema_error(err)
-                    log_level = logger.warning if not schema_error else logger.error
+                    non_retryable_config_error = is_non_retryable_configuration_error(err)
+                    log_level = logger.warning if not non_retryable_config_error else logger.error
                     log_level(
                         "OpenAI %s call failed for model %s: %s",
                         active_mode.value,
@@ -2034,6 +2051,15 @@ def _call_chat_api_single(
                         getattr(err, "message", str(err)),
                         exc_info=err,
                     )
+
+                    if non_retryable_config_error and not ALLOW_DEGRADED_EXTRACTION_ON_CONFIG_ERROR:
+                        raise _wrap_openai_exception(
+                            err,
+                            model=current_model,
+                            schema_name=schema_name,
+                            step=step_label,
+                            api_mode=active_mode.value,
+                        )
 
                     if schema_error and current_model not in schema_degradation_attempted:
                         schema_degradation_attempted.add(current_model)
@@ -2616,5 +2642,6 @@ __all__ = [
     "build_need_analysis_json_schema_payload",
     "SchemaFormatBundle",
     "build_schema_format_bundle",
+    "is_non_retryable_configuration_error",
     "is_unrecoverable_schema_error",
 ]
