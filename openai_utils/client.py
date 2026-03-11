@@ -274,7 +274,7 @@ def _prune_payload_for_api_mode(payload: Mapping[str, Any], api_mode: str) -> di
     else:
         if "messages" in cleaned and "input" not in cleaned:
             cleaned["input"] = cleaned.pop("messages")
-        for invalid_field in ("functions", "function_call", "max_completion_tokens"):
+        for invalid_field in ("functions", "function_call", "max_completion_tokens", "verbosity"):
             if invalid_field in cleaned:
                 removed.append(invalid_field)
                 cleaned.pop(invalid_field, None)

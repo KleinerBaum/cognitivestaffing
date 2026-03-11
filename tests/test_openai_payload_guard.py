@@ -67,6 +67,7 @@ def test_execute_response_prunes_chat_fields_in_responses_mode(monkeypatch):
         "messages": [{"role": "user", "content": "Hallo"}],
         "functions": [{"name": "do"}],
         "function_call": "auto",
+        "verbosity": "low",
         "response_format": {"type": "json_schema"},
         "max_completion_tokens": 11,
         "metadata": {"source": "responses"},
@@ -78,7 +79,7 @@ def test_execute_response_prunes_chat_fields_in_responses_mode(monkeypatch):
     assert "messages" not in captured
     assert "functions" not in captured
     assert "function_call" not in captured
-    assert "response_format" not in captured
+    assert "verbosity" not in captured
     assert "max_completion_tokens" not in captured
     assert captured["metadata"] == {"source": "responses"}
 
