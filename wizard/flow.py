@@ -104,6 +104,7 @@ from constants.keys import ProfilePaths, StateKeys, UIKeys
 from core.critical_fields import load_critical_fields
 from core.errors import ExtractionError
 from state.progress_inbox import apply_inbox_update, get_tasks
+from openai_utils.extraction import _heuristic_extraction_result
 from openai_utils.errors import (
     ExternalServiceError,
     LLMResponseFormatError,
@@ -4510,6 +4511,55 @@ class _WizardProgressTracker:
             self._progress.progress(1.0, text=tr("Analyse abgeschlossen", "Analysis complete", lang=self._lang))
 
 
+def _value_has_content(value: Any) -> bool:
+    """Return ``True`` when ``value`` should count as an extracted field."""
+
+    if value is None:
+        return False
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, Mapping):
+        return any(_value_has_content(item) for item in value.values())
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        return any(_value_has_content(item) for item in value)
+    return True
+
+
+def _count_populated_fields(data: Mapping[str, Any] | None) -> int:
+    """Count populated leaf fields in ``data`` for fallback quality logging."""
+
+    if not isinstance(data, Mapping):
+        return 0
+    count = 0
+    for value in data.values():
+        if isinstance(value, Mapping):
+            count += _count_populated_fields(value)
+            continue
+        if _value_has_content(value):
+            count += 1
+    return count
+
+
+def _merge_populated_values(
+    base_data: Mapping[str, Any] | None,
+    override_data: Mapping[str, Any] | None,
+) -> dict[str, Any]:
+    """Merge mappings while preserving populated values from ``override_data``."""
+
+    merged = deepcopy(dict(base_data or {}))
+    if not isinstance(override_data, Mapping):
+        return merged
+
+    for key, override_value in override_data.items():
+        base_value = merged.get(key)
+        if isinstance(base_value, Mapping) and isinstance(override_value, Mapping):
+            merged[key] = _merge_populated_values(base_value, override_value)
+            continue
+        if _value_has_content(override_value):
+            merged[key] = deepcopy(override_value)
+    return merged
+
+
 def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTracker | None = None) -> None:
     """Run extraction on ``text`` and store profile, summary, and missing fields."""
 
@@ -4687,7 +4737,26 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
         progress.update("structured_extraction", "failed" if llm_error else "done")
 
     if llm_error:
-        extracted_data = deepcopy(rule_patch)
+        fields_before_fallback = _count_populated_fields(rule_patch)
+        heuristic_payload = _heuristic_extraction_result(
+            text,
+            field_contexts=None,
+            global_context=None,
+        ).data
+        heuristic_data = heuristic_payload if isinstance(heuristic_payload, Mapping) else {}
+        fallback_data = merge_profile_with_defaults(heuristic_data)
+        for field, match in rule_matches.items():
+            set_in(fallback_data, field, match.value)
+
+        preserved_session_data = base_profile if isinstance(base_profile, Mapping) else {}
+        extracted_data = _merge_populated_values(fallback_data, preserved_session_data)
+        fields_after_fallback = _count_populated_fields(extracted_data)
+        logger.warning(
+            "structured_extraction.fallback llm_error=%s fields_before=%s fields_after=%s",
+            llm_error.__class__.__name__,
+            fields_before_fallback,
+            fields_after_fallback,
+        )
         errors_map = metadata.get("llm_errors")
         if isinstance(errors_map, Mapping):
             errors_map = dict(errors_map)
