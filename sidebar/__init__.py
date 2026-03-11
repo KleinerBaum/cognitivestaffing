@@ -38,10 +38,10 @@ from ingest.branding import DEFAULT_BRAND_COLOR
 # order assumptions for future contributors.
 from wizard import _update_profile, logic
 from wizard.metadata import get_missing_critical_fields, resolve_step_key_for_field_path
-from wizard.step_registry import WIZARD_STEPS
+from wizard.step_registry_runtime import get_wizard_steps, resolve_wizard_version
 from wizard.navigation.state import get_current_step_key, set_current_step_key
 from wizard.step_status import compute_step_missing
-from wizard_pages import WIZARD_PAGES
+from wizard_pages import pages_for_version
 
 from .salary import (
     SalaryFactorEntry,
@@ -726,13 +726,17 @@ def _render_sidebar_stepper(context: SidebarContext) -> None:
     lang = st.session_state.get("lang", "de")
     st.markdown(f"### {tr('Schritte', 'Steps', lang=lang)}")
 
-    page_lookup = {page.key: page for page in WIZARD_PAGES}
-    current_key = _resolve_active_step_key() or (WIZARD_STEPS[0].key if WIZARD_STEPS else "")
+    wizard_version = _resolve_wizard_version()
+    wizard_steps = get_wizard_steps(wizard_version)
+    wizard_pages = pages_for_version(wizard_version)
 
-    step_keys = [step.key for step in WIZARD_STEPS]
+    page_lookup = {page.key: page for page in wizard_pages}
+    current_key = _resolve_active_step_key() or (wizard_steps[0].key if wizard_steps else "")
+
+    step_keys = [step.key for step in wizard_steps]
     current_index = step_keys.index(current_key) if current_key in step_keys else 0
     items: list[SidebarStepperItem] = []
-    for index, step in enumerate(WIZARD_STEPS, start=1):
+    for index, step in enumerate(wizard_steps, start=1):
         page = page_lookup.get(step.key)
         label = page.label_for(lang) if page else step.key
         missing_count = 0
@@ -1018,13 +1022,36 @@ def _get_step_summary_payload() -> tuple[int, list[str]] | None:
 def _resolve_active_step_key() -> str | None:
     """Resolve the active step key from canonical navigation state."""
 
-    if not WIZARD_PAGES:
+    wizard_pages = _wizard_pages_for_current_version()
+    if not wizard_pages:
         return None
     return get_current_step_key(
         session_state=st.session_state,
         wizard_id="default",
-        default_step_key=WIZARD_PAGES[0].key,
+        default_step_key=wizard_pages[0].key,
     )
+
+
+def _resolve_wizard_version() -> str:
+    """Resolve the currently active wizard version using runtime selectors."""
+
+    query_params: dict[str, object] = {key: st.query_params[key] for key in st.query_params}
+    return resolve_wizard_version(query_params=query_params, session_state=st.session_state)
+
+
+def _wizard_pages_for_current_version() -> tuple[Any, ...]:
+    """Return wizard page metadata for the currently active wizard version."""
+
+    return pages_for_version(_resolve_wizard_version())
+
+
+def _resolve_step_order_and_labels(lang: str) -> tuple[list[str], dict[str, str]]:
+    """Resolve sidebar step order and localized labels for the active version."""
+
+    wizard_pages = _wizard_pages_for_current_version()
+    step_order = [page.key for page in wizard_pages]
+    label_lookup = {page.key: page.label_for(lang) for page in wizard_pages}
+    return step_order, label_lookup
 
 
 def _render_landing_next_steps_compact() -> None:
@@ -1058,7 +1085,7 @@ def _render_hero(context: SidebarContext) -> None:
                 "Entries marked with (raw) come from failed extraction and are unconfirmed.",
             )
         )
-    label_lookup = {page.key: page.label_for(lang) for page in WIZARD_PAGES}
+    _, label_lookup = _resolve_step_order_and_labels(lang)
     if step_order:
         active_index = min(max(current_index, 0), len(step_order) - 1)
     else:
@@ -1119,7 +1146,7 @@ def _build_initial_extraction_entries(
 ) -> tuple[list[str], dict[str, list[tuple[str, str]]]]:
     """Return ordered step keys with their extracted entries."""
 
-    step_order = [page.key for page in WIZARD_PAGES]
+    step_order, _ = _resolve_step_order_and_labels(st.session_state.get("lang", "de"))
     if not step_order:
         return [], {}
 
@@ -1163,7 +1190,8 @@ def _build_initial_extraction_entries(
                 for label, value in values.items():
                     entries.extend(_expanded_entries(f"{label}{raw_label_suffix}", value))
         else:
-            entries = step_entries.setdefault("jobad", [])
+            default_step_key = "jobad" if "jobad" in step_entries else step_order[0]
+            entries = step_entries.setdefault(default_step_key, [])
             for label, value in summary.items():
                 entries.extend(_expanded_entries(f"{label}{raw_label_suffix}", value))
 
