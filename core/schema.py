@@ -1368,13 +1368,35 @@ def _schema_from_type(tp: Any) -> dict[str, Any]:
     return schema
 
 
-def _ensure_required_fields(schema: dict[str, Any], fields: Iterable[str]) -> None:
-    """Ensure ``schema`` lists ``fields`` in its ``required`` array."""
+def _iter_nested_schema_nodes(node: MutableMapping[str, Any]) -> Iterable[MutableMapping[str, Any]]:
+    """Yield nested schema nodes that should be traversed recursively."""
 
-    required = schema.setdefault("required", [])
-    for field in fields:
-        if field not in required:
-            required.append(field)
+    properties = node.get("properties")
+    if isinstance(properties, MutableMapping):
+        for child in properties.values():
+            if isinstance(child, MutableMapping):
+                yield child
+
+    additional_properties = node.get("additionalProperties")
+    if isinstance(additional_properties, MutableMapping):
+        yield additional_properties
+
+    pattern_properties = node.get("patternProperties")
+    if isinstance(pattern_properties, MutableMapping):
+        for child in pattern_properties.values():
+            if isinstance(child, MutableMapping):
+                yield child
+
+    items = node.get("items")
+    if isinstance(items, MutableMapping):
+        yield items
+
+    for composite_key in ("anyOf", "oneOf", "allOf"):
+        options = node.get(composite_key)
+        if isinstance(options, list):
+            for option in options:
+                if isinstance(option, MutableMapping):
+                    yield option
 
 
 def _ensure_required_for_nested_objects(node: MutableMapping[str, Any]) -> None:
@@ -1388,23 +1410,8 @@ def _ensure_required_for_nested_objects(node: MutableMapping[str, Any]) -> None:
             normalized = [entry for entry in required] if isinstance(required, Iterable) else []
             node["required"] = normalized
 
-        properties = node.get("properties")
-        if isinstance(properties, MutableMapping):
-            for child in properties.values():
-                if isinstance(child, MutableMapping):
-                    _ensure_required_for_nested_objects(child)
-
-    if node.get("type") == "array":
-        items = node.get("items")
-        if isinstance(items, MutableMapping):
-            _ensure_required_for_nested_objects(items)
-
-    for composite_key in ("anyOf", "oneOf", "allOf"):
-        options = node.get(composite_key)
-        if isinstance(options, list):
-            for option in options:
-                if isinstance(option, MutableMapping):
-                    _ensure_required_for_nested_objects(option)
+    for child in _iter_nested_schema_nodes(node):
+        _ensure_required_for_nested_objects(child)
 
 
 def _build_model_schema(model: type[BaseModel]) -> dict[str, Any]:
@@ -1542,25 +1549,13 @@ def _ensure_valid_json_schema(node: Any, *, path: str = "$") -> None:
 def _ensure_required_recursive(schema: MutableMapping[str, Any]) -> None:
     """Ensure every object schema lists all declared properties as required."""
 
-    if schema.get("type") == "object" and "properties" in schema:
+    if schema.get("type") == "object":
         properties = schema.get("properties")
         if isinstance(properties, MutableMapping):
-            _ensure_required_fields(schema, list(properties))
-            for child in properties.values():
-                if isinstance(child, MutableMapping):
-                    _ensure_required_recursive(child)
+            schema["required"] = list(properties)
 
-    if schema.get("type") == "array":
-        items = schema.get("items")
-        if isinstance(items, MutableMapping):
-            _ensure_required_recursive(items)
-
-    for composite_key in ("anyOf", "oneOf", "allOf"):
-        options = schema.get(composite_key)
-        if isinstance(options, list):
-            for option in options:
-                if isinstance(option, MutableMapping):
-                    _ensure_required_recursive(option)
+    for child in _iter_nested_schema_nodes(schema):
+        _ensure_required_recursive(child)
 
 
 def ensure_responses_json_schema(schema: Mapping[str, Any]) -> dict[str, Any]:

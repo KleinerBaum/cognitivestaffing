@@ -52,6 +52,16 @@ def _assert_responses_schema_valid(schema: Mapping[str, Any], *, path: str = "$"
                 if isinstance(value, Mapping):
                     _assert_responses_schema_valid(value, path=f"{path}.{key}")
 
+    additional_properties = schema.get("additionalProperties")
+    if isinstance(additional_properties, Mapping):
+        _assert_responses_schema_valid(additional_properties, path=f"{path}.additionalProperties")
+
+    pattern_properties = schema.get("patternProperties")
+    if isinstance(pattern_properties, Mapping):
+        for key, value in pattern_properties.items():
+            if isinstance(value, Mapping):
+                _assert_responses_schema_valid(value, path=f"{path}.patternProperties[{key}]")
+
     items = schema.get("items")
     if isinstance(items, Mapping):
         _assert_responses_schema_valid(items, path=f"{path}[*]")
