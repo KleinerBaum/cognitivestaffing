@@ -179,8 +179,7 @@ class WizardRouter:
         with log_context(wizard_step=page.key), self._step_panel_wrapper(enable_form_fade, page.key):
             set_wizard_step(page.key)
             logger.info("Entering wizard step %s", page.key)
-            st.session_state[StateKeys.STEP] = renderer.legacy_index
-            st.session_state[StateKeys.WIZARD_LAST_STEP] = page.key
+            self._controller.apply_navigation_state(page.key, update_last_step=True)
             st.session_state[StateKeys.WIZARD_LAST_COMPONENT] = None
             last_rendered = self._state.get("_last_rendered_step")
             if last_rendered != current_key:
