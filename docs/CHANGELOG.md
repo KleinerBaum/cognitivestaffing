@@ -7,6 +7,7 @@
 
 ## Unreleased
 
+- Wizard-Versionsauflösung ist jetzt standardmäßig auf V2 gesetzt (`_DEFAULT_VERSION="v2"`), inklusive expliziter Prioritäts-Tests für Query > Session > Env > Default sowie README-Hinweisen zur Aktivierung über `?wizard=v2` und `ENABLE_WIZARD_V2=1`.
 - Added a canonical profile-metadata envelope for confidence/evidence/recovery/locking (`core/confidence.py`) plus centralized session accessors in `state/ai_contributions.py` with automatic legacy (`StateKeys.PROFILE_METADATA`) migration adapters.
 - Follow-up prioritization now applies deterministic tie-breaks (`field`, `question`) so identical input profiles produce stable follow-up ordering across reruns.
 
