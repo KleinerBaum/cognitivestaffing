@@ -10,12 +10,17 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Protocol, Sequence
 
 from jsonschema import ValidationError
-from jsonschema.validators import Draft202012Validator
 
 import config.models as model_settings
 from config import get_active_verbosity
-from core.schema_registry import get_canonical_json_schema
 from openai_utils.errors import LLMResponseFormatError
+from llm.followup_contract import (
+    canonicalize_followup_field_path,
+    dedupe_followup_questions_by_field,
+    get_followup_json_schema,
+    get_followup_validator,
+    normalize_followup_question,
+)
 from prompts import prompt_registry
 from utils.json_repair import JsonRepairStatus, parse_json_with_repair
 from wizard._openai_bridge import get_build_file_search_tool, get_call_chat_api
@@ -25,20 +30,6 @@ from wizard.services.decision_engine import build_decision_backlog, decision_bac
 from wizard.services.gaps import load_critical_fields
 
 logger = logging.getLogger(__name__)
-
-
-LEGACY_TO_CANONICAL_FIELD_MAP: dict[str, str] = {
-    "position.location": "location.primary_city",
-    "position.context": "position.role_summary",
-    "compensation.salary_range": "compensation.salary_min",
-}
-
-
-def _canonicalize_field_path(field: str) -> str:
-    """Map legacy follow-up field paths to canonical schema paths."""
-
-    normalized = str(field or "").strip()
-    return LEGACY_TO_CANONICAL_FIELD_MAP.get(normalized, normalized)
 
 
 class LLMCallable(Protocol):
@@ -80,10 +71,7 @@ class FollowupParseResult:
     error_reason: str | None
 
 
-FOLLOWUP_JSON_SCHEMA: dict[str, Any] = {
-    "name": "followup_questions",
-    "schema": get_canonical_json_schema(schema_version="v1", artifact="followups"),
-}
+FOLLOWUP_JSON_SCHEMA: dict[str, Any] = get_followup_json_schema()
 
 
 _FALLBACK_FOLLOWUPS: dict[str, list[dict[str, Any]]] = {
@@ -158,7 +146,7 @@ def _prioritize_heuristic_followups(
     critical_fields = set(load_critical_fields())
 
     def _score(item: Mapping[str, Any]) -> tuple[int, float, int]:
-        field = _canonicalize_field_path(str(item.get("field") or "").strip())
+        field = canonicalize_followup_field_path(str(item.get("field") or "").strip())
         if not field:
             return (3, 1.0, 3)
 
@@ -202,7 +190,7 @@ def _fallback_followups(
     """Return a minimal set of follow-up questions when the LLM fails."""
 
     lang = _normalize_locale(locale)
-    questions = _dedupe_questions_by_field(list(_FALLBACK_FOLLOWUPS.get(lang, _FALLBACK_FOLLOWUPS["en"])))
+    questions = dedupe_followup_questions_by_field(list(_FALLBACK_FOLLOWUPS.get(lang, _FALLBACK_FOLLOWUPS["en"])))
     if role_context:
         role_question = {
             "field": "position.role_summary",
@@ -221,64 +209,6 @@ def _fallback_followups(
     if error_reason:
         payload["error_reason"] = error_reason
     return payload
-
-
-def _normalize_question(item: Mapping[str, Any]) -> dict[str, Any] | None:
-    """Return a schema-compliant question entry or ``None`` when invalid."""
-
-    field = _canonicalize_field_path(str(item.get("field") or "").strip())
-    question = str(item.get("question") or "").strip()
-    if not field or not question:
-        return None
-
-    priority = str(item.get("priority") or "normal").strip() or "normal"
-    suggestions_raw = item.get("suggestions")
-    suggestions: list[str] = []
-    if isinstance(suggestions_raw, list):
-        cleaned_suggestions: list[str] = []
-        for suggestion in suggestions_raw:
-            if isinstance(suggestion, Mapping):
-                text = str(suggestion.get("label") or suggestion.get("name") or "").strip()
-            else:
-                text = str(suggestion).strip()
-            if text:
-                cleaned_suggestions.append(text)
-        suggestions = cleaned_suggestions
-    if not suggestions:
-        suggestions = [question]
-
-    result: dict[str, Any] = {
-        "field": field,
-        "question": question,
-        "priority": priority,
-        "suggestions": suggestions,
-    }
-
-    depends_on_raw = item.get("depends_on")
-    if isinstance(depends_on_raw, list):
-        depends_on_clean = [str(value).strip() for value in depends_on_raw if str(value).strip()]
-        if depends_on_clean:
-            result["depends_on"] = depends_on_clean
-
-    rationale = item.get("rationale")
-    if isinstance(rationale, str) and rationale.strip():
-        result["rationale"] = rationale.strip()
-
-    return result
-
-
-def _dedupe_questions_by_field(questions: Sequence[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Deduplicate follow-up entries by field path while preserving order."""
-
-    deduplicated: list[dict[str, Any]] = []
-    seen_fields: set[str] = set()
-    for question in questions:
-        field = str(question.get("field") or "").strip()
-        if not field or field in seen_fields:
-            continue
-        seen_fields.add(field)
-        deduplicated.append(question)
-    return deduplicated
 
 
 _PII_EMAIL_RE = re.compile(r"[\w.+-]+@[\w-]+(?:\.[\w-]+)+", re.IGNORECASE)
@@ -381,7 +311,7 @@ def _parse_followup_response(response: Any) -> FollowupParseResult:
         repair_status = None
 
     if isinstance(payload, Mapping):
-        validator = Draft202012Validator(FOLLOWUP_JSON_SCHEMA["schema"])
+        validator = get_followup_validator()
         errors = list(validator.iter_errors(payload))
         if errors:
             formatted_errors = _format_validation_errors(errors)
@@ -418,12 +348,12 @@ def _parse_followup_response(response: Any) -> FollowupParseResult:
         questions: list[dict[str, Any]] = []
         for item in questions_raw:
             if isinstance(item, Mapping):
-                normalised = _normalize_question(item)
+                normalised = normalize_followup_question(item)
                 if normalised:
                     questions.append(normalised)
 
         return FollowupParseResult(
-            payload={"questions": _dedupe_questions_by_field(questions)},
+            payload={"questions": dedupe_followup_questions_by_field(questions)},
             raw_text=raw_text,
             validation_errors=[],
             repair_status=repair_status,
