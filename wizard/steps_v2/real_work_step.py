@@ -16,11 +16,11 @@ from ._shared import (
     parse_multiline,
     render_question_cards,
     render_summary_chips,
+    render_v2_step,
     value_missing,
 )
 
 _SUMMARY_FIELDS = ("work.responsibilities", "work.location", "work.work_policy")
-_REQUIRED = ("work.responsibilities",)
 
 
 def render_real_work_step(context: WizardContext) -> None:
@@ -30,7 +30,8 @@ def render_real_work_step(context: WizardContext) -> None:
     render_summary_chips(_SUMMARY_FIELDS, profile)
 
     st.subheader(tr("Fehlend", "Missing (Top Questions)"))
-    top, optional = collect_top_questions(profile=profile, required_paths=_REQUIRED, followup_prefixes=("work.",))
+    required_paths = render_v2_step(context=context, step_key="real_work")
+    top, optional = collect_top_questions(profile=profile, required_paths=required_paths, followup_prefixes=("work.",))
     render_question_cards(top)
     if optional:
         with st.expander(tr("Weitere Fragen (optional)", "More questions (optional)")):
@@ -68,7 +69,7 @@ def render_real_work_step(context: WizardContext) -> None:
             render_question_cards(tools_questions)
 
     st.subheader(tr("Validieren", "Validate"))
-    missing = [path for path in _REQUIRED if value_missing(get_value(profile, path))]
+    missing = [path for path in required_paths if value_missing(get_value(profile, path))]
     st.warning("\n".join(f"- `{path}`" for path in missing)) if missing else st.success(
         tr("Pflichtfelder vollständig.", "Required fields complete.")
     )
