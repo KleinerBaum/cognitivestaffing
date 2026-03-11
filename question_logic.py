@@ -48,7 +48,7 @@ def build_file_search_tool(*args: Any, **kwargs: Any) -> dict[str, Any]:
 
 
 # ESCO helpers (core utils + offline-aware wrapper)
-from constants.keys import StateKeys
+from constants.keys import ProfilePaths, StateKeys
 from core.critical_fields import load_critical_fields
 from core.esco_utils import (
     classify_occupation,
@@ -147,40 +147,40 @@ def _resolve_role_questions(group_key: str, lang: str) -> List[Dict[str, str]]:
 
 
 SKILL_FIELDS: Set[str] = {
-    "requirements.hard_skills_required",
-    "requirements.hard_skills_optional",
-    "requirements.soft_skills_required",
-    "requirements.soft_skills_optional",
-    "requirements.tools_and_technologies",
+    str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
+    str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_OPTIONAL),
+    str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
+    str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_OPTIONAL),
+    str(ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES),
 }
 
 ESCO_ESSENTIAL_FIELDS: Tuple[str, ...] = (
-    "requirements.hard_skills_required",
-    "requirements.hard_skills_optional",
-    "requirements.soft_skills_required",
-    "requirements.soft_skills_optional",
-    "requirements.tools_and_technologies",
+    str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
+    str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_OPTIONAL),
+    str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
+    str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_OPTIONAL),
+    str(ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES),
 )
 
 ESCO_SKILL_TARGET_FIELDS: Tuple[str, ...] = (
-    "requirements.hard_skills_required",
-    "requirements.hard_skills_optional",
-    "requirements.soft_skills_required",
-    "requirements.soft_skills_optional",
+    str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
+    str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_OPTIONAL),
+    str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
+    str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_OPTIONAL),
 )
 
 YES_NO_FIELDS: Set[str] = {
-    "compensation.variable_pay",
-    "compensation.equity_offered",
-    "employment.travel_required",
-    "employment.overtime_expected",
-    "employment.relocation_support",
-    "employment.security_clearance_required",
-    "employment.shift_work",
-    "employment.visa_sponsorship",
-    "requirements.background_check_required",
-    "requirements.portfolio_required",
-    "requirements.reference_check_required",
+    str(ProfilePaths.COMPENSATION_VARIABLE_PAY),
+    str(ProfilePaths.COMPENSATION_EQUITY_OFFERED),
+    str(ProfilePaths.EMPLOYMENT_TRAVEL_REQUIRED),
+    str(ProfilePaths.EMPLOYMENT_OVERTIME_EXPECTED),
+    str(ProfilePaths.EMPLOYMENT_RELOCATION_SUPPORT),
+    str(ProfilePaths.EMPLOYMENT_SECURITY_CLEARANCE_REQUIRED),
+    str(ProfilePaths.EMPLOYMENT_SHIFT_WORK),
+    str(ProfilePaths.EMPLOYMENT_VISA_SPONSORSHIP),
+    str(ProfilePaths.REQUIREMENTS_BACKGROUND_CHECK_REQUIRED),
+    str(ProfilePaths.REQUIREMENTS_PORTFOLIO_REQUIRED),
+    str(ProfilePaths.REQUIREMENTS_REFERENCE_CHECK_REQUIRED),
 }
 
 DEFAULT_BENEFIT_SUGGESTIONS: Dict[str, List[str]] = {
@@ -203,6 +203,11 @@ DEFAULT_BENEFIT_SUGGESTIONS: Dict[str, List[str]] = {
 }
 
 MAX_FOLLOWUP_QUESTIONS = 12
+
+
+SALARY_PREFIX = str(ProfilePaths.COMPENSATION_SALARY_MIN).rsplit("_", 1)[0]
+HARD_SKILLS_PREFIX = str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED).rsplit("_", 1)[0]
+SOFT_SKILLS_PREFIX = str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED).rsplit("_", 1)[0]
 
 
 def _value_to_text(value: Any) -> str:
@@ -319,7 +324,7 @@ def _detect_implausible(field: str, value: Any) -> Optional[Tuple[str, Any]]:
         return None
     if isinstance(value, str) and is_placeholder(value):
         return ("placeholder", value)
-    if field.startswith("compensation.salary"):
+    if field.startswith(SALARY_PREFIX):
         numeric = _coerce_to_float(value)
         if numeric is not None and numeric <= 0:
             return ("salary_unrealistic", numeric)
@@ -328,7 +333,7 @@ def _detect_implausible(field: str, value: Any) -> Optional[Tuple[str, Any]]:
 
 def _question_text_for_field(field: str, lang: str, reason: Optional[Tuple[str, Any]]) -> str:
     label = field.split(".")[-1].replace("_", " ")
-    if field in {"compensation.salary_min", "compensation.salary_max"}:
+    if field in {str(ProfilePaths.COMPENSATION_SALARY_MIN), str(ProfilePaths.COMPENSATION_SALARY_MAX)}:
         if reason and reason[0] == "salary_unrealistic":
             base = tr(
                 "Die bisherige Gehaltsangabe wirkt ungewöhnlich. Wie lautet die realistische Gehaltsspanne (Min/Max) inklusive Währung?",
@@ -347,49 +352,49 @@ def _question_text_for_field(field: str, lang: str, reason: Optional[Tuple[str, 
             "Could you list the key responsibilities or tasks for this role?",
             lang=lang,
         )
-    elif field.startswith("requirements.hard_skills"):
+    elif field.startswith(HARD_SKILLS_PREFIX):
         base = tr(
             "Welche Hard Skills oder technischen Kompetenzen werden benötigt?",
             "What hard skills or technical competencies are required?",
             lang=lang,
         )
-    elif field.startswith("requirements.soft_skills"):
+    elif field.startswith(SOFT_SKILLS_PREFIX):
         base = tr(
             "Welche Soft Skills oder zwischenmenschlichen Fähigkeiten sind wichtig?",
             "What soft skills or interpersonal skills are important?",
             lang=lang,
         )
-    elif field.startswith("requirements.tools_and_technologies"):
+    elif field.startswith(str(ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES)):
         base = tr(
             "Mit welchen Tools und Technologien sollte der Kandidat vertraut sein?",
             "Which tools and technologies should the candidate be familiar with?",
             lang=lang,
         )
-    elif field == "requirements.language_level_english":
+    elif field == str(ProfilePaths.REQUIREMENTS_LANGUAGE_LEVEL_ENGLISH):
         base = tr(
             "Welches Englischniveau wird benötigt (z. B. B2, C1)?",
             "What English proficiency level is required (e.g., B2, C1)?",
             lang=lang,
         )
-    elif field == "location.primary_city":
+    elif field == str(ProfilePaths.LOCATION_PRIMARY_CITY):
         base = tr(
             "In welcher Stadt ist die Position angesiedelt?",
             "In which city is this position based?",
             lang=lang,
         )
-    elif field == "location.country":
+    elif field == str(ProfilePaths.LOCATION_COUNTRY):
         base = tr(
             "In welchem Land ist die Position angesiedelt?",
             "In which country is this position located?",
             lang=lang,
         )
-    elif field == "company.contact_phone":
+    elif field == str(ProfilePaths.COMPANY_CONTACT_PHONE):
         base = tr(
             "Unter welcher Telefonnummer können sich Kandidat:innen melden?",
             "What is the best contact phone number for candidates to reach out?",
             lang=lang,
         )
-    elif field == "compensation.benefits":
+    elif field == str(ProfilePaths.COMPENSATION_BENEFITS):
         base = tr(
             "Welche Zusatzleistungen bietet das Unternehmen (z. B. betriebliche Altersvorsorge, Dienstwagen)?",
             "Which benefits does the company offer (e.g., retirement plan, company car)?",
@@ -401,7 +406,11 @@ def _question_text_for_field(field: str, lang: str, reason: Optional[Tuple[str, 
             "Please provide the {label}.",
             lang=lang,
         ).format(label=label)
-    if reason and reason[0] == "placeholder" and field not in {"compensation.salary_min", "compensation.salary_max"}:
+    if (
+        reason
+        and reason[0] == "placeholder"
+        and field not in {str(ProfilePaths.COMPENSATION_SALARY_MIN), str(ProfilePaths.COMPENSATION_SALARY_MAX)}
+    ):
         base = tr(
             "Die aktuelle Angabe wirkt wie ein Platzhalter. Bitte ergänzen Sie {label}.",
             "The current entry looks like a placeholder. Please provide the {label}.",
@@ -411,7 +420,7 @@ def _question_text_for_field(field: str, lang: str, reason: Optional[Tuple[str, 
 
 
 def _get_followups_answered(extracted: Dict[str, Any]) -> List[str]:
-    raw = _get_field_value(extracted, "meta.followups_answered", [])
+    raw = _get_field_value(extracted, str(ProfilePaths.META_FOLLOWUPS_ANSWERED), [])
     if isinstance(raw, list):
         return [str(item) for item in raw if isinstance(item, str)]
     if isinstance(raw, str):
@@ -672,8 +681,8 @@ def generate_followup_questions(
     use_rag: bool = True,
 ) -> List[Dict[str, Any]]:
     """Build a set of high-impact follow-up questions for missing fields."""
-    job_title = str(_get_field_value(extracted, "position.job_title", "") or "").strip()
-    industry = str(_get_field_value(extracted, "company.industry", "") or "").strip()
+    job_title = str(_get_field_value(extracted, str(ProfilePaths.POSITION_JOB_TITLE), "") or "").strip()
+    industry = str(_get_field_value(extracted, str(ProfilePaths.COMPANY_INDUSTRY), "") or "").strip()
     role_fields: List[str] = []
     role_questions_cfg: List[Dict[str, str]] = []
     esco_skills: List[str] = []
@@ -763,15 +772,16 @@ def generate_followup_questions(
 
         st.session_state[StateKeys.ESCO_MISSING_SKILLS] = esco_missing_by_field
         esco_missing_skills = [
-            entry.get("label", "") for entry in esco_missing_by_field.get("requirements.hard_skills_required", [])
+            entry.get("label", "")
+            for entry in esco_missing_by_field.get(str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED), [])
         ]
 
         for skill_field in (
-            "requirements.hard_skills_required",
-            "requirements.hard_skills_optional",
-            "requirements.soft_skills_required",
-            "requirements.soft_skills_optional",
-            "requirements.tools_and_technologies",
+            str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
+            str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_OPTIONAL),
+            str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
+            str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_OPTIONAL),
+            str(ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES),
         ):
             needs_esco = skill_field in missing_fields
             seeds: List[str]
@@ -779,7 +789,7 @@ def generate_followup_questions(
             if mapped:
                 needs_esco = True
                 seeds = [entry.get("label", "") for entry in mapped if entry.get("label")]
-            elif skill_field == "requirements.tools_and_technologies":
+            elif skill_field == str(ProfilePaths.REQUIREMENTS_TOOLS_AND_TECHNOLOGIES):
                 seeds = normalized_esco
             else:
                 seeds = []
@@ -811,9 +821,9 @@ def generate_followup_questions(
                 }
             )
 
-    if "compensation.benefits" in missing_fields:
-        existing_keys = _existing_value_keys(extracted, "compensation.benefits")
-        existing_raw = _get_field_value(extracted, "compensation.benefits", [])
+    if str(ProfilePaths.COMPENSATION_BENEFITS) in missing_fields:
+        existing_keys = _existing_value_keys(extracted, str(ProfilePaths.COMPENSATION_BENEFITS))
+        existing_raw = _get_field_value(extracted, str(ProfilePaths.COMPENSATION_BENEFITS), [])
         if isinstance(existing_raw, list):
             existing_text = "\n".join(str(item) for item in existing_raw if str(item).strip())
         else:
@@ -828,8 +838,8 @@ def generate_followup_questions(
             )
         if not benefit_suggestions:
             benefit_suggestions = DEFAULT_BENEFIT_SUGGESTIONS.get(lang, DEFAULT_BENEFIT_SUGGESTIONS["en"])
-        suggestions_map["compensation.benefits"] = _merge_suggestions(
-            suggestions_map.get("compensation.benefits", []),
+        suggestions_map[str(ProfilePaths.COMPENSATION_BENEFITS)] = _merge_suggestions(
+            suggestions_map.get(str(ProfilePaths.COMPENSATION_BENEFITS), []),
             benefit_suggestions,
             existing=existing_keys,
         )
