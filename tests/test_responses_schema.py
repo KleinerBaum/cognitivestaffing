@@ -11,6 +11,7 @@ import pytest
 
 from core.schema import (
     _URL_PATTERN,
+    build_need_analysis_envelope_schema,
     build_need_analysis_responses_schema,
     ensure_responses_json_schema,
 )
@@ -196,3 +197,12 @@ def test_business_context_source_confidence_excluded_from_extraction_schema() ->
     assert "source_confidence" not in business_context["properties"]
     assert "source_confidence" not in (business_context.get("required") or [])
     assert set(business_context.get("required") or []) == set(business_context["properties"])
+
+
+def test_need_analysis_envelope_schema_file_in_sync() -> None:
+    """The checked-in NeedAnalysis envelope schema must match the generated version."""
+
+    repo_schema = json.loads(Path("schema/need_analysis_envelope.schema.json").read_text())
+    generated = build_need_analysis_envelope_schema()
+
+    assert repo_schema == generated

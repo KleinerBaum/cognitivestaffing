@@ -29,7 +29,9 @@ from core.schema import (
     canonicalize_profile_payload,
     coerce_and_fill,
 )
+from adapters.profile_to_envelope import adapt_profile_to_envelope
 from models.need_analysis import NeedAnalysisProfile
+from models.need_analysis_envelope import NeedAnalysisEnvelope
 from utils.normalization import NormalizedProfilePayload, normalize_profile
 from utils.i18n import tr
 from llm.json_repair import repair_profile_payload
@@ -67,6 +69,7 @@ logger = logging.getLogger(__name__)
 _DEFAULT_STATE_FACTORIES: Mapping[str, Callable[[], Any]] = MappingProxyType(
     {
         StateKeys.RAW_TEXT: lambda: "",
+        StateKeys.PROFILE_ENVELOPE: lambda: NeedAnalysisEnvelope().model_dump(mode="json"),
         StateKeys.RAW_BLOCKS: list,
         StateKeys.STEP: lambda: 0,
         StateKeys.FLOW_MODE: lambda: FlowMode.SINGLE_PAGE,
@@ -299,6 +302,18 @@ def migrate_business_context_state() -> None:
         session[StateKeys.PROFILE] = profile
 
 
+def _sync_profile_envelope_state() -> None:
+    """Keep the shadow envelope in sync with the canonical profile state."""
+
+    profile_raw = st.session_state.get(StateKeys.PROFILE)
+    if not isinstance(profile_raw, Mapping):
+        st.session_state[StateKeys.PROFILE_ENVELOPE] = NeedAnalysisEnvelope().model_dump(mode="json")
+        return
+
+    envelope = adapt_profile_to_envelope(profile_raw)
+    st.session_state[StateKeys.PROFILE_ENVELOPE] = envelope.model_dump(mode="json")
+
+
 def ensure_state() -> None:
     """Initialize ``st.session_state`` with required keys.
 
@@ -356,6 +371,7 @@ def ensure_state() -> None:
                             ", ".join(patched_paths),
                         )
                         _record_profile_repair_notice(auto_populated_paths, removed_paths)
+                        _sync_profile_envelope_state()
                         return
                     except ValidationError as targeted_error:
                         logger.debug(
@@ -375,6 +391,7 @@ def ensure_state() -> None:
                             ", ".join(_summarize_error_locations(errors)),
                         )
                         _record_profile_repair_notice(auto_populated_paths, removed_paths)
+                        _sync_profile_envelope_state()
                         return
                     except ValidationError as repair_error:
                         logger.debug(
@@ -393,6 +410,7 @@ def ensure_state() -> None:
                             ", ".join(removed_paths),
                         )
                         _record_profile_repair_notice(auto_populated_paths, removed_paths)
+                        _sync_profile_envelope_state()
                         return
                     except ValidationError as trimmed_error:
                         logger.debug(
@@ -408,6 +426,7 @@ def ensure_state() -> None:
                 ensured_fallback = _apply_critical_profile_defaults(fallback_profile, auto_populated_paths)
                 st.session_state[StateKeys.PROFILE] = ensured_fallback
                 _record_profile_repair_notice(auto_populated_paths, removed_paths)
+    _sync_profile_envelope_state()
     for key, factory in _DEFAULT_STATE_FACTORIES.items():
         if key not in st.session_state:
             st.session_state[key] = factory()

@@ -1,0 +1,92 @@
+{
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+        "schema_version": {
+            "type": "string"
+        },
+        "facts": {
+            "type": "object",
+            "additionalProperties": {},
+            "required": []
+        },
+        "inferences": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": {},
+                "required": []
+            }
+        },
+        "gaps": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": {},
+                "required": []
+            }
+        },
+        "plan": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": {},
+                "required": []
+            }
+        },
+        "risks": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": {},
+                "required": []
+            }
+        },
+        "evidence": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "properties": {
+                    "field_path": {
+                        "type": "string"
+                    },
+                    "value": {},
+                    "source": {
+                        "enum": [
+                            "user",
+                            "llm",
+                            "heuristic",
+                            "import"
+                        ],
+                        "type": "string"
+                    },
+                    "confidence": {
+                        "type": "number"
+                    },
+                    "excerpt": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "field_path",
+                    "value",
+                    "source",
+                    "confidence",
+                    "excerpt"
+                ]
+            }
+        }
+    },
+    "required": [
+        "schema_version",
+        "facts",
+        "inferences",
+        "gaps",
+        "plan",
+        "risks",
+        "evidence"
+    ],
+    "$schema": "http://json-schema.org/draft-07/schema#",
+    "title": "NeedAnalysisEnvelope"
+}
