@@ -6,6 +6,11 @@ from typing import Any, Mapping, TypedDict
 import streamlit as st
 
 from constants.keys import StateKeys
+from core.confidence import (
+    CanonicalProfileMetadata,
+    adapt_legacy_metadata,
+    export_metadata,
+)
 
 
 class ContributionRecord(TypedDict, total=False):
@@ -26,8 +31,6 @@ class AIContributionState(TypedDict):
 
 
 def _now_iso(timestamp: datetime | None = None) -> str:
-    """Return an ISO timestamp in UTC."""
-
     if timestamp is None:
         timestamp = datetime.now(tz=timezone.utc)
     elif timestamp.tzinfo is None:
@@ -36,8 +39,6 @@ def _now_iso(timestamp: datetime | None = None) -> str:
 
 
 def _normalize_timestamp(raw: Any) -> str:
-    """Coerce ``raw`` into an ISO timestamp string."""
-
     if isinstance(raw, datetime):
         return _now_iso(raw)
     if isinstance(raw, str) and raw.strip():
@@ -52,27 +53,21 @@ def _normalize_timestamp(raw: Any) -> str:
 
 
 def _normalize_entry(path: str, payload: Mapping[str, Any] | None, *, value: str | None = None) -> ContributionRecord:
-    """Return a sanitized contribution record."""
-
     source_raw = (payload or {}).get("source")
     source = str(source_raw).strip() if source_raw else "assistant"
     model_raw = (payload or {}).get("model")
     model = str(model_raw).strip() if model_raw else None
     timestamp_raw = (payload or {}).get("timestamp")
-
-    entry: ContributionRecord = {
+    return {
         "path": path,
         "value": value,
         "source": source,
         "model": model,
         "timestamp": _normalize_timestamp(timestamp_raw),
     }
-    return entry
 
 
 def _normalize_state(raw: Any) -> AIContributionState:
-    """Normalize raw session data into a contribution state."""
-
     fields_raw = raw.get("fields", {}) if isinstance(raw, Mapping) else {}
     items_raw = raw.get("items", {}) if isinstance(raw, Mapping) else {}
 
@@ -104,9 +99,22 @@ def _normalize_state(raw: Any) -> AIContributionState:
     return normalized
 
 
-def get_ai_contribution_state() -> AIContributionState:
-    """Return the normalized AI contribution state from session storage."""
+def get_profile_metadata() -> CanonicalProfileMetadata:
+    """Return canonical profile metadata, adapting legacy session payloads."""
 
+    raw = st.session_state.get(StateKeys.PROFILE_METADATA)
+    metadata = adapt_legacy_metadata(raw if isinstance(raw, Mapping) else None)
+    st.session_state[StateKeys.PROFILE_METADATA] = export_metadata(metadata)
+    return metadata
+
+
+def set_profile_metadata(metadata: CanonicalProfileMetadata) -> None:
+    """Persist canonical profile metadata back to session state."""
+
+    st.session_state[StateKeys.PROFILE_METADATA] = export_metadata(metadata)
+
+
+def get_ai_contribution_state() -> AIContributionState:
     raw = st.session_state.get(StateKeys.AI_CONTRIBUTIONS, {}) or {}
     return _normalize_state(raw)
 
@@ -118,8 +126,6 @@ def record_field_contribution(
     model: str | None = None,
     timestamp: datetime | None = None,
 ) -> ContributionRecord:
-    """Record a contribution for ``path`` with optional provenance."""
-
     state = get_ai_contribution_state()
     entry = _normalize_entry(path, {"source": source, "model": model, "timestamp": timestamp})
     state["fields"][path] = entry
@@ -135,8 +141,6 @@ def record_list_item_contribution(
     model: str | None = None,
     timestamp: datetime | None = None,
 ) -> ContributionRecord | None:
-    """Record a contribution for a list ``value`` under ``path``."""
-
     cleaned_value = value.strip()
     if not cleaned_value:
         return None
@@ -162,8 +166,6 @@ def record_list_item_contribution(
 
 
 def remove_field_contribution(path: str) -> None:
-    """Remove contribution metadata for ``path`` and its list entries."""
-
     state = get_ai_contribution_state()
     state.get("fields", {}).pop(path, None)
     state.get("items", {}).pop(path, None)
@@ -171,8 +173,6 @@ def remove_field_contribution(path: str) -> None:
 
 
 def remove_list_item_contribution(path: str, value: str) -> None:
-    """Remove contribution metadata for a list ``value`` under ``path``."""
-
     state = get_ai_contribution_state()
     cleaned_value = value.strip()
     if not cleaned_value:
@@ -185,15 +185,11 @@ def remove_list_item_contribution(path: str, value: str) -> None:
 
 
 def get_field_contribution(path: str) -> ContributionRecord | None:
-    """Return contribution metadata for ``path`` when available."""
-
     state = get_ai_contribution_state()
     return state.get("fields", {}).get(path)
 
 
 def get_item_contribution(path: str, value: str) -> ContributionRecord | None:
-    """Return contribution metadata for a list ``value`` under ``path``."""
-
     cleaned_value = value.strip()
     if not cleaned_value:
         return None
@@ -207,8 +203,10 @@ __all__ = [
     "get_ai_contribution_state",
     "get_field_contribution",
     "get_item_contribution",
+    "get_profile_metadata",
     "record_field_contribution",
     "record_list_item_contribution",
     "remove_field_contribution",
     "remove_list_item_contribution",
+    "set_profile_metadata",
 ]

@@ -7,6 +7,9 @@
 
 ## Unreleased
 
+- Added a canonical profile-metadata envelope for confidence/evidence/recovery/locking (`core/confidence.py`) plus centralized session accessors in `state/ai_contributions.py` with automatic legacy (`StateKeys.PROFILE_METADATA`) migration adapters.
+- Follow-up prioritization now applies deterministic tie-breaks (`field`, `question`) so identical input profiles produce stable follow-up ordering across reruns.
+
 - Follow-up response contracts are now centralized in `llm/followup_contract.py`; `wizard/services/followups.py` imports the canonical JSON schema/validator and shared legacy field normalization map instead of keeping local schema duplicates.
 - Added follow-up contract snapshot tests that assert schema parity and parser normalization behavior for legacy field mappings.
 

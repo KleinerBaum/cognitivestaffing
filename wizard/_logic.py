@@ -34,9 +34,11 @@ from state.ai_contributions import (
     ContributionRecord,
     get_ai_contribution_state,
     get_field_contribution,
+    get_profile_metadata,
     record_field_contribution,
     record_list_item_contribution,
     remove_field_contribution,
+    set_profile_metadata,
 )
 from state.autosave import persist_session_snapshot
 from utils.normalization import (
@@ -191,12 +193,10 @@ def _merge_help_text(help_text: str | None, addition: str | None) -> str | None:
 def field_has_prefill(path: str) -> bool:
     """Return ``True`` when a field has extraction or confidence metadata."""
 
-    raw_metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
-    confidence_map = raw_metadata.get("field_confidence") or {}
-    rules_meta = raw_metadata.get("rules") or {}
-    if isinstance(confidence_map, Mapping) and path in confidence_map:
+    metadata = get_profile_metadata()
+    if path in metadata.confidence:
         return True
-    return isinstance(rules_meta, Mapping) and path in rules_meta
+    return path in metadata.evidence
 
 
 def resolve_field_origin(path: str) -> OriginKind | None:
@@ -431,24 +431,22 @@ def _clear_field_unlock_state(path: str) -> None:
 def _remove_field_lock_metadata(path: str) -> None:
     """Drop lock/high-confidence metadata for ``path`` once the value changes."""
 
-    raw_metadata = st.session_state.get(StateKeys.PROFILE_METADATA, {}) or {}
-    if not isinstance(raw_metadata, Mapping):  # pragma: no cover - defensive guard
-        return
-    metadata = dict(raw_metadata)
+    metadata = get_profile_metadata()
     changed = False
-    for key in ("locked_fields", "high_confidence_fields"):
-        values = metadata.get(key)
-        if isinstance(values, list) and path in values:
-            metadata[key] = [item for item in values if item != path]
-            changed = True
-    confidence_map = metadata.get("field_confidence")
-    if isinstance(confidence_map, Mapping) and path in confidence_map:
-        updated = dict(confidence_map)
-        if updated.pop(path, None) is not None:
-            metadata["field_confidence"] = updated
-            changed = True
+
+    if path in metadata.locking.locked_fields:
+        metadata.locking.locked_fields = [item for item in metadata.locking.locked_fields if item != path]
+        changed = True
+    if path in metadata.locking.high_confidence_fields:
+        metadata.locking.high_confidence_fields = [
+            item for item in metadata.locking.high_confidence_fields if item != path
+        ]
+        changed = True
+    if metadata.confidence.pop(path, None) is not None:
+        changed = True
+
     if changed:
-        st.session_state[StateKeys.PROFILE_METADATA] = metadata
+        set_profile_metadata(metadata)
         _clear_field_unlock_state(path)
 
 
