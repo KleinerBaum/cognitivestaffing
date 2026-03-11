@@ -2,6 +2,8 @@
 
 Cognitive Staffing is a bilingual (DE/EN) Streamlit wizard that converts unstructured job ads into a structured `NeedAnalysisProfile`, then generates recruiter-ready outputs (job ad, interview guide, Boolean search, exports).
 
+Location handling is centralized via `core/location_context.py` to normalize country/region/city, derive remote/visa/relocation policies, and provide country-specific compensation/benefit overlays used by follow-up prioritization and V2 mappings.
+
 ## Runtime policy (current)
 
 - **Strict nano-only for non-embedding tasks:** all non-embedding model routing resolves to `gpt-5-nano` when `STRICT_NANO_ONLY=true`.

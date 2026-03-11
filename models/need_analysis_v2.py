@@ -2,12 +2,16 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from models.decision_card import DecisionCard
 from models.evidence import EvidenceItem
+
+RemotePolicyV2 = Literal["onsite", "hybrid", "remote", "flexible", "unknown"]
+VisaPolicyV2 = Literal["required", "available", "not_available", "unknown"]
+RelocationPolicyV2 = Literal["offered", "case_by_case", "not_offered", "unknown"]
 
 
 class IntakeBlock(BaseModel):
@@ -34,7 +38,12 @@ class WorkBlock(BaseModel):
 
     responsibilities: list[str] = Field(default_factory=list)
     location: str = ""
+    city: str = ""
+    region: str = ""
+    country: str = ""
+    country_code: str = ""
     work_policy: str = ""
+    remote_policy: RemotePolicyV2 = "unknown"
     travel_required: bool | None = None
 
 
@@ -53,6 +62,11 @@ class ConstraintsBlock(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     visa_sponsorship: bool | None = None
+    visa_policy: VisaPolicyV2 = "unknown"
+    relocation_policy: RelocationPolicyV2 = "unknown"
+    compensation_country_code: str = ""
+    compensation_currency: str = ""
+    benefits_overlay: list[str] = Field(default_factory=list)
     salary_min: float | None = None
     salary_max: float | None = None
     currency: str = ""

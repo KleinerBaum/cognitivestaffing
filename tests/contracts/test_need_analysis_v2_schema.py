@@ -145,3 +145,20 @@ def test_v1_adapter_marks_undecided_items_as_proposed() -> None:
     assert converted.open_decisions
     assert converted.open_decisions[0].decision_state == "proposed"
     assert "Nicht entschieden" in converted.open_decisions[0].rationale
+
+
+def test_v2_adapter_maps_location_policies_and_overlays() -> None:
+    converted = adapt_v1_to_v2(
+        {
+            "location": {"primary_city": "Berlin", "country": "Deutschland"},
+            "employment": {"work_policy": "Hybrid", "visa_sponsorship": True, "relocation_support": True},
+        }
+    )
+
+    assert converted.work.country == "Germany"
+    assert converted.work.country_code == "DE"
+    assert converted.work.remote_policy == "hybrid"
+    assert converted.constraints.visa_policy == "available"
+    assert converted.constraints.relocation_policy == "offered"
+    assert converted.constraints.compensation_currency == "EUR"
+    assert "public_transport_support" in converted.constraints.benefits_overlay

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable, Mapping, Sequence
 from core.critical_fields import load_critical_fields
+from core.location_context import build_location_context, is_location_field_optional
 from wizard.field_metadata import is_unconfirmed_low_confidence_heuristic
 from wizard.missing_fields import get_path_value, is_blank
 from wizard.types import LocalizedText
@@ -14,10 +15,10 @@ Validator = Callable[[str | None], tuple[str | None, LocalizedText | None]]
 def field_is_contextually_optional(field: str, profile_data: Mapping[str, object]) -> bool:
     """Return ``True`` when a field can be skipped given the current context."""
 
-    work_policy = str(get_path_value(profile_data, "employment.work_policy") or "").strip().lower()
+    location_context = build_location_context(profile_data)
     travel_required = get_path_value(profile_data, "employment.travel_required")
 
-    if field == "location.primary_city" and work_policy == "remote":
+    if is_location_field_optional(field, location_context):
         return True
 
     if field.startswith("employment.travel_") and travel_required is not True:
