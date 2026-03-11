@@ -83,6 +83,11 @@ ENABLE_WIZARD_V2=1 poetry run streamlit run app.py
 - **`response_format` vs `text.format` confusion:** use `text.format` for Responses payloads; `response_format` is legacy/compatibility only.
 - **Timeout/retry drift:** verify `OPENAI_REQUEST_TIMEOUT` and check runtime logs for explicit fallback mode markers.
 
+## Wizard V2 field path conventions
+
+- V2 step modules (`wizard/steps_v2`) should reference profile keys via `constants.keys.ProfilePaths` instead of local string literals.
+- Reuse shared profile path helpers in `wizard/steps_v2/_shared.py` for dotted-path get/set and prefix handling.
+
 ## Schema versioning
 
 - Canonical schema/model/adapters are registered in `core/schema_registry.py`.

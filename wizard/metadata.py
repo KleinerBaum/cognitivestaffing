@@ -12,7 +12,7 @@ from typing import Final, Mapping, Sequence, cast
 
 import streamlit as st
 
-from constants.keys import StateKeys
+from constants.keys import ProfilePaths, StateKeys
 from wizard._logic import get_in
 from wizard_pages import WIZARD_PAGES, WizardPage, pages_for_version
 from wizard.validators.registry import REQUIRED_FIELD_VALIDATORS
@@ -49,6 +49,13 @@ PAGE_SECTION_INDEXES: Final[dict[str, int]] = {
     **_V2_PAGE_SECTION_INDEXES,
 }
 
+
+def _field_prefix(path: ProfilePaths) -> str:
+    """Return the top-level dotted prefix for a profile path."""
+
+    return f"{str(path).split('.', maxsplit=1)[0]}."
+
+
 PAGE_FOLLOWUP_PREFIXES: Final[dict[str, tuple[str, ...]]] = {
     "jobad": ("meta.",),
     "company": ("business_context.", "company.", "location."),
@@ -64,13 +71,13 @@ PAGE_FOLLOWUP_PREFIXES: Final[dict[str, tuple[str, ...]]] = {
     "benefits": ("compensation.",),
     "interview": ("process.",),
     "summary": ("summary.",),
-    "intake": ("intake.",),
-    "hiring_goal": ("role.",),
-    "real_work": ("work.",),
-    "requirements_board": ("requirements.",),
-    "constraints": ("constraints.",),
-    "selection": ("selection.",),
-    "review": ("open_decisions", "warnings"),
+    "intake": (_field_prefix(ProfilePaths.INTAKE_RAW_INPUT),),
+    "hiring_goal": (_field_prefix(ProfilePaths.ROLE_TITLE),),
+    "real_work": (_field_prefix(ProfilePaths.WORK_RESPONSIBILITIES),),
+    "requirements_board": (_field_prefix(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),),
+    "constraints": (_field_prefix(ProfilePaths.CONSTRAINTS_TIMELINE),),
+    "selection": (_field_prefix(ProfilePaths.SELECTION_PROCESS_STEPS),),
+    "review": (str(ProfilePaths.OPEN_DECISIONS), str(ProfilePaths.WARNINGS)),
 }
 
 DECISION_CATEGORY_STEP_MAP: Final[dict[str, str]] = {

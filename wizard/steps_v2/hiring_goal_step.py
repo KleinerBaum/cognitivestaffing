@@ -4,6 +4,7 @@ from typing import Any
 
 import streamlit as st
 
+from constants.keys import ProfilePaths
 from utils.i18n import tr
 from wizard.navigation_types import WizardContext
 
@@ -17,9 +18,17 @@ from ._shared import (
     render_summary_chips,
     render_v2_step,
     value_missing,
+    profile_prefix,
 )
 
-_SUMMARY_FIELDS = ("role.title", "role.seniority", "role.department", "role.team")
+ROLE_PREFIX = profile_prefix(ProfilePaths.ROLE_TITLE)
+
+_SUMMARY_FIELDS = (
+    ProfilePaths.ROLE_TITLE,
+    ProfilePaths.ROLE_SENIORITY,
+    ProfilePaths.ROLE_DEPARTMENT,
+    ProfilePaths.ROLE_TEAM,
+)
 
 
 def render_hiring_goal_step(context: WizardContext) -> None:
@@ -30,31 +39,45 @@ def render_hiring_goal_step(context: WizardContext) -> None:
 
     st.subheader(tr("Fehlend", "Missing (Top Questions)"))
     required_paths = render_v2_step(context=context, step_key="hiring_goal")
-    top, optional = collect_top_questions(profile=profile, required_paths=required_paths, followup_prefixes=("role.",))
+    top, optional = collect_top_questions(
+        profile=profile, required_paths=required_paths, followup_prefixes=(ROLE_PREFIX,)
+    )
     render_question_cards(top)
     if optional:
         with st.expander(tr("Weitere Fragen (optional)", "More questions (optional)")):
             render_question_cards(optional)
 
     with st.form("v2_hiring_goal_form"):
-        title = st.text_input("role.title", value=str(get_value(profile, "role.title") or ""))
-        summary = st.text_area("role.summary", value=str(get_value(profile, "role.summary") or ""), height=140)
-        seniority = st.text_input("role.seniority", value=str(get_value(profile, "role.seniority") or ""))
-        department = st.text_input("role.department", value=str(get_value(profile, "role.department") or ""))
-        team = st.text_input("role.team", value=str(get_value(profile, "role.team") or ""))
+        title = st.text_input(
+            str(ProfilePaths.ROLE_TITLE), value=str(get_value(profile, str(ProfilePaths.ROLE_TITLE)) or "")
+        )
+        summary = st.text_area(
+            str(ProfilePaths.ROLE_SUMMARY),
+            value=str(get_value(profile, str(ProfilePaths.ROLE_SUMMARY)) or ""),
+            height=140,
+        )
+        seniority = st.text_input(
+            str(ProfilePaths.ROLE_SENIORITY), value=str(get_value(profile, str(ProfilePaths.ROLE_SENIORITY)) or "")
+        )
+        department = st.text_input(
+            str(ProfilePaths.ROLE_DEPARTMENT), value=str(get_value(profile, str(ProfilePaths.ROLE_DEPARTMENT)) or "")
+        )
+        team = st.text_input(
+            str(ProfilePaths.ROLE_TEAM), value=str(get_value(profile, str(ProfilePaths.ROLE_TEAM)) or "")
+        )
         submitted = st.form_submit_button(tr("Änderungen speichern", "Save changes"), type="primary")
     if submitted:
         updates: dict[str, Any] = {
-            "role.title": title.strip(),
-            "role.summary": summary.strip(),
-            "role.seniority": seniority.strip(),
-            "role.department": department.strip(),
-            "role.team": team.strip(),
+            str(ProfilePaths.ROLE_TITLE): title.strip(),
+            str(ProfilePaths.ROLE_SUMMARY): summary.strip(),
+            str(ProfilePaths.ROLE_SENIORITY): seniority.strip(),
+            str(ProfilePaths.ROLE_DEPARTMENT): department.strip(),
+            str(ProfilePaths.ROLE_TEAM): team.strip(),
         }
         commit_profile(profile, updates, context_update=context.update_profile)
         st.success(tr("Hiring Goal gespeichert.", "Hiring goal saved."))
 
-    tools_questions = collect_followup_questions(profile=profile, followup_prefixes=("role.",))
+    tools_questions = collect_followup_questions(profile=profile, followup_prefixes=(ROLE_PREFIX,))
     if tools_questions:
         with st.expander(tr("Tools", "Tools")):
             render_question_cards(tools_questions)
