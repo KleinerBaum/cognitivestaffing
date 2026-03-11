@@ -4,6 +4,7 @@ from typing import Any
 
 import streamlit as st
 
+from constants.keys import ProfilePaths
 from utils.i18n import tr
 from wizard.navigation_types import WizardContext
 
@@ -18,12 +19,15 @@ from ._shared import (
     render_summary_chips,
     render_v2_step,
     value_missing,
+    profile_prefix,
 )
 
+REQUIREMENTS_PREFIX = profile_prefix(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED)
+
 _SUMMARY_FIELDS = (
-    "requirements.hard_skills_required",
-    "requirements.soft_skills_required",
-    "requirements.languages_required",
+    ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED,
+    ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED,
+    ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED,
 )
 
 
@@ -36,7 +40,7 @@ def render_requirements_board_step(context: WizardContext) -> None:
     st.subheader(tr("Fehlend", "Missing (Top Questions)"))
     required_paths = render_v2_step(context=context, step_key="requirements_board")
     top, optional = collect_top_questions(
-        profile=profile, required_paths=required_paths, followup_prefixes=("requirements.",)
+        profile=profile, required_paths=required_paths, followup_prefixes=(REQUIREMENTS_PREFIX,)
     )
     render_question_cards(top)
     if optional:
@@ -49,25 +53,31 @@ def render_requirements_board_step(context: WizardContext) -> None:
 
     with st.form("v2_requirements_board_form"):
         hard = st.text_area(
-            "requirements.hard_skills_required", value=_join("requirements.hard_skills_required"), height=120
+            str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
+            value=_join(str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED)),
+            height=120,
         )
         soft = st.text_area(
-            "requirements.soft_skills_required", value=_join("requirements.soft_skills_required"), height=100
+            str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
+            value=_join(str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED)),
+            height=100,
         )
         langs = st.text_area(
-            "requirements.languages_required", value=_join("requirements.languages_required"), height=100
+            str(ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED),
+            value=_join(str(ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED)),
+            height=100,
         )
         submitted = st.form_submit_button(tr("Änderungen speichern", "Save changes"), type="primary")
     if submitted:
         updates: dict[str, Any] = {
-            "requirements.hard_skills_required": parse_multiline(hard),
-            "requirements.soft_skills_required": parse_multiline(soft),
-            "requirements.languages_required": parse_multiline(langs),
+            str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED): parse_multiline(hard),
+            str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED): parse_multiline(soft),
+            str(ProfilePaths.REQUIREMENTS_LANGUAGES_REQUIRED): parse_multiline(langs),
         }
         commit_profile(profile, updates, context_update=context.update_profile)
         st.success(tr("Requirements gespeichert.", "Requirements saved."))
 
-    tools_questions = collect_followup_questions(profile=profile, followup_prefixes=("requirements.",))
+    tools_questions = collect_followup_questions(profile=profile, followup_prefixes=(REQUIREMENTS_PREFIX,))
     if tools_questions:
         with st.expander(tr("Tools", "Tools")):
             render_question_cards(tools_questions)

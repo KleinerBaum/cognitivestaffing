@@ -4,6 +4,7 @@ from typing import Any
 
 import streamlit as st
 
+from constants.keys import ProfilePaths
 from utils.i18n import tr
 from wizard.navigation_types import WizardContext
 
@@ -18,9 +19,16 @@ from ._shared import (
     render_summary_chips,
     render_v2_step,
     value_missing,
+    profile_prefix,
 )
 
-_SUMMARY_FIELDS = ("work.responsibilities", "work.location", "work.work_policy")
+WORK_PREFIX = profile_prefix(ProfilePaths.WORK_RESPONSIBILITIES)
+
+_SUMMARY_FIELDS = (
+    ProfilePaths.WORK_RESPONSIBILITIES,
+    ProfilePaths.WORK_LOCATION,
+    ProfilePaths.WORK_WORK_POLICY,
+)
 
 
 def render_real_work_step(context: WizardContext) -> None:
@@ -31,39 +39,45 @@ def render_real_work_step(context: WizardContext) -> None:
 
     st.subheader(tr("Fehlend", "Missing (Top Questions)"))
     required_paths = render_v2_step(context=context, step_key="real_work")
-    top, optional = collect_top_questions(profile=profile, required_paths=required_paths, followup_prefixes=("work.",))
+    top, optional = collect_top_questions(
+        profile=profile, required_paths=required_paths, followup_prefixes=(WORK_PREFIX,)
+    )
     render_question_cards(top)
     if optional:
         with st.expander(tr("Weitere Fragen (optional)", "More questions (optional)")):
             render_question_cards(optional)
 
-    current_responsibilities = get_value(profile, "work.responsibilities")
+    current_responsibilities = get_value(profile, str(ProfilePaths.WORK_RESPONSIBILITIES))
     initial = (
         "\n".join(current_responsibilities)
         if isinstance(current_responsibilities, list)
         else str(current_responsibilities or "")
     )
     with st.form("v2_real_work_form"):
-        responsibilities = st.text_area("work.responsibilities", value=initial, height=160)
-        location = st.text_input("work.location", value=str(get_value(profile, "work.location") or ""))
+        responsibilities = st.text_area(str(ProfilePaths.WORK_RESPONSIBILITIES), value=initial, height=160)
+        location = st.text_input(
+            str(ProfilePaths.WORK_LOCATION), value=str(get_value(profile, str(ProfilePaths.WORK_LOCATION)) or "")
+        )
         work_policy = st.selectbox(
-            "work.work_policy",
+            str(ProfilePaths.WORK_WORK_POLICY),
             options=["", "onsite", "hybrid", "remote"],
-            index=["", "onsite", "hybrid", "remote"].index(str(get_value(profile, "work.work_policy") or ""))
-            if str(get_value(profile, "work.work_policy") or "") in ["", "onsite", "hybrid", "remote"]
+            index=["", "onsite", "hybrid", "remote"].index(
+                str(get_value(profile, str(ProfilePaths.WORK_WORK_POLICY)) or "")
+            )
+            if str(get_value(profile, str(ProfilePaths.WORK_WORK_POLICY)) or "") in ["", "onsite", "hybrid", "remote"]
             else 0,
         )
         submitted = st.form_submit_button(tr("Änderungen speichern", "Save changes"), type="primary")
     if submitted:
         updates: dict[str, Any] = {
-            "work.responsibilities": parse_multiline(responsibilities),
-            "work.location": location.strip(),
-            "work.work_policy": work_policy,
+            str(ProfilePaths.WORK_RESPONSIBILITIES): parse_multiline(responsibilities),
+            str(ProfilePaths.WORK_LOCATION): location.strip(),
+            str(ProfilePaths.WORK_WORK_POLICY): work_policy,
         }
         commit_profile(profile, updates, context_update=context.update_profile)
         st.success(tr("Real Work gespeichert.", "Real work saved."))
 
-    tools_questions = collect_followup_questions(profile=profile, followup_prefixes=("work.",))
+    tools_questions = collect_followup_questions(profile=profile, followup_prefixes=(WORK_PREFIX,))
     if tools_questions:
         with st.expander(tr("Tools", "Tools")):
             render_question_cards(tools_questions)

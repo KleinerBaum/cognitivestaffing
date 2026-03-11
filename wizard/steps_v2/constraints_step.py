@@ -4,6 +4,7 @@ from typing import Any
 
 import streamlit as st
 
+from constants.keys import ProfilePaths
 from utils.i18n import tr
 from wizard.navigation_types import WizardContext
 
@@ -17,9 +18,16 @@ from ._shared import (
     render_summary_chips,
     render_v2_step,
     value_missing,
+    profile_prefix,
 )
 
-_SUMMARY_FIELDS = ("constraints.salary_min", "constraints.salary_max", "constraints.timeline")
+CONSTRAINTS_PREFIX = profile_prefix(ProfilePaths.CONSTRAINTS_TIMELINE)
+
+_SUMMARY_FIELDS = (
+    ProfilePaths.CONSTRAINTS_SALARY_MIN,
+    ProfilePaths.CONSTRAINTS_SALARY_MAX,
+    ProfilePaths.CONSTRAINTS_TIMELINE,
+)
 
 
 def render_constraints_step(context: WizardContext) -> None:
@@ -31,34 +39,37 @@ def render_constraints_step(context: WizardContext) -> None:
     st.subheader(tr("Fehlend", "Missing (Top Questions)"))
     required_paths = render_v2_step(context=context, step_key="constraints")
     top, optional = collect_top_questions(
-        profile=profile, required_paths=required_paths, followup_prefixes=("constraints.",)
+        profile=profile, required_paths=required_paths, followup_prefixes=(CONSTRAINTS_PREFIX,)
     )
     render_question_cards(top)
     if optional:
         with st.expander(tr("Weitere Fragen (optional)", "More questions (optional)")):
             render_question_cards(optional)
 
-    salary_min_raw = get_value(profile, "constraints.salary_min")
-    salary_max_raw = get_value(profile, "constraints.salary_max")
+    salary_min_raw = get_value(profile, str(ProfilePaths.CONSTRAINTS_SALARY_MIN))
+    salary_max_raw = get_value(profile, str(ProfilePaths.CONSTRAINTS_SALARY_MAX))
     with st.form("v2_constraints_form"):
-        timeline = st.text_input("constraints.timeline", value=str(get_value(profile, "constraints.timeline") or ""))
+        timeline = st.text_input(
+            str(ProfilePaths.CONSTRAINTS_TIMELINE),
+            value=str(get_value(profile, str(ProfilePaths.CONSTRAINTS_TIMELINE)) or ""),
+        )
         salary_min = st.number_input(
-            "constraints.salary_min", value=float(salary_min_raw or 0.0), min_value=0.0, step=1000.0
+            str(ProfilePaths.CONSTRAINTS_SALARY_MIN), value=float(salary_min_raw or 0.0), min_value=0.0, step=1000.0
         )
         salary_max = st.number_input(
-            "constraints.salary_max", value=float(salary_max_raw or 0.0), min_value=0.0, step=1000.0
+            str(ProfilePaths.CONSTRAINTS_SALARY_MAX), value=float(salary_max_raw or 0.0), min_value=0.0, step=1000.0
         )
         submitted = st.form_submit_button(tr("Änderungen speichern", "Save changes"), type="primary")
     if submitted:
         updates: dict[str, Any] = {
-            "constraints.timeline": timeline.strip(),
-            "constraints.salary_min": int(salary_min) if salary_min else None,
-            "constraints.salary_max": int(salary_max) if salary_max else None,
+            str(ProfilePaths.CONSTRAINTS_TIMELINE): timeline.strip(),
+            str(ProfilePaths.CONSTRAINTS_SALARY_MIN): int(salary_min) if salary_min else None,
+            str(ProfilePaths.CONSTRAINTS_SALARY_MAX): int(salary_max) if salary_max else None,
         }
         commit_profile(profile, updates, context_update=context.update_profile)
         st.success(tr("Constraints gespeichert.", "Constraints saved."))
 
-    tools_questions = collect_followup_questions(profile=profile, followup_prefixes=("constraints.",))
+    tools_questions = collect_followup_questions(profile=profile, followup_prefixes=(CONSTRAINTS_PREFIX,))
     if tools_questions:
         with st.expander(tr("Tools", "Tools")):
             render_question_cards(tools_questions)

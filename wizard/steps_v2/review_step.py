@@ -4,6 +4,7 @@ from typing import Any
 
 import streamlit as st
 
+from constants.keys import ProfilePaths
 from utils.i18n import tr
 from wizard.navigation_types import WizardContext
 
@@ -16,9 +17,14 @@ from ._shared import (
     parse_multiline,
     render_question_cards,
     render_summary_chips,
+    profile_prefix,
 )
 
-_SUMMARY_FIELDS = ("open_decisions", "warnings")
+_SUMMARY_FIELDS = (ProfilePaths.OPEN_DECISIONS, ProfilePaths.WARNINGS)
+REVIEW_PREFIXES = (
+    profile_prefix(ProfilePaths.OPEN_DECISIONS).removesuffix("."),
+    profile_prefix(ProfilePaths.WARNINGS).removesuffix("."),
+)
 
 
 def render_review_step(context: WizardContext) -> None:
@@ -28,9 +34,7 @@ def render_review_step(context: WizardContext) -> None:
     render_summary_chips(_SUMMARY_FIELDS, profile)
 
     st.subheader(tr("Fehlend", "Missing (Top Questions)"))
-    top, optional = collect_top_questions(
-        profile=profile, required_paths=(), followup_prefixes=("open_decisions", "warnings")
-    )
+    top, optional = collect_top_questions(profile=profile, required_paths=(), followup_prefixes=REVIEW_PREFIXES)
     if top:
         render_question_cards(top)
     else:
@@ -39,31 +43,31 @@ def render_review_step(context: WizardContext) -> None:
         with st.expander(tr("Weitere Fragen (optional)", "More questions (optional)")):
             render_question_cards(optional)
 
-    open_decisions_raw = get_value(profile, "open_decisions")
-    warnings_raw = get_value(profile, "warnings")
+    open_decisions_raw = get_value(profile, str(ProfilePaths.OPEN_DECISIONS))
+    warnings_raw = get_value(profile, str(ProfilePaths.WARNINGS))
     with st.form("v2_review_form"):
         open_decisions = st.text_area(
-            "open_decisions",
+            str(ProfilePaths.OPEN_DECISIONS),
             value="\n".join(open_decisions_raw)
             if isinstance(open_decisions_raw, list)
             else str(open_decisions_raw or ""),
             height=120,
         )
         warnings = st.text_area(
-            "warnings",
+            str(ProfilePaths.WARNINGS),
             value="\n".join(warnings_raw) if isinstance(warnings_raw, list) else str(warnings_raw or ""),
             height=120,
         )
         submitted = st.form_submit_button(tr("Änderungen speichern", "Save changes"), type="primary")
     if submitted:
         updates: dict[str, Any] = {
-            "open_decisions": parse_multiline(open_decisions),
-            "warnings": parse_multiline(warnings),
+            str(ProfilePaths.OPEN_DECISIONS): parse_multiline(open_decisions),
+            str(ProfilePaths.WARNINGS): parse_multiline(warnings),
         }
         commit_profile(profile, updates, context_update=context.update_profile)
         st.success(tr("Review gespeichert.", "Review saved."))
 
-    tools_questions = collect_followup_questions(profile=profile, followup_prefixes=("open_decisions", "warnings"))
+    tools_questions = collect_followup_questions(profile=profile, followup_prefixes=REVIEW_PREFIXES)
     if tools_questions:
         with st.expander(tr("Tools", "Tools")):
             render_question_cards(tools_questions)

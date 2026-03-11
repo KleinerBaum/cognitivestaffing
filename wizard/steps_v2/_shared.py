@@ -7,13 +7,25 @@ from typing import Any
 
 import streamlit as st
 
-from constants.keys import StateKeys
+from constants.keys import ProfilePaths, StateKeys
 from wizard.navigation_types import WizardContext
 from utils.i18n import tr
 
 
 LocalizedPair = tuple[str, str]
 QuestionItem = dict[str, str]
+
+
+def ensure_profile_path(path: str | ProfilePaths) -> str:
+    """Return ``path`` as plain dotted string."""
+
+    return str(path)
+
+
+def profile_prefix(path: str | ProfilePaths) -> str:
+    """Return top-level dotted prefix for ``path``."""
+
+    return f"{ensure_profile_path(path).split('.', maxsplit=1)[0]}."
 
 
 def render_v2_step(
@@ -52,11 +64,11 @@ def get_profile_data() -> dict[str, Any]:
     return {}
 
 
-def get_value(data: Mapping[str, Any], path: str) -> Any:
+def get_value(data: Mapping[str, Any], path: str | ProfilePaths) -> Any:
     """Resolve a dotted ``path`` from ``data``."""
 
     cursor: Any = data
-    for part in path.split("."):
+    for part in ensure_profile_path(path).split("."):
         if isinstance(cursor, Mapping):
             cursor = cursor.get(part)
         else:
@@ -64,11 +76,11 @@ def get_value(data: Mapping[str, Any], path: str) -> Any:
     return cursor
 
 
-def set_value(data: dict[str, Any], path: str, value: Any) -> None:
+def set_value(data: dict[str, Any], path: str | ProfilePaths, value: Any) -> None:
     """Set ``value`` into ``data`` at dotted ``path``."""
 
     cursor: dict[str, Any] = data
-    parts = path.split(".")
+    parts = ensure_profile_path(path).split(".")
     for part in parts[:-1]:
         nested = cursor.get(part)
         if not isinstance(nested, dict):
@@ -107,7 +119,7 @@ def pretty_value(value: Any) -> str:
     return str(value)
 
 
-def render_summary_chips(summary_fields: Sequence[str], profile: Mapping[str, Any]) -> None:
+def render_summary_chips(summary_fields: Sequence[str | ProfilePaths], profile: Mapping[str, Any]) -> None:
     """Render summary fields for the active V2 step as compact chips."""
 
     if not summary_fields:
@@ -142,19 +154,20 @@ def _question_rank(priority: str) -> int:
 def collect_top_questions(
     *,
     profile: Mapping[str, Any],
-    required_paths: Sequence[str],
-    followup_prefixes: Sequence[str],
+    required_paths: Sequence[str | ProfilePaths],
+    followup_prefixes: Sequence[str | ProfilePaths],
     limit: int = 3,
 ) -> tuple[list[QuestionItem], list[QuestionItem]]:
     """Build prioritized top-questions + optional remainder from missing/follow-ups."""
 
     questions: list[QuestionItem] = []
     for path in required_paths:
-        if value_missing(get_value(profile, path)):
+        field_path = ensure_profile_path(path)
+        if value_missing(get_value(profile, field_path)):
             questions.append(
                 {
-                    "field": path,
-                    "question": tr(f"Bitte ausfüllen: {path}", f"Please provide: {path}"),
+                    "field": field_path,
+                    "question": tr(f"Bitte ausfüllen: {field_path}", f"Please provide: {field_path}"),
                     "priority": "critical",
                 }
             )
@@ -167,7 +180,7 @@ def collect_top_questions(
             field = str(item.get("field") or "").strip()
             if not field:
                 continue
-            if not any(field.startswith(prefix) for prefix in followup_prefixes):
+            if not any(field.startswith(ensure_profile_path(prefix)) for prefix in followup_prefixes):
                 continue
             if not value_missing(get_value(profile, field)):
                 continue
@@ -199,7 +212,9 @@ def render_question_cards(questions: Iterable[QuestionItem]) -> None:
         st.caption(f"`{question['field']}` · {priority}")
 
 
-def collect_followup_questions(*, profile: Mapping[str, Any], followup_prefixes: Sequence[str]) -> list[QuestionItem]:
+def collect_followup_questions(
+    *, profile: Mapping[str, Any], followup_prefixes: Sequence[str | ProfilePaths]
+) -> list[QuestionItem]:
     """Return unresolved follow-up questions for the given step prefixes."""
 
     raw_followups = st.session_state.get(StateKeys.FOLLOWUPS, [])
@@ -210,7 +225,7 @@ def collect_followup_questions(*, profile: Mapping[str, Any], followup_prefixes:
         if not isinstance(item, Mapping):
             continue
         field = str(item.get("field") or "").strip()
-        if not field or not any(field.startswith(prefix) for prefix in followup_prefixes):
+        if not field or not any(field.startswith(ensure_profile_path(prefix)) for prefix in followup_prefixes):
             continue
         if not value_missing(get_value(profile, field)):
             continue
@@ -226,14 +241,15 @@ def collect_followup_questions(*, profile: Mapping[str, Any], followup_prefixes:
 
 def commit_profile(
     profile: dict[str, Any],
-    updates: Mapping[str, Any],
+    updates: Mapping[str | ProfilePaths, Any],
     *,
     context_update: Callable[[str, Any], None] | None,
 ) -> None:
     """Apply updates to profile data and persist to ``StateKeys.PROFILE``."""
 
     for path, value in updates.items():
-        set_value(profile, path, value)
+        path_str = ensure_profile_path(path)
+        set_value(profile, path_str, value)
         if context_update is not None:
-            context_update(path, value)
+            context_update(path_str, value)
     st.session_state[StateKeys.PROFILE] = profile
