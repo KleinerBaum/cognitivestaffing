@@ -15,6 +15,15 @@ from models.need_analysis import NeedAnalysisProfile
 from sidebar import SidebarContext, _build_initial_extraction_entries
 
 
+def _set_wizard_version(version: str) -> None:
+    st.session_state["wizard_version"] = version
+    try:
+        st.query_params.clear()
+        st.query_params["wizard_version"] = version
+    except Exception:
+        pass
+
+
 def test_prefilled_preview_hidden_until_data_present() -> None:
     """The preview should remain hidden until real values exist."""
 
@@ -55,6 +64,7 @@ def test_extraction_entries_expand_iterable_summary_values() -> None:
     """List-valued summary fields should expand into multiple data points."""
 
     st.session_state.clear()
+    _set_wizard_version("v1")
     context = SidebarContext(
         profile={},
         extraction_summary={"skills": {"Must-have skills": ["Python", "SQL"]}},
@@ -78,6 +88,7 @@ def test_prefilled_entries_expand_iterable_values() -> None:
     """Prefilled sequences should render each item separately."""
 
     st.session_state.clear()
+    _set_wizard_version("v1")
     context = SidebarContext(
         profile={},
         extraction_summary={},
@@ -104,6 +115,7 @@ def test_string_values_are_not_split_into_characters() -> None:
     """Plain strings should remain single preview entries."""
 
     st.session_state.clear()
+    _set_wizard_version("v1")
     context = SidebarContext(
         profile={},
         extraction_summary={"skills": {"Notes": "Python, SQL"}},
@@ -123,6 +135,7 @@ def test_resolve_active_step_key_prefers_wizard_state() -> None:
     """Sidebar should prefer the router-provided wizard step key when available."""
 
     st.session_state.clear()
+    _set_wizard_version("v1")
     st.session_state["wizard"] = {"current_step_key": "landing"}
 
     from sidebar import _resolve_active_step_key
@@ -134,6 +147,7 @@ def test_resolve_active_step_key_falls_back_to_legacy_step_index() -> None:
     """Legacy numeric step state should map to a canonical wizard page key."""
 
     st.session_state.clear()
+    _set_wizard_version("v1")
     st.session_state["_wizard_step_summary"] = "invalid"
     st.session_state[StateKeys.STEP] = 0
 
@@ -146,6 +160,7 @@ def test_sidebar_hides_step_overview_on_landing(monkeypatch) -> None:
     """Landing should suppress the sidebar step-overview block."""
 
     st.session_state.clear()
+    _set_wizard_version("v1")
     st.session_state["wizard"] = {"current_step_key": "landing"}
     st.session_state[StateKeys.STEP] = 0
 
@@ -184,6 +199,7 @@ def test_extraction_entries_mark_raw_on_llm_error() -> None:
     """Extraction summary entries should be labeled as raw when LLM extraction fails."""
 
     st.session_state.clear()
+    _set_wizard_version("v1")
     st.session_state[StateKeys.PROFILE_METADATA] = {"llm_errors": {"extraction": "boom"}}
     context = SidebarContext(
         profile={},
@@ -197,3 +213,34 @@ def test_extraction_entries_mark_raw_on_llm_error() -> None:
     _, step_entries = _build_initial_extraction_entries(context)
 
     assert step_entries["jobad"] == [("Status (raw)", "⚠️ AI extraction failed")]
+
+
+def test_sidebar_step_order_and_labels_follow_v2_runtime() -> None:
+    """Sidebar helpers should use V2 labels/order when runtime resolves to V2."""
+
+    st.session_state.clear()
+    st.session_state["lang"] = "en"
+    _set_wizard_version("v2")
+
+    from sidebar import _build_initial_extraction_entries, _resolve_step_order_and_labels
+
+    step_order, label_lookup = _resolve_step_order_and_labels("en")
+    assert step_order[0] == "intake"
+    assert step_order[-1] == "review"
+    assert label_lookup["intake"] == "Intake"
+    assert "onboarding" not in label_lookup
+
+    context = SidebarContext(
+        profile={},
+        extraction_summary={"Status": "Ready"},
+        skill_buckets={},
+        missing_fields=set(),
+        missing_by_step={},
+        prefilled_sections=[],
+    )
+
+    computed_order, step_entries = _build_initial_extraction_entries(context)
+
+    assert computed_order == step_order
+    assert "jobad" not in step_entries
+    assert step_entries["intake"] == [("Status", "Ready")]
