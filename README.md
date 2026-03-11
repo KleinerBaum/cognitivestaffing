@@ -67,6 +67,7 @@ ENABLE_WIZARD_V2=1 poetry run streamlit run app.py
 
 
 - Wizard V2 step stubs now render per-step forms with explicit commit points (`StateKeys.PROFILE`), Known → Missing → Validate → Nav ordering, Top-Question cards, and follow-up tools expanders.
+- Wizard metadata ownership maps (`PAGE_SECTION_INDEXES`, `PAGE_FOLLOWUP_PREFIXES`, `PAGE_PROGRESS_FIELDS`) include V2 step keys so required/summary fields, missing-field gating, and follow-up ownership resolve consistently across V1/V2.
 
 ## Metadata access (confidence/evidence)
 

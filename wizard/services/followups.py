@@ -136,6 +136,29 @@ _FALLBACK_FOLLOWUPS: dict[str, list[dict[str, Any]]] = {
 }
 
 
+def _normalize_priority(priority: object) -> str:
+    normalized = str(priority or "normal").strip().lower()
+    if normalized not in {"critical", "normal", "optional"}:
+        return "normal"
+    return normalized
+
+
+def _enrich_followup_ownership(questions: Sequence[Mapping[str, Any]]) -> list[dict[str, Any]]:
+    """Attach canonical owner metadata and normalized priority per field path."""
+
+    enriched: list[dict[str, Any]] = []
+    for question in questions:
+        if not isinstance(question, Mapping):
+            continue
+        item = dict(question)
+        field = canonicalize_followup_field_path(str(item.get("field") or "").strip())
+        if field:
+            item["field"] = field
+        item["priority"] = _normalize_priority(item.get("priority"))
+        enriched.append(item)
+    return enriched
+
+
 def _prioritize_heuristic_followups(
     questions: Sequence[Mapping[str, Any]],
     *,
@@ -159,7 +182,7 @@ def _prioritize_heuristic_followups(
         else:
             band = 2
 
-        priority = str(item.get("priority") or "normal").strip().lower()
+        priority = _normalize_priority(item.get("priority"))
         priority_rank = 0 if priority == "critical" else 1 if priority == "normal" else 2
 
         if is_unconfirmed_low_confidence_heuristic(field, profile=profile):
@@ -167,10 +190,7 @@ def _prioritize_heuristic_followups(
 
         return (band, field_score.score, priority_rank, field, question_text)
 
-    normalized: list[dict[str, Any]] = []
-    for question in questions:
-        if isinstance(question, Mapping):
-            normalized.append(dict(question))
+    normalized = _enrich_followup_ownership(questions)
     return sorted(normalized, key=_score)
 
 
@@ -191,7 +211,9 @@ def _fallback_followups(
     """Return a minimal set of follow-up questions when the LLM fails."""
 
     lang = _normalize_locale(locale)
-    questions = dedupe_followup_questions_by_field(list(_FALLBACK_FOLLOWUPS.get(lang, _FALLBACK_FOLLOWUPS["en"])))
+    questions = dedupe_followup_questions_by_field(
+        _enrich_followup_ownership(list(_FALLBACK_FOLLOWUPS.get(lang, _FALLBACK_FOLLOWUPS["en"])))
+    )
     if role_context:
         role_question = {
             "field": "position.role_summary",
@@ -204,7 +226,7 @@ def _fallback_followups(
             "suggestions": [role_context],
         }
         questions.append(role_question)
-    payload: dict[str, Any] = {"questions": questions, "source": "fallback"}
+    payload: dict[str, Any] = {"questions": _enrich_followup_ownership(questions), "source": "fallback"}
     if reason:
         payload["fallback_reason"] = reason
     if error_reason:
@@ -354,7 +376,7 @@ def _parse_followup_response(response: Any) -> FollowupParseResult:
                     questions.append(normalised)
 
         return FollowupParseResult(
-            payload={"questions": dedupe_followup_questions_by_field(questions)},
+            payload={"questions": dedupe_followup_questions_by_field(_enrich_followup_ownership(questions))},
             raw_text=raw_text,
             validation_errors=[],
             repair_status=repair_status,
