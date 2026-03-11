@@ -47,3 +47,38 @@ def test_create_response_routes_responses_api(monkeypatch: pytest.MonkeyPatch) -
     assert calls[0][1]["input"] == responses_payload["messages"]
     assert calls[1][0] == "chat"
     assert calls[1][1]["messages"] == chat_payload["messages"]
+
+
+def test_create_response_drops_top_level_verbosity_for_responses(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Responses SDK calls should not receive top-level verbosity."""
+
+    calls: list[tuple[str, dict]] = []
+
+    def _record_call(name: str):
+        def _wrapper(**kwargs):
+            calls.append((name, kwargs))
+            return {"ok": True}
+
+        return _wrapper
+
+    fake_responses = types.SimpleNamespace(create=_record_call("responses"))
+    fake_client = types.SimpleNamespace(
+        responses=fake_responses,
+        chat=types.SimpleNamespace(completions=types.SimpleNamespace(create=_record_call("chat"))),
+    )
+
+    client = OpenAIClient()
+    monkeypatch.setattr(client, "get_client", lambda: fake_client)
+
+    responses_payload = {
+        "model": model_config.GPT52_MINI,
+        "messages": [{"role": "system", "content": "Answer briefly."}, {"role": "user", "content": "hi"}],
+        "verbosity": "low",
+        "_api_mode": "responses",
+    }
+
+    client._create_response_with_timeout(dict(responses_payload), api_mode="responses")
+
+    assert calls[0][0] == "responses"
+    assert "verbosity" not in calls[0][1]
+    assert calls[0][1]["input"] == responses_payload["messages"]
