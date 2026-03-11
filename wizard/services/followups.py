@@ -14,6 +14,7 @@ from jsonschema.validators import Draft202012Validator
 
 import config.models as model_settings
 from config import get_active_verbosity
+from core.schema_registry import get_canonical_json_schema
 from openai_utils.errors import LLMResponseFormatError
 from prompts import prompt_registry
 from utils.json_repair import JsonRepairStatus, parse_json_with_repair
@@ -81,35 +82,7 @@ class FollowupParseResult:
 
 FOLLOWUP_JSON_SCHEMA: dict[str, Any] = {
     "name": "followup_questions",
-    "schema": {
-        "type": "object",
-        "properties": {
-            "questions": {
-                "type": "array",
-                "items": {
-                    "type": "object",
-                    "properties": {
-                        "field": {"type": "string"},
-                        "question": {"type": "string"},
-                        "priority": {"type": "string"},
-                        "suggestions": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "default": [],
-                        },
-                    },
-                    "required": [
-                        "field",
-                        "question",
-                        "priority",
-                    ],
-                    "additionalProperties": False,
-                },
-            }
-        },
-        "required": ["questions"],
-        "additionalProperties": False,
-    },
+    "schema": get_canonical_json_schema(schema_version="v1", artifact="followups"),
 }
 
 
