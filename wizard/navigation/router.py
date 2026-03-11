@@ -249,20 +249,14 @@ class NavigationController:
         else:
             current = self.state.get("current_step")
             desired = current if isinstance(current, str) and current in self._page_map else self._pages[0].key
-        self.state["current_step"] = desired
-        self._query_params["step"] = desired
-        renderer = self._renderers.get(desired)
-        if renderer is not None:
-            # Legacy compatibility: keep index in sync for read-only consumers.
-            self._session_state[StateKeys.STEP] = renderer.legacy_index
+        self.apply_navigation_state(desired)
 
     def ensure_current_is_valid(self) -> None:
         self._refresh_active_pages()
         current = self.state.get("current_step")
         if not isinstance(current, str) or current not in self._page_map:
             fallback = self._resolve_nearest_active_key(current)
-            self.state["current_step"] = fallback
-            self._query_params["step"] = fallback
+            self.apply_navigation_state(fallback)
 
     def navigate(self, target_key: str, *, mark_current_complete: bool = False, skipped: bool = False) -> None:
         """Navigate to ``target_key`` and trigger a rerun."""
@@ -288,7 +282,7 @@ class NavigationController:
         if isinstance(current, str) and current in self._page_map:
             return current
         fallback = self._resolve_nearest_active_key(current)
-        self.state["current_step"] = fallback
+        self.apply_navigation_state(fallback)
         return fallback
 
     def next_key(self, page: WizardPage) -> str | None:
@@ -321,14 +315,28 @@ class NavigationController:
             return None
         return self._pages[index - 1].key
 
-    def set_current_step(self, target_key: str) -> None:
+    def apply_navigation_state(
+        self,
+        target_key: str,
+        *,
+        update_last_step: bool = False,
+        persist: bool = False,
+    ) -> None:
+        """Apply canonical and legacy wizard navigation keys in one place."""
+
         self.state["current_step"] = target_key
         self._query_params["step"] = target_key
         renderer = self._renderers.get(target_key)
         if renderer is not None:
             # Legacy compatibility: index is derived from canonical current_step.
             self._session_state[StateKeys.STEP] = renderer.legacy_index
-        persist_session_snapshot()
+        if update_last_step:
+            self._session_state[StateKeys.WIZARD_LAST_STEP] = target_key
+        if persist:
+            persist_session_snapshot()
+
+    def set_current_step(self, target_key: str) -> None:
+        self.apply_navigation_state(target_key, persist=True)
 
     def mark_step_completed(self, step_key: str, *, skipped: bool) -> None:
         completed = self.state.get("completed_steps")

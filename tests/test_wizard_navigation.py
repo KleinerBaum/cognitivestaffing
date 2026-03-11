@@ -481,6 +481,46 @@ def test_next_advances_linearly(monkeypatch: pytest.MonkeyPatch, query_params: D
     assert query_params["step"] == ["team"]
 
 
+def test_next_back_navigation_uses_controller_state_writer(
+    monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
+) -> None:
+    """Next/back transitions should route all navigation state writes through controller."""
+
+    class RerunTriggered(Exception):
+        pass
+
+    monkeypatch.setattr(st, "rerun", lambda: (_ for _ in ()).throw(RerunTriggered()))
+    missing_ref = {"value": []}
+    router, _ = _make_router(monkeypatch, query_params, missing_ref)
+    router._state["current_step"] = "jobad"
+    query_params["step"] = ["jobad"]
+
+    calls: List[dict[str, object]] = []
+    original_apply = router._controller.apply_navigation_state
+
+    def _record_apply(target_key: str, *, update_last_step: bool = False, persist: bool = False) -> None:
+        calls.append(
+            {
+                "target": target_key,
+                "update_last_step": update_last_step,
+                "persist": persist,
+            }
+        )
+        original_apply(target_key, update_last_step=update_last_step, persist=persist)
+
+    monkeypatch.setattr(router._controller, "apply_navigation_state", _record_apply)
+
+    with pytest.raises(RerunTriggered):
+        router.navigate("company", mark_current_complete=True)
+    with pytest.raises(RerunTriggered):
+        router.navigate("jobad")
+
+    assert [call["target"] for call in calls] == ["company", "jobad"]
+    assert all(bool(call["persist"]) for call in calls)
+    assert router._state["current_step"] == "jobad"
+    assert query_params["step"] == ["jobad"]
+
+
 def test_pending_incomplete_jump_redirects_to_first_incomplete(
     monkeypatch: pytest.MonkeyPatch, query_params: Dict[str, List[str]]
 ) -> None:
