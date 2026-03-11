@@ -13,6 +13,7 @@ from llm.openai_responses import (
     ResponsesCallResult,
     build_json_schema_format,
     call_responses,
+    call_responses_safe,
 )
 from llm.response_schemas import (
     BENEFIT_SUGGESTION_SCHEMA_NAME,

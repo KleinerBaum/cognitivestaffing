@@ -359,6 +359,10 @@ class ResponsesPayloadBuilder(_BasePayloadBuilder):
             text_config.pop("type", None)
             text_config["format"] = deepcopy(self.context.schema_bundle.responses_format)
             payload["text"] = text_config
+        if self.context.tool_specs:
+            payload["tools"] = deepcopy(self.context.tool_specs)
+            if self.context.tool_choice is not None:
+                payload["tool_choice"] = deepcopy(self.context.tool_choice)
         if self.context.verbosity and not _is_codex_model(self.context.model):
             payload["verbosity"] = self.context.verbosity
         if self.context.extra:

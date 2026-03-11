@@ -96,6 +96,46 @@ def test_call_responses_forces_responses_mode_without_legacy_fallback(monkeypatc
     assert captured["kwargs"]["allow_legacy_fallback"] is False
 
 
+def test_prepare_payload_preserves_supported_tools_in_strict_nano_mode() -> None:
+    request = _prepare_payload(
+        [{"role": "user", "content": "Find evidence for this role profile."}],
+        model=GPT51_NANO,
+        temperature=None,
+        max_completion_tokens=200,
+        json_schema={
+            "name": "Out",
+            "schema": {
+                "type": "object",
+                "properties": {"ok": {"type": "boolean"}},
+                "required": ["ok"],
+                "additionalProperties": False,
+            },
+            "strict": True,
+        },
+        tools=[
+            {"type": "web_search", "name": "web_search"},
+            {"type": "file_search", "name": "file_search", "file_search": {"vector_store_ids": ["vs_123"]}},
+        ],
+        tool_choice=None,
+        tool_functions=None,
+        reasoning_effort="minimal",
+        verbosity="low",
+        extra=None,
+        task=ModelTask.DEFAULT,
+        previous_response_id="resp_tools",
+        api_mode="responses",
+        use_response_format=True,
+    )
+
+    payload = request.payload
+    assert payload["model"] == GPT51_NANO
+    assert payload["previous_response_id"] == "resp_tools"
+    assert payload["tools"][0]["type"] == "web_search"
+    assert payload["tools"][1]["type"] == "file_search"
+    assert "response_format" not in payload
+    assert payload["text"]["format"]["type"] == "json_schema"
+
+
 def test_prepare_payload_forces_nano_model_in_strict_mode() -> None:
     request = _prepare_payload(
         [{"role": "user", "content": "hi"}],
