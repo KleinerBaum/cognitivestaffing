@@ -8,16 +8,15 @@ from collections.abc import Callable, Collection, Iterable, Mapping
 from copy import deepcopy
 from functools import lru_cache
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, TypeAlias
 
 from pydantic import BaseModel
-
 
 logger = logging.getLogger(__name__)
 
 SchemaVersion = Literal["v1", "v2"]
 SchemaArtifact = Literal["need_analysis", "vacancy_extraction", "followups"]
-AdapterPath = tuple[SchemaVersion, SchemaVersion]
+AdapterPath: TypeAlias = tuple[SchemaVersion, SchemaVersion]
 
 _SCHEMA_PATH_V1 = Path(__file__).resolve().parent.parent / "schema" / "need_analysis.schema.json"
 _SCHEMA_PATH_V2 = Path(__file__).resolve().parent.parent / "schema" / "need_analysis_v2.schema.json"
@@ -73,19 +72,51 @@ def _trim_sections(schema: Mapping[str, Any], sections: Collection[str]) -> dict
     return trimmed
 
 
+def _resolve_v1_model() -> type[BaseModel]:
+    from models.need_analysis import NeedAnalysisProfile
+
+    return NeedAnalysisProfile
+
+
+def _resolve_v2_model() -> type[BaseModel]:
+    from models.need_analysis_v2 import NeedAnalysisV2
+
+    return NeedAnalysisV2
+
+
+_MODEL_REGISTRY: dict[SchemaVersion, Callable[[], type[BaseModel]]] = {
+    "v1": _resolve_v1_model,
+    "v2": _resolve_v2_model,
+}
+
+_NEED_ANALYSIS_SCHEMA_REGISTRY: dict[
+    SchemaVersion,
+    Callable[[Collection[str] | None], dict[str, Any]],
+] = {
+    "v1": _build_need_analysis_v1_schema,
+    "v2": _build_need_analysis_v2_schema,
+}
+
+
+def _adapt_v1_to_v2(payload: Mapping[str, Any]) -> Any:
+    from adapters.v1_to_v2 import adapt_v1_to_v2
+
+    return adapt_v1_to_v2(payload)
+
+
+_ADAPTER_REGISTRY: dict[AdapterPath, Callable[[Mapping[str, Any]], Any]] = {
+    ("v1", "v2"): _adapt_v1_to_v2,
+}
+
+
 @lru_cache(maxsize=4)
 def get_canonical_model(schema_version: SchemaVersion) -> type[BaseModel]:
     """Return the canonical pydantic model type for a schema version."""
 
-    if schema_version == "v1":
-        from models.need_analysis import NeedAnalysisProfile
-
-        return NeedAnalysisProfile
-    if schema_version == "v2":
-        from models.need_analysis_v2 import NeedAnalysisV2
-
-        return NeedAnalysisV2
-    raise ValueError(f"Unsupported schema version '{schema_version}'")
+    try:
+        return _MODEL_REGISTRY[schema_version]()
+    except KeyError as exc:
+        raise ValueError(f"Unsupported schema version '{schema_version}'") from exc
 
 
 @lru_cache(maxsize=32)
@@ -110,9 +141,8 @@ def _get_need_analysis_schema_cached(
     section_tuple: tuple[str, ...] | None,
 ) -> dict[str, Any]:
     try:
-        if schema_version == "v1":
-            return _build_need_analysis_v1_schema(sections=section_tuple)
-        return _build_need_analysis_v2_schema(sections=section_tuple)
+        builder = _NEED_ANALYSIS_SCHEMA_REGISTRY[schema_version]
+        return builder(sections=section_tuple)
     except Exception as exc:  # pragma: no cover - defensive fallback
         if schema_version == "v1":
             logger.warning("Falling back to disk schema after builder failure: %s", exc)
@@ -141,24 +171,20 @@ def get_canonical_json_schema(
     raise ValueError(f"Unsupported schema artifact '{artifact}'")
 
 
-_ALLOWED_ADAPTER_PATHS: tuple[AdapterPath, ...] = (("v1", "v2"),)
-
-
 def get_allowed_adapter_paths() -> tuple[AdapterPath, ...]:
     """Return all permitted adapter paths in source->target order."""
 
-    return _ALLOWED_ADAPTER_PATHS
+    return tuple(_ADAPTER_REGISTRY.keys())
 
 
 def get_adapter(source_version: SchemaVersion, target_version: SchemaVersion) -> Callable[[Mapping[str, Any]], Any]:
     """Return adapter callable for a permitted migration path."""
 
-    path = (source_version, target_version)
-    if path == ("v1", "v2"):
-        from adapters.v1_to_v2 import adapt_v1_to_v2
-
-        return adapt_v1_to_v2
-    raise ValueError(f"Unsupported adapter path: {source_version} -> {target_version}")
+    path: AdapterPath = (source_version, target_version)
+    try:
+        return _ADAPTER_REGISTRY[path]
+    except KeyError as exc:
+        raise ValueError(f"Unsupported adapter path: {source_version} -> {target_version}") from exc
 
 
 def adapt_payload(payload: Mapping[str, Any], *, source_version: SchemaVersion, target_version: SchemaVersion) -> Any:
