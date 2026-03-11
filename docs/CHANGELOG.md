@@ -1,3 +1,9 @@
+## Unreleased
+
+- Location context module added (`core/location_context.py`) for normalized country/region/city, policy rules, and country-specific compensation/benefits overlays.
+- Follow-up and gap prioritization now uses centralized location context in `wizard/services/followups.py` and `wizard/services/gaps.py`.
+- Need Analysis V2 model/schema extended with location policy and overlay fields; V1→V2 adapter now maps these fields.
+
 ## 2026-03-10
 
 - Completed Task C nano-migration alignment: prompt contracts were tightened for compact, schema-first outputs in job-ad/interview flows and reasoning defaults were reduced from medium/high forcing to minimal/low nano-safe behavior.

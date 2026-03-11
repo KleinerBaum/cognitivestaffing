@@ -62,6 +62,7 @@ def test_job_ad_generator_uses_confirmed_only_payload(monkeypatch) -> None:
                     "blocking_exports": ["job_ad_markdown"],
                 },
             ],
+            "constraints": {"compensation_currency": "EUR", "benefits_overlay": ["public_transport_support"]},
             "warnings": [],
         },
         "de",
@@ -71,6 +72,7 @@ def test_job_ad_generator_uses_confirmed_only_payload(monkeypatch) -> None:
     assert "ShouldAppear" in user_message
     assert "ShouldNotAppear" not in user_message
     assert "'decision_state': 'proposed'" not in user_message
+    assert "public_transport_support" in user_message
 
 
 def test_interview_generator_adds_warning_for_blocking_proposed(monkeypatch) -> None:

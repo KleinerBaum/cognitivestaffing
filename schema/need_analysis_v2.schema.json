@@ -74,6 +74,11 @@
       "required": [
         "responsibilities",
         "location",
+        "city",
+        "region",
+        "country",
+        "country_code",
+        "remote_policy",
         "work_policy",
         "travel_required"
       ],
@@ -94,6 +99,28 @@
           "type": [
             "boolean",
             "null"
+          ]
+        },
+        "city": {
+          "type": "string"
+        },
+        "region": {
+          "type": "string"
+        },
+        "country": {
+          "type": "string"
+        },
+        "country_code": {
+          "type": "string"
+        },
+        "remote_policy": {
+          "type": "string",
+          "enum": [
+            "onsite",
+            "hybrid",
+            "remote",
+            "flexible",
+            "unknown"
           ]
         }
       }
@@ -153,6 +180,11 @@
       "additionalProperties": false,
       "required": [
         "visa_sponsorship",
+        "visa_policy",
+        "relocation_policy",
+        "compensation_country_code",
+        "compensation_currency",
+        "benefits_overlay",
         "salary_min",
         "salary_max",
         "currency",
@@ -182,6 +214,36 @@
         },
         "timeline": {
           "type": "string"
+        },
+        "visa_policy": {
+          "type": "string",
+          "enum": [
+            "required",
+            "available",
+            "not_available",
+            "unknown"
+          ]
+        },
+        "relocation_policy": {
+          "type": "string",
+          "enum": [
+            "offered",
+            "case_by_case",
+            "not_offered",
+            "unknown"
+          ]
+        },
+        "compensation_country_code": {
+          "type": "string"
+        },
+        "compensation_currency": {
+          "type": "string"
+        },
+        "benefits_overlay": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
         }
       }
     },

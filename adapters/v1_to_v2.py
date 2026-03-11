@@ -8,6 +8,7 @@ from typing import Any, cast
 from models.decision_card import DecisionCard
 from models.evidence import EvidenceItem, EvidenceSource
 from models.need_analysis import NeedAnalysisProfile
+from core.location_context import build_location_context
 from models.need_analysis_v2 import NeedAnalysisV2
 
 
@@ -32,6 +33,7 @@ def adapt_v1_to_v2(v1_profile: NeedAnalysisProfile | Mapping[str, Any]) -> NeedA
 
     locale_bits = [location.get("primary_city") or "", location.get("country") or ""]
     locale_text = ", ".join(part for part in locale_bits if part)
+    location_context = build_location_context(raw)
 
     evidence_items: list[EvidenceItem] = []
     open_decisions: list[DecisionCard] = []
@@ -97,7 +99,12 @@ def adapt_v1_to_v2(v1_profile: NeedAnalysisProfile | Mapping[str, Any]) -> NeedA
             "work": {
                 "responsibilities": responsibilities.get("items") or [],
                 "location": locale_text,
+                "city": location_context.city,
+                "region": location_context.region,
+                "country": location_context.country,
+                "country_code": location_context.country_code,
                 "work_policy": employment.get("work_policy") or "",
+                "remote_policy": location_context.remote_policy,
                 "travel_required": employment.get("travel_required"),
             },
             "requirements": {
@@ -110,6 +117,11 @@ def adapt_v1_to_v2(v1_profile: NeedAnalysisProfile | Mapping[str, Any]) -> NeedA
             },
             "constraints": {
                 "visa_sponsorship": employment.get("visa_sponsorship"),
+                "visa_policy": location_context.visa_policy,
+                "relocation_policy": location_context.relocation_policy,
+                "compensation_country_code": location_context.country_code,
+                "compensation_currency": location_context.compensation_currency,
+                "benefits_overlay": list(location_context.benefits_overlay),
                 "salary_min": compensation.get("salary_min"),
                 "salary_max": compensation.get("salary_max"),
                 "currency": compensation.get("currency") or "",

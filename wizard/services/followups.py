@@ -26,6 +26,7 @@ from utils.json_repair import JsonRepairStatus, parse_json_with_repair
 from wizard._openai_bridge import get_build_file_search_tool, get_call_chat_api
 from wizard.field_metadata import is_unconfirmed_low_confidence_heuristic
 from wizard.step_status import compute_field_score
+from core.location_context import build_location_context, location_sensitive_followups
 from wizard.services.decision_engine import build_decision_backlog, decision_backlog_to_followups
 from wizard.services.gaps import load_critical_fields
 
@@ -140,10 +141,12 @@ def _prioritize_heuristic_followups(
     questions: Sequence[Mapping[str, Any]],
     *,
     profile: Mapping[str, Any],
+    locale: str = "en",
 ) -> list[dict[str, Any]]:
     """Sort follow-up questions to front-load lowest-confidence fields first."""
 
     critical_fields = set(load_critical_fields())
+    location_context = build_location_context(profile)
 
     def _score(item: Mapping[str, Any]) -> tuple[int, float, int, str, str]:
         field = canonicalize_followup_field_path(str(item.get("field") or "").strip())
@@ -165,13 +168,19 @@ def _prioritize_heuristic_followups(
         if is_unconfirmed_low_confidence_heuristic(field, profile=profile):
             priority_rank = min(priority_rank, 0)
 
+        if field == "location.primary_city" and location_context.remote_policy == "remote":
+            priority_rank = 2
+
         return (band, field_score.score, priority_rank, field, question_text)
 
     normalized: list[dict[str, Any]] = []
     for question in questions:
         if isinstance(question, Mapping):
             normalized.append(dict(question))
-    return sorted(normalized, key=_score)
+
+    normalized.extend(location_sensitive_followups(profile, locale=locale))
+    deduped = dedupe_followup_questions_by_field(normalized)
+    return sorted(deduped, key=_score)
 
 
 def _normalize_locale(locale: str) -> str:
@@ -573,6 +582,7 @@ def generate_followups(
             parsed["questions"] = _prioritize_heuristic_followups(
                 parsed.get("questions", []),
                 profile=profile,
+                locale=locale,
             )
             parsed.setdefault("source", "llm")
             return parsed
