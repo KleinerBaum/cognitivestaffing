@@ -7,6 +7,7 @@
 
 ## Unreleased
 
+- V2 wizard steps in `wizard/steps_v2/*_step.py` now use dedicated per-step render functions with concrete Streamlit forms, prioritized Top-Question cards (critical first), optional question expanders, explicit profile commits, summary chips, and a separate follow-up tools area.
 - Wizard-Versionsauflösung ist jetzt standardmäßig auf V2 gesetzt (`_DEFAULT_VERSION="v2"`), inklusive expliziter Prioritäts-Tests für Query > Session > Env > Default sowie README-Hinweisen zur Aktivierung über `?wizard=v2` und `ENABLE_WIZARD_V2=1`.
 - Added a canonical profile-metadata envelope for confidence/evidence/recovery/locking (`core/confidence.py`) plus centralized session accessors in `state/ai_contributions.py` with automatic legacy (`StateKeys.PROFILE_METADATA`) migration adapters.
 - Follow-up prioritization now applies deterministic tie-breaks (`field`, `question`) so identical input profiles produce stable follow-up ordering across reruns.

@@ -66,6 +66,8 @@ ENABLE_WIZARD_V2=1 poetry run streamlit run app.py
 - The introductory **Welcome** panel is also hidden in single-page mode, and step headers use text-only status labels (no warning emojis).
 
 
+- Wizard V2 step stubs now render per-step forms with explicit commit points (`StateKeys.PROFILE`), Known → Missing → Validate → Nav ordering, Top-Question cards, and follow-up tools expanders.
+
 ## Metadata access (confidence/evidence)
 
 - Use `state.ai_contributions.get_profile_metadata()` / `set_profile_metadata()` for all `StateKeys.PROFILE_METADATA` reads and writes.
