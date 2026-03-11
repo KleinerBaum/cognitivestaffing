@@ -7,6 +7,8 @@
 
 ## Unreleased
 
+- Unified wizard navigation ownership: `NavigationController` is now the single navigation engine, `wizard_router.py` is a thin UI wrapper, and version resolution fallback heuristics were consolidated through `wizard/step_registry_runtime.py`.
+- Added navigation regression coverage for rerun stability (current step/history/query sync), V1/V2 registry key consistency, and per-step required-field gating for disabled Next states.
 - Added explicit schema SoT registry mappings for canonical models/schemas/adapter paths and expanded schema-version consistency tests (model↔schema field sets plus v1→v2 export roundtrip validation).
 - Standardized schema-versioning documentation with layer ownership matrix in `docs/SCHEMA_VERSIONING.md`.
 

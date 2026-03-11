@@ -114,10 +114,6 @@ class WizardRouter:
         value_resolver: Callable[[Mapping[str, object], str, object | None], object | None],
         wizard_id: str = "default",
     ) -> None:
-        self._pages: list[WizardPage] = list(pages)
-        self._page_map: dict[str, WizardPage] = {page.key: page for page in pages}
-        self._renderers: dict[str, StepRenderer] = dict(renderers)
-        self._context: WizardContext = context
         self._controller = NavigationController(
             pages=pages,
             renderers=renderers,
@@ -127,6 +123,10 @@ class WizardRouter:
             validated_fields=PROFILE_VALIDATED_FIELDS,
             wizard_id=wizard_id,
         )
+        self._pages: list[WizardPage] = list(pages)
+        self._page_map: dict[str, WizardPage] = {page.key: page for page in pages}
+        self._renderers: dict[str, StepRenderer] = dict(renderers)
+        self._context: WizardContext = context
         active_pages = self._controller.pages
         self._summary_labels: tuple[LocalizedText, ...] = tuple(page.label for page in active_pages)
         st.session_state[StateKeys.WIZARD_STEP_COUNT] = len(active_pages)
@@ -159,8 +159,15 @@ class WizardRouter:
         self._controller.update_section_progress()
         self._controller.ensure_current_is_valid()
         current_key = self._controller.get_current_step_key()
-        page = self._page_map[current_key]
-        renderer = self._renderers.get(page.key)
+        self._page_map = {candidate.key: candidate for candidate in active_pages}
+        page = self._controller.page_for_key(current_key) or self._page_map.get(current_key)
+        if page is None:
+            st.warning(tr("Schritt nicht verfügbar.", "Step not available."))
+            return
+        override_renderer = self._renderers.get(page.key)
+        if override_renderer is not None:
+            self._controller.set_renderer(page.key, override_renderer)
+        renderer = self._controller.renderer_for(page.key)
         if renderer is None:
             st.warning(tr("Schritt nicht verfügbar.", "Step not available."))
             return
@@ -185,12 +192,10 @@ class WizardRouter:
             st.session_state["_wizard_step_summary"] = (renderer.legacy_index, summary_labels)
             ui_snapshot = snapshot_wizard_ui_state()
             try:
-                renderer.callback(self._context)
+                self._controller.render_step(page)
             except (RerunException, StopException):  # pragma: no cover - Streamlit control flow
                 raise
             except _STEP_RECOVERABLE_ERRORS as error:
-                self._controller.handle_step_exception(page, error)
-            except Exception as error:  # pragma: no cover - defensive guard
                 self._controller.handle_step_exception(page, error)
             finally:
                 self._record_step_ui_keys(page.key, ui_snapshot)
