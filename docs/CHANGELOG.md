@@ -1,6 +1,7 @@
 ## 2026-03-11
 
 ### Changed
+- Zentralisierte Rollen-Overlay-Registry unter `questions/overlays/` eingeführt, `ROLE_QUESTION_MAP` aus `question_logic.py` migriert und eine Alias-Normalisierung auf kanonische ESCO-/Role-Family-Keys ergänzt; `role_field_map`- und Overlay-Resolution nutzen jetzt dieselbe Schlüsselwelt, inklusive Tests für dokumentierte Fallbacks.
 - Updated `README.md` for a security-conscious, IT-audience-focused project overview (high-level architecture, process flow, CI quality gates, branching/release workflow, and sanitized configuration guidance).
 - Updated root `AGENTS.md` to align contributor/agent rules with current collaboration standards (Python typing/PEP8 expectations, PR target branch, CI-blocking checks, i18n/doc obligations, and security constraints for public documentation).
 - Added changelog documentation note to keep documentation updates traceable after rapid product/process changes.

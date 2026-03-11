@@ -69,6 +69,7 @@ from config import (
     is_llm_enabled,
 )
 from prompts import prompt_registry
+from wizard.planner.role_overlays import canonicalize_role_key, get_role_overlay_questions
 from wizard.services.followups import FollowupModelConfig, generate_followups as generate_followups_service
 
 # Optional OpenAI vector store ID for RAG suggestions; set via env/secrets.
@@ -114,139 +115,22 @@ def _load_role_field_map() -> dict[str, list[str]]:
     root = Path(__file__).resolve().parent
     with (root / "role_field_map.json").open("r", encoding="utf-8") as file:
         payload = json.load(file)
-    return {key.lower(): value for key, value in payload.items() if isinstance(value, list)}
-
-
-# Predefined role-specific follow-up questions keyed by ESCO group (lowercased)
-ROLE_QUESTION_MAP: Dict[str, List[Dict[str, str]]] = {
-    "software developers": [
-        {
-            "field": "requirements.hard_skills_required",
-            "text_key": "role_questions.software_developers.programming_languages",
-        },
-        {
-            "field": "responsibilities.items",
-            "text_key": "role_questions.software_developers.development_methodology",
-        },
-    ],
-    "sales, marketing and public relations professionals": [
-        {
-            "field": "business_context.domain",
-            "text_key": "role_questions.sales_professionals.target_markets",
-        },
-        {
-            "field": "position.performance_indicators",
-            "text_key": "role_questions.sales_professionals.sales_quota",
-        },
-        {
-            "field": "responsibilities.items",
-            "text_key": "role_questions.sales_professionals.campaign_types",
-        },
-        {
-            "field": "requirements.tools_and_technologies",
-            "text_key": "role_questions.sales_professionals.digital_marketing_platforms",
-        },
-    ],
-    "nursing and midwifery professionals": [
-        {
-            "field": "employment.work_schedule",
-            "text_key": "role_questions.nursing.shift_schedule",
-        },
-    ],
-    "medical doctors": [
-        {
-            "field": "requirements.certifications",
-            "text_key": "role_questions.medical_doctors.board_certification",
-        },
-        {
-            "field": "employment.overtime_expected",
-            "text_key": "role_questions.medical_doctors.on_call_requirements",
-        },
-    ],
-    "teaching professionals": [
-        {
-            "field": "position.role_summary",
-            "text_key": "role_questions.teachers.grade_level",
-        },
-        {
-            "field": "requirements.certifications",
-            "text_key": "role_questions.teachers.teaching_license",
-        },
-    ],
-    "graphic and multimedia designers": [
-        {
-            "field": "requirements.tools_and_technologies",
-            "text_key": "role_questions.designers.design_software_tools",
-        },
-        {
-            "field": "requirements.portfolio_required",
-            "text_key": "role_questions.designers.portfolio_url",
-        },
-    ],
-    "business services and administration managers not elsewhere classified": [
-        {
-            "field": "requirements.tools_and_technologies",
-            "text_key": "role_questions.business_managers.project_management_methodologies",
-        },
-        {
-            "field": "position.decision_authority",
-            "text_key": "role_questions.business_managers.budget_responsibility",
-        },
-    ],
-    "systems analysts": [
-        {
-            "field": "requirements.tools_and_technologies",
-            "text_key": "role_questions.systems_analysts.machine_learning_frameworks",
-        },
-        {
-            "field": "requirements.tools_and_technologies",
-            "text_key": "role_questions.systems_analysts.data_analysis_tools",
-        },
-    ],
-    "accountants": [
-        {
-            "field": "requirements.tools_and_technologies",
-            "text_key": "role_questions.accountants.accounting_software",
-        },
-        {
-            "field": "requirements.certifications",
-            "text_key": "role_questions.accountants.professional_certifications",
-        },
-    ],
-    "human resource professionals": [
-        {
-            "field": "requirements.tools_and_technologies",
-            "text_key": "role_questions.hr.hr_software_tools",
-        },
-        {
-            "field": "company.brand_keywords",
-            "text_key": "role_questions.hr.recruitment_channels",
-        },
-    ],
-    "civil engineers": [
-        {
-            "field": "position.key_projects",
-            "text_key": "role_questions.civil_engineers.civil_project_types",
-        },
-        {
-            "field": "requirements.tools_and_technologies",
-            "text_key": "role_questions.civil_engineers.engineering_software_tools",
-        },
-    ],
-    "chefs": [
-        {
-            "field": "requirements.hard_skills_required",
-            "text_key": "role_questions.chefs.cuisine_specialties",
-        },
-    ],
-}
+    role_fields: dict[str, list[str]] = {}
+    for key, value in payload.items():
+        if not isinstance(value, list):
+            continue
+        canonical_key = canonicalize_role_key(key)
+        if not canonical_key:
+            continue
+        role_fields[canonical_key] = list(value)
+    return role_fields
 
 
 def _resolve_role_questions(group_key: str, lang: str) -> List[Dict[str, str]]:
     """Return localized role-specific follow-up question entries."""
 
     resolved: List[Dict[str, str]] = []
-    for item in ROLE_QUESTION_MAP.get(group_key, []):
+    for item in get_role_overlay_questions(group_key):
         field = item.get("field")
         if not field:
             continue
@@ -807,17 +691,22 @@ def generate_followup_questions(
             st.session_state[StateKeys.UI_ESCO_OCCUPATION_OPTIONS] = occupation_options
             st.session_state[StateKeys.ESCO_SELECTED_OCCUPATIONS] = [occupation]
     if occupation:
-        group_key = str(occupation.get("group") or "").casefold()
-        if group_key:
-            role_fields = list(_load_role_field_map().get(group_key, []))
-            role_questions_cfg = _resolve_role_questions(group_key, lang)
+        candidate_role_keys = [
+            canonicalize_role_key(str(occupation.get("preferredLabel") or "")),
+            canonicalize_role_key(str(occupation.get("group") or "")),
+        ]
+        resolved_role_keys = [key for key in dict.fromkeys(candidate_role_keys) if key]
+        for role_key in resolved_role_keys:
+            if not role_fields:
+                role_fields = list(_load_role_field_map().get(role_key, []))
+            role_questions_cfg.extend(_resolve_role_questions(role_key, lang))
         source_had_skills = bool(st.session_state.get(StateKeys.ESCO_SKILLS))
         esco_skills = st.session_state.get(StateKeys.ESCO_SKILLS, [])
         if not esco_skills:
             esco_skills = get_essential_skills(occupation.get("uri", ""), lang=lang)
             if esco_skills:
                 st.session_state[StateKeys.ESCO_SKILLS] = esco_skills
-        if esco_skills and group_key:
+        if esco_skills and resolved_role_keys:
             fallback_skills = get_group_skills(occupation.get("group", ""))
             if fallback_skills and not source_had_skills:
                 merged = _merge_suggestions(esco_skills, fallback_skills)
