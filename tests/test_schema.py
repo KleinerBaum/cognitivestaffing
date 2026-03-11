@@ -5,9 +5,11 @@ from core.schema import (
     LIST_FIELDS,
     RecruitingWizard,
     SourceAttribution,
+    build_need_analysis_responses_schema,
     coerce_and_fill,
     process_extracted_profile,
 )
+from openai_utils.schemas import sanitize_json_schema_for_responses
 from core.schema_defaults import default_recruiting_wizard
 
 
@@ -251,3 +253,50 @@ def test_default_wizard_marks_required_fields() -> None:
 def test_source_attribution_accepts_blank_urls() -> None:
     attribution = SourceAttribution(source_url="   ")
     assert attribution.source_url is None
+
+
+def test_need_analysis_schema_sets_required_for_additional_properties_objects() -> None:
+    schema = build_need_analysis_responses_schema()
+
+    field_metadata_schema = schema["properties"]["meta"]["properties"]["field_metadata"]["additionalProperties"]
+
+    assert set(field_metadata_schema["required"]) == {
+        "source",
+        "confidence",
+        "evidence_snippet",
+        "confirmed",
+    }
+
+
+def test_sanitizer_rejects_required_properties_mismatch_in_additional_properties(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fake_ensure_responses_json_schema(_: dict[str, object]) -> dict[str, object]:
+        return {
+            "type": "object",
+            "properties": {
+                "meta": {
+                    "type": "object",
+                    "properties": {
+                        "field_metadata": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "object",
+                                "properties": {
+                                    "source": {"type": "string"},
+                                    "confidence": {"type": "number"},
+                                },
+                                "required": ["source"],
+                            },
+                        }
+                    },
+                    "required": ["field_metadata"],
+                }
+            },
+            "required": ["meta"],
+        }
+
+    monkeypatch.setattr("core.schema.ensure_responses_json_schema", fake_ensure_responses_json_schema)
+
+    with pytest.raises(ValueError, match="required' to include all properties"):
+        sanitize_json_schema_for_responses({"type": "object", "properties": {}, "required": []})
