@@ -31,6 +31,18 @@ Cognitive Staffing ist ein zweisprachiger (DE/EN) Streamlit-Wizard zur strukturi
 5. Validierung kritischer Felder
 6. Generierung und Export der Artefakte
 
+
+## Canonical Field Paths (ProfilePaths)
+
+Bei neuen oder geänderten Profilfeldern gilt ein **canonical path**-Workflow:
+
+1. Neues Feld als `ProfilePaths`-Konstante in `constants/keys.py` anlegen.
+2. Python-Code (z. B. Follow-up-Logik) auf `ProfilePaths.*` referenzieren statt freie String-Literale zu nutzen.
+3. JSON-Konfigurationen (`role_field_map.json`, `critical_fields.json`) dürfen String-Pfade enthalten, werden aber per Contract-Test gegen `ProfilePaths` abgesichert.
+4. Relevante Schema/Model/UI/Export-Stellen gemäß Datenvertrag mitziehen und Tests aktualisieren.
+
+So bleibt `ProfilePaths` die Single Source of Truth für erlaubte Feldpfade in der Anwendung.
+
 ## LLM- und Responses-Policy
 
 - Primäre Integration über **OpenAI Responses API**.

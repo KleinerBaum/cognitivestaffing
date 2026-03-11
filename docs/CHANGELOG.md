@@ -1,6 +1,9 @@
 ## 2026-03-11
 
 ### Changed
+- Added `ProfilePaths.all_values()` as canonical field-path helper and introduced contract coverage that validates path strings from `role_field_map.json`, `critical_fields.json`, and Python source references (including `question_logic.py`) against the `ProfilePaths` registry.
+- Refactored `question_logic.py` to prefer `ProfilePaths.*` constants for canonical field references in Python code while keeping JSON mappings string-based and guarded by tests.
+- Documented the canonical-path workflow in `README.md` for introducing new profile fields consistently.
 - Zentralisierte Rollen-Overlay-Registry unter `questions/overlays/` eingeführt, `ROLE_QUESTION_MAP` aus `question_logic.py` migriert und eine Alias-Normalisierung auf kanonische ESCO-/Role-Family-Keys ergänzt; `role_field_map`- und Overlay-Resolution nutzen jetzt dieselbe Schlüsselwelt, inklusive Tests für dokumentierte Fallbacks.
 - Updated `README.md` for a security-conscious, IT-audience-focused project overview (high-level architecture, process flow, CI quality gates, branching/release workflow, and sanitized configuration guidance).
 - Updated root `AGENTS.md` to align contributor/agent rules with current collaboration standards (Python typing/PEP8 expectations, PR target branch, CI-blocking checks, i18n/doc obligations, and security constraints for public documentation).

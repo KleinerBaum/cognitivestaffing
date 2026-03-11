@@ -75,6 +75,12 @@ class UIKeys:
 class ProfilePaths(StrEnum):
     """Canonical dot-paths for profile-bound wizard widgets."""
 
+    @classmethod
+    def all_values(cls) -> set[str]:
+        """Return all canonical profile paths as plain strings."""
+
+        return {member.value for member in cls}
+
     BUSINESS_CONTEXT_DOMAIN = "business_context.domain"
     BUSINESS_CONTEXT_INDUSTRY_CODES = "business_context.industry_codes"
     BUSINESS_CONTEXT_ORG_NAME = "business_context.org_name"
