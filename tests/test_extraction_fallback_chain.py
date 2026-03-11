@@ -8,6 +8,7 @@ from requests import Response
 from llm import client
 from llm.openai_responses import UnrecoverableSchemaShortCircuitError
 from models.need_analysis import NeedAnalysisProfile
+from core.errors import ExtractionError
 
 
 class _FakeParser:
@@ -59,42 +60,43 @@ def test_responses_schema_error_switches_to_chat_once(monkeypatch: pytest.Monkey
     assert outcome.low_confidence is True
 
 
-def test_unrecoverable_schema_400_short_circuits_after_single_attempt(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_unrecoverable_schema_400_raises_configuration_error_without_fallback(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     calls: dict[str, int] = {"chat": 0, "responses": 0}
 
     def _raise_invalid_schema(*_: object, **__: object):
         calls["responses"] += 1
         raise UnrecoverableSchemaShortCircuitError("invalid schema")
 
-    def _fake_chat_api(*_: object, **kwargs: object) -> _FakeChatResult:
+    def _fail_chat(*_: object, **__: object) -> _FakeChatResult:
         calls["chat"] += 1
-        assert kwargs.get("use_response_format") is False
-        assert "json_schema" not in kwargs
-        return _FakeChatResult(json.dumps({"title": "Engineer"}))
+        raise AssertionError("chat fallback must not run")
 
     monkeypatch.setattr(client, "call_responses_safe", _raise_invalid_schema)
-    monkeypatch.setattr(client, "call_chat_api", _fake_chat_api)
+    monkeypatch.setattr(client, "call_chat_api", _fail_chat)
     monkeypatch.setattr(client, "get_need_analysis_output_parser", lambda: _FakeParser())
     monkeypatch.setattr(client, "_responses_api_enabled", lambda: True)
     monkeypatch.setattr(client, "_strict_extraction_enabled", lambda: True)
+    monkeypatch.setattr(client.app_config, "ALLOW_DEGRADED_EXTRACTION_ON_CONFIG_ERROR", False, raising=False)
 
-    outcome = client._structured_extraction(
-        {
-            "messages": [{"role": "user", "content": "text"}],
-            "model": model_config.GPT4O_MINI,
-            "reasoning_effort": None,
-            "verbosity": None,
-            "retries": 2,
-            "source_text": "",
-        }
-    )
+    with pytest.raises(ExtractionError):
+        client._structured_extraction(
+            {
+                "messages": [{"role": "user", "content": "text"}],
+                "model": model_config.GPT4O_MINI,
+                "reasoning_effort": None,
+                "verbosity": None,
+                "retries": 2,
+                "source_text": "",
+            }
+        )
 
     assert calls["responses"] == 1
-    assert calls["chat"] == 1
-    assert outcome.schema_unrecoverable_short_circuit is True
+    assert calls["chat"] == 0
 
 
-def test_bad_request_response_format_schema_short_circuits_without_model_rotation(
+def test_bad_request_response_format_schema_short_circuits_without_model_rotation_or_chat_fallback(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     calls: dict[str, int] = {"chat": 0, "responses": 0, "alternate_model": 0}
@@ -111,35 +113,83 @@ def test_bad_request_response_format_schema_short_circuits_without_model_rotatio
             body={"error": {"param": "response_format"}},
         )
 
-    def _fake_chat_api(*_: object, **kwargs: object) -> _FakeChatResult:
+    def _fail_chat(*_: object, **__: object) -> _FakeChatResult:
         calls["chat"] += 1
-        assert kwargs.get("use_response_format") is False
-        assert "json_schema" not in kwargs
-        return _FakeChatResult(json.dumps({"title": "Engineer"}))
+        raise AssertionError("chat fallback must not run")
 
     def _fail_if_rotating(*_: object, **__: object) -> str:
         calls["alternate_model"] += 1
         return "unexpected"
 
     monkeypatch.setattr(client, "call_responses_safe", _raise_invalid_schema)
-    monkeypatch.setattr(client, "call_chat_api", _fake_chat_api)
+    monkeypatch.setattr(client, "call_chat_api", _fail_chat)
     monkeypatch.setattr(client, "get_model_for", _fail_if_rotating)
     monkeypatch.setattr(client, "get_need_analysis_output_parser", lambda: _FakeParser())
     monkeypatch.setattr(client, "_responses_api_enabled", lambda: True)
     monkeypatch.setattr(client, "_strict_extraction_enabled", lambda: True)
+    monkeypatch.setattr(client.app_config, "ALLOW_DEGRADED_EXTRACTION_ON_CONFIG_ERROR", False, raising=False)
 
-    outcome = client._structured_extraction(
-        {
-            "messages": [{"role": "user", "content": "text"}],
-            "model": model_config.GPT4O_MINI,
-            "reasoning_effort": None,
-            "verbosity": None,
-            "retries": 2,
-            "source_text": "",
-        }
-    )
+    with pytest.raises(ExtractionError):
+        client._structured_extraction(
+            {
+                "messages": [{"role": "user", "content": "text"}],
+                "model": model_config.GPT4O_MINI,
+                "reasoning_effort": None,
+                "verbosity": None,
+                "retries": 2,
+                "source_text": "",
+            }
+        )
 
     assert calls["responses"] == 1
-    assert calls["chat"] == 1
+    assert calls["chat"] == 0
     assert calls["alternate_model"] == 0
-    assert outcome.schema_unrecoverable_short_circuit is True
+
+
+def test_sdk_contract_type_error_short_circuits_deterministically(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: dict[str, int] = {"chat": 0, "responses": 0, "alternate_model": 0}
+
+    def _raise_contract_error(*_: object, **__: object):
+        calls["responses"] += 1
+        raise UnrecoverableSchemaShortCircuitError(
+            "responses.create() got an unexpected keyword argument 'response_format'"
+        )
+
+    def _fail_chat(*_: object, **__: object) -> _FakeChatResult:
+        calls["chat"] += 1
+        raise AssertionError("chat fallback must not run")
+
+    def _fail_if_rotating(*_: object, **__: object) -> str:
+        calls["alternate_model"] += 1
+        return "unexpected"
+
+    monkeypatch.setattr(client, "call_responses_safe", _raise_contract_error)
+    monkeypatch.setattr(client, "call_chat_api", _fail_chat)
+    monkeypatch.setattr(client, "get_model_for", _fail_if_rotating)
+    monkeypatch.setattr(client, "get_need_analysis_output_parser", lambda: _FakeParser())
+    monkeypatch.setattr(client, "_responses_api_enabled", lambda: True)
+    monkeypatch.setattr(client, "_strict_extraction_enabled", lambda: True)
+    monkeypatch.setattr(client.app_config, "ALLOW_DEGRADED_EXTRACTION_ON_CONFIG_ERROR", False, raising=False)
+
+    with pytest.raises(ExtractionError):
+        client._structured_extraction(
+            {
+                "messages": [{"role": "user", "content": "text"}],
+                "model": model_config.GPT4O_MINI,
+                "reasoning_effort": None,
+                "verbosity": None,
+                "retries": 2,
+                "source_text": "",
+            }
+        )
+
+    assert calls["responses"] == 1
+    assert calls["chat"] == 0
+    assert calls["alternate_model"] == 0
+
+
+def test_sdk_contract_error_classified_as_non_retryable_configuration_failure() -> None:
+    from openai_utils.api import is_non_retryable_configuration_error
+
+    err = TypeError("responses.create() got an unexpected keyword argument 'response_format'")
+    assert is_non_retryable_configuration_error(err) is True

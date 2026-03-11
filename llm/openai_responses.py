@@ -17,6 +17,7 @@ from openai_utils.api import (
     _inject_verbosity_hint,
     _resolve_verbosity,
     build_schema_format_bundle,
+    is_non_retryable_configuration_error,
     is_unrecoverable_schema_error,
     LLMResponseFormatError,
     call_chat_api,
@@ -281,9 +282,9 @@ def call_responses_safe(
             context,
             exc,
         )
-        return None
-    except (OpenAIError, LLMResponseFormatError) as exc:
-        if is_unrecoverable_schema_error(exc):
+        raise UnrecoverableSchemaShortCircuitError(str(exc)) from exc
+    except (OpenAIError, LLMResponseFormatError, TypeError) as exc:
+        if is_non_retryable_configuration_error(exc) or is_unrecoverable_schema_error(exc):
             raise UnrecoverableSchemaShortCircuitError(str(exc)) from exc
         active_logger.error(
             "Structured Responses call for %s failed: %s",
@@ -292,6 +293,8 @@ def call_responses_safe(
         )
         return None
     except Exception as exc:  # pragma: no cover - defensive
+        if is_non_retryable_configuration_error(exc):
+            raise UnrecoverableSchemaShortCircuitError(str(exc)) from exc
         active_logger.warning(
             "Unexpected error during structured %s call",
             context,

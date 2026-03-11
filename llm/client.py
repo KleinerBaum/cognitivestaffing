@@ -79,8 +79,12 @@ _SCHEMA_REPAIR_MAX_RETRIES = 1
 _EXTRACTION_MAX_COMPLETION_TOKENS: Final[int] = 500
 _SCHEMA_FALLBACK_NOTICE_KEY: Final[str] = "llm.schema_config_fallback_notice_shown"
 _SCHEMA_FALLBACK_NOTICE: Final[tuple[str, str]] = (
-    "Interner Schema-Konfigurationsfehler erkannt. Die Analyse läuft im reduzierten Modus weiter.",
-    "An internal schema configuration issue was detected. The analysis will continue in reduced mode.",
+    "Interner Konfigurationsfehler erkannt. Die Analyse läuft im reduzierten Modus weiter.",
+    "An internal configuration issue was detected. The analysis will continue in reduced mode.",
+)
+_CONFIG_FAILURE_ERROR: Final[tuple[str, str]] = (
+    "Vorübergehendes Systemproblem bei der KI-Konfiguration. Bitte später erneut versuchen oder den Support kontaktieren.",
+    "Temporary system issue in AI configuration. Please try again later or contact support.",
 )
 
 
@@ -101,6 +105,13 @@ def _show_schema_fallback_notice_once() -> None:
         st.session_state[_SCHEMA_FALLBACK_NOTICE_KEY] = True
     except Exception:
         return
+
+
+def _config_failure_user_error() -> str:
+    """Return the bilingual configuration-failure error message for extraction."""
+
+    language = str(st.session_state.get("language", "de") or "de").lower()
+    return _CONFIG_FAILURE_ERROR[0] if language.startswith("de") else _CONFIG_FAILURE_ERROR[1]
 
 
 def _build_missing_section_schema(missing_sections: Sequence[str]) -> Mapping[str, Any]:
@@ -826,6 +837,12 @@ def _structured_extraction(payload: dict[str, Any]) -> StructuredExtractionOutco
                 prompt_digest,
             )
         else:
+            if not app_config.ALLOW_DEGRADED_EXTRACTION_ON_CONFIG_ERROR:
+                logger.error(
+                    "Structured extraction aborted for %s due to non-recoverable configuration failure.",
+                    prompt_digest,
+                )
+                raise ExtractionError(_config_failure_user_error())
             fallback_kwargs["use_response_format"] = False
             logger.warning(
                 "Structured extraction schema config invalid for %s; switching to reduced fallback mode.",
@@ -1089,6 +1106,10 @@ def _extract_json_outcome(
                 "structured_validation_failed",
                 {"error.detail": detail[:512]},
             )
+        except ExtractionError as exc:
+            span.record_exception(exc)
+            span.set_status(Status(StatusCode.ERROR, "structured_config_failure"))
+            raise
         except Exception as exc:  # pragma: no cover - network/SDK issues
             logger.warning(
                 "Structured extraction failed for %s (missing sections: %s); falling back to plain text: %s",
