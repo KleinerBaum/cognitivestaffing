@@ -44,6 +44,7 @@ from pydantic import AnyUrl
 from core.normalization import sanitize_optional_url_fields, sanitize_optional_url_value
 from llm.profile_normalization import normalize_interview_stages_field
 from models.need_analysis import NeedAnalysisProfile, SkillMappings
+from models.need_analysis_envelope import NeedAnalysisEnvelope
 from utils.normalization import (
     NormalizedProfilePayload,
     normalize_language,
@@ -1575,6 +1576,15 @@ def ensure_responses_json_schema(schema: Mapping[str, Any]) -> dict[str, Any]:
                     _ensure_required_recursive(definition)
     _ensure_valid_json_schema(sanitized)
     return sanitized
+
+
+def build_need_analysis_envelope_schema() -> dict[str, Any]:
+    """Return the structured output schema for ``NeedAnalysisEnvelope``."""
+
+    schema = _build_model_schema(NeedAnalysisEnvelope)
+    schema.setdefault("$schema", "http://json-schema.org/draft-07/schema#")
+    schema.setdefault("title", NeedAnalysisEnvelope.__name__)
+    return ensure_responses_json_schema(schema)
 
 
 def build_need_analysis_responses_schema(*, sections: Collection[str] | None = None) -> dict[str, Any]:

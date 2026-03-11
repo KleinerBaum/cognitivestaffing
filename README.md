@@ -15,7 +15,7 @@ Cognitive Staffing ist ein zweisprachiger (DE/EN) Streamlit-Wizard zur strukturi
 ## Architektur (High-Level)
 
 - **UI/Flow:** `app.py`, `wizard/`, `wizard_router.py`, `wizard/navigation/`
-- **Datenvertrag:** `schema/need_analysis.schema.json`, `schemas.py`, `models/`
+- **Datenvertrag:** `schema/need_analysis.schema.json`, `schema/need_analysis_envelope.schema.json`, `schemas.py`, `models/`
 - **LLM/Runtime:** `openai_utils/`, `llm/`, `pipelines/`, `prompts/`
 - **Follow-ups & Missing Fields:** `questions/`, `question_logic.py`, `wizard/services/followups.py`
 - **Planning Context:** `wizard/planner/plan_context.py` provides a typed context envelope (role family, location, work policy, compliance, urgency, risk signals) shared by follow-up and decision prioritization.
@@ -26,10 +26,11 @@ Cognitive Staffing ist ein zweisprachiger (DE/EN) Streamlit-Wizard zur strukturi
 
 1. Ingestion (Datei/URL/Text)
 2. Strukturierte Extraktion in `NeedAnalysisProfile`
-3. Lückenanalyse je Wizard-Step
-4. Follow-up-Fragen und manuelle Ergänzung
-5. Validierung kritischer Felder
-6. Generierung und Export der Artefakte
+3. Shadow-Envelope im Wizard-State (`profile_envelope_data`) für Facts/Evidence-Parallelführung
+4. Lückenanalyse je Wizard-Step
+5. Follow-up-Fragen und manuelle Ergänzung
+6. Validierung kritischer Felder
+7. Generierung und Export der Artefakte
 
 
 ## Canonical Field Paths (ProfilePaths)

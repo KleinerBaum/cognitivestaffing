@@ -222,6 +222,7 @@ class StateKeys:
     SESSION_ID = "session.id"
     FLOW_MODE = "wizard.flow_mode"
     PROFILE = "profile_data"
+    PROFILE_ENVELOPE = "profile_envelope_data"
     AI_CONTRIBUTIONS = "ai_contributions"
     RAW_TEXT = "profile_raw_text"
     RAW_BLOCKS = "profile_raw_blocks"
