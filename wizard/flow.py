@@ -13582,9 +13582,8 @@ def _single_page_step_header(page: WizardPage, *, is_complete: bool) -> str:
         if is_complete
         else tr("Pflichtfelder fehlen", "missing required fields", lang=lang)
     )
-    status_icon = "✅" if is_complete else "⚠️"
     page_label = tr(*page.label, lang=lang)
-    return f"{status_icon} {page_label} · {status_label}"
+    return f"{page_label} · {status_label}"
 
 
 def _record_step_ui_keys(step_key: str, before: Mapping[str, object]) -> None:
@@ -13658,9 +13657,9 @@ def _render_single_page_wizard(
             first_renderer.legacy_index if first_renderer else 0,
             [tr(de, en, lang=lang) for de, en in summary_labels],
         )
-    _render_single_page_summary(missing_fields)
-
     for page in ordered_pages:
+        if page.key == "landing":
+            continue
         renderer = renderers.get(page.key)
         if renderer is None:
             st.warning(tr("Schritt nicht verfügbar.", "Step not available."))
