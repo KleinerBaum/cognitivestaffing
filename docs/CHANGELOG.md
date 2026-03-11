@@ -7,6 +7,9 @@
 
 ## Unreleased
 
+- Follow-up response contracts are now centralized in `llm/followup_contract.py`; `wizard/services/followups.py` imports the canonical JSON schema/validator and shared legacy field normalization map instead of keeping local schema duplicates.
+- Added follow-up contract snapshot tests that assert schema parity and parser normalization behavior for legacy field mappings.
+
 - Unified wizard navigation ownership: `NavigationController` is now the single navigation engine, `wizard_router.py` is a thin UI wrapper, and version resolution fallback heuristics were consolidated through `wizard/step_registry_runtime.py`.
 - Added navigation regression coverage for rerun stability (current step/history/query sync), V1/V2 registry key consistency, and per-step required-field gating for disabled Next states.
 - Added explicit schema SoT registry mappings for canonical models/schemas/adapter paths and expanded schema-version consistency tests (model↔schema field sets plus v1→v2 export roundtrip validation).

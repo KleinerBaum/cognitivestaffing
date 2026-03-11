@@ -53,6 +53,7 @@ RESPONSES_ALLOW_TOOLS=true
 - **Missing API key:** set `OPENAI_API_KEY` in env or Streamlit secrets.
 - **Wrong model appears in logs:** ensure `STRICT_NANO_ONLY=true` and restart the app process.
 - **Schema/structured output failures:** ensure structured calls use Responses `text.format` shape and strict JSON schema.
+- **Follow-up schema contract:** canonical follow-up schema/validator/normalization lives in `llm/followup_contract.py` and is reused by the follow-up service parser.
 - **`response_format` vs `text.format` confusion:** use `text.format` for Responses payloads; `response_format` is legacy/compatibility only.
 - **Timeout/retry drift:** verify `OPENAI_REQUEST_TIMEOUT` and check runtime logs for explicit fallback mode markers.
 
