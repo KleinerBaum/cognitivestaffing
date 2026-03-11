@@ -1,3 +1,10 @@
+## 2026-03-11
+
+### Changed
+- Updated `README.md` for a security-conscious, IT-audience-focused project overview (high-level architecture, process flow, CI quality gates, branching/release workflow, and sanitized configuration guidance).
+- Updated root `AGENTS.md` to align contributor/agent rules with current collaboration standards (Python typing/PEP8 expectations, PR target branch, CI-blocking checks, i18n/doc obligations, and security constraints for public documentation).
+- Added changelog documentation note to keep documentation updates traceable after rapid product/process changes.
+
 ## 2026-03-10
 
 - Completed Task C nano-migration alignment: prompt contracts were tightened for compact, schema-first outputs in job-ad/interview flows and reasoning defaults were reduced from medium/high forcing to minimal/low nano-safe behavior.

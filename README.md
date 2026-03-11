@@ -1,103 +1,99 @@
 # Cognitive Staffing
 
-Cognitive Staffing is a bilingual (DE/EN) Streamlit wizard that converts unstructured job ads into a structured `NeedAnalysisProfile`, then generates recruiter-ready outputs (job ad, interview guide, Boolean search, exports).
+Cognitive Staffing ist ein zweisprachiger (DE/EN) Streamlit-Wizard zur strukturierten Anforderungsanalyse für Recruiting. Die App verarbeitet Stelleninformationen (Text, URL, PDF, DOCX), überführt sie in ein `NeedAnalysisProfile` und erzeugt daraus recruiter-taugliche Artefakte (z. B. Job Ad Draft, Interview Guide, Boolean Search, JSON/Markdown-Export).
 
-## Runtime policy (current)
+> Diese README ist für technische Reviewer ausgelegt und beschreibt Architektur, Betriebsmodell und Qualitätsprozesse ohne sicherheitskritische Interna offenzulegen.
 
-- **Strict nano-only for non-embedding tasks:** all non-embedding model routing resolves to `gpt-5-nano` when `STRICT_NANO_ONLY=true`.
-- **Responses-first integration:** OpenAI calls are routed through the Responses runtime first.
-- **Structured outputs on Responses:** structured calls use **`text.format`** contracts.
-- **Reasoning baseline:** `reasoning.effort="minimal"` is the default baseline.
-- **Tools:** `RESPONSES_ALLOW_TOOLS=true` by default, with explicit guards against unsupported tool types for nano (`tool_search`, `computer_use`, `hosted_shell`, `apply_patch`, `skills`).
-- **Embeddings:** embedding model remains separately configurable (for example `text-embedding-3-large`).
+## Kernfunktionen
 
-## Quickstart
+- **8-stufiger Wizard** mit linearer Navigation (Back/Next) und Pflichtfeld-Gating.
+- **Schema-zentrierte Datenhaltung** über JSON Schema + Pydantic-Modelle.
+- **LLM-unterstützte Extraktion und Follow-ups** mit strukturierten Outputs.
+- **Bilinguale UX** (DE/EN) für UI-Texte, Validierung und generierte Inhalte.
+- **Export-Pipeline** für JSON/Markdown-Artefakte inkl. konsistenter Feldabbildung.
+
+## Architektur (High-Level)
+
+- **UI/Flow:** `app.py`, `wizard/`, `wizard_router.py`, `wizard/navigation/`
+- **Datenvertrag:** `schema/need_analysis.schema.json`, `schemas.py`, `models/`
+- **LLM/Runtime:** `openai_utils/`, `llm/`, `pipelines/`, `prompts/`
+- **Follow-ups & Missing Fields:** `questions/`, `question_logic.py`, `wizard/services/followups.py`
+- **Outputs/Exports:** `generators/`, `exports/`, `artifacts/`
+
+### Prozessfluss
+
+1. Ingestion (Datei/URL/Text)
+2. Strukturierte Extraktion in `NeedAnalysisProfile`
+3. Lückenanalyse je Wizard-Step
+4. Follow-up-Fragen und manuelle Ergänzung
+5. Validierung kritischer Felder
+6. Generierung und Export der Artefakte
+
+## LLM- und Responses-Policy
+
+- Primäre Integration über **OpenAI Responses API**.
+- **Strukturierte Ausgaben** müssen schema-konform angefordert und verarbeitet werden.
+- Tool-basierte Flows nur mit expliziter Freigabe/Guardrails.
+- Timeouts/Retry-Verhalten sind konfiguriert und dürfen nicht stillschweigend umgangen werden.
+
+> Hinweis: Modellrouting und Reasoning-Einstellungen werden zentral per Konfiguration/Environment gesteuert. Keine hardcodierten Modellwechsel in Feature-Code einführen.
+
+## Sicherheit & Datenschutz (öffentlich dokumentiert)
+
+- Secrets/Keys niemals im Code oder in Logs hinterlegen.
+- Konfiguration über Environment bzw. Secret-Management.
+- Sensible Nutzdaten (z. B. Job-Ad-Inhalte) nur minimal und zweckgebunden verarbeiten.
+- Debug-Ausgaben grundsätzlich ohne PII/Secret-Leaks.
+
+## Setup (lokal)
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
 poetry install --with dev
-cp .env.example .env
 poetry run streamlit run app.py
 ```
 
-## Minimal configuration
-
-Set in `.env` or `.streamlit/secrets.toml`:
+## Konfiguration (Beispiel, gekürzt)
 
 ```env
-OPENAI_API_KEY=<your-key>
+OPENAI_API_KEY=<set-via-env-or-secret-store>
 OPENAI_BASE_URL=https://api.openai.com/v1
 OPENAI_REQUEST_TIMEOUT=120
 
-STRICT_NANO_ONLY=true
-OPENAI_MODEL=gpt-5-nano
-DEFAULT_MODEL=gpt-5-nano
-LIGHTWEIGHT_MODEL=gpt-5-nano
-MEDIUM_REASONING_MODEL=gpt-5-nano
-HIGH_REASONING_MODEL=gpt-5-nano
+# optional
+VECTOR_STORE_ID=<optional>
 REASONING_EFFORT=minimal
-VERBOSITY=low
-RESPONSES_ALLOW_TOOLS=true
 ```
 
-## Wizard-Version aktivieren
+> Keine produktiven Secrets in `.env.example`, Commits oder Tickets hinterlegen.
 
-Die Runtime löst die aktive Wizard-Variante in dieser Reihenfolge auf: **Query-Param → Session-State → Env-Flag → Default**.
-
-- **Query-Param (höchste Priorität):** `?wizard=v2` (alternativ akzeptiert: `wizard_version`, `flow`).
-- **Env-Flag:** `ENABLE_WIZARD_V2=1` aktiviert V2, wenn kein Query/Session-Override gesetzt ist.
-
-Beispiele:
-
-```text
-http://localhost:8501/?wizard=v2
-```
-
-```bash
-ENABLE_WIZARD_V2=1 poetry run streamlit run app.py
-```
-
-## Wizard UI notes
-
-- Multi-step navigation is owned by `wizard/navigation/router.py::NavigationController`; `wizard_router.py` only wraps rendering + control wiring.
-- Wizard version resolution (V1/V2) is centralized in `wizard/step_registry_runtime.py` for query/session/env handling.
-- In single-page mode, the global **Validate all steps** expander is hidden to reduce duplicate controls at the top of the page.
-- The introductory **Welcome** panel is also hidden in single-page mode, and step headers use text-only status labels (no warning emojis).
-
-
-- Wizard V2 step stubs now render per-step forms with explicit commit points (`StateKeys.PROFILE`), Known → Missing → Validate → Nav ordering, Top-Question cards, and follow-up tools expanders.
-- Wizard metadata ownership maps (`PAGE_SECTION_INDEXES`, `PAGE_FOLLOWUP_PREFIXES`, `PAGE_PROGRESS_FIELDS`) include V2 step keys so required/summary fields, missing-field gating, and follow-up ownership resolve consistently across V1/V2.
-
-## Metadata access (confidence/evidence)
-
-- Use `state.ai_contributions.get_profile_metadata()` / `set_profile_metadata()` for all `StateKeys.PROFILE_METADATA` reads and writes.
-- The access layer auto-migrates legacy containers (`field_confidence`, `rules`, `llm_recovery`, lock lists) into a canonical Pydantic envelope (`core/confidence.py`) and writes a legacy-compatible projection back to session state.
-
-## Troubleshooting
-
-- **Missing API key:** set `OPENAI_API_KEY` in env or Streamlit secrets.
-- **Wrong model appears in logs:** ensure `STRICT_NANO_ONLY=true` and restart the app process.
-- **Schema/structured output failures:** ensure structured calls use Responses `text.format` shape and strict JSON schema.
-- **Follow-up schema contract:** canonical follow-up schema/validator/normalization lives in `llm/followup_contract.py` and is reused by the follow-up service parser.
-- **`response_format` vs `text.format` confusion:** use `text.format` for Responses payloads; `response_format` is legacy/compatibility only.
-- **Timeout/retry drift:** verify `OPENAI_REQUEST_TIMEOUT` and check runtime logs for explicit fallback mode markers.
-
-## Wizard V2 field path conventions
-
-- V2 step modules (`wizard/steps_v2`) should reference profile keys via `constants.keys.ProfilePaths` instead of local string literals.
-- Reuse shared profile path helpers in `wizard/steps_v2/_shared.py` for dotted-path get/set and prefix handling.
-
-## Schema versioning
-
-- Canonical schema/model/adapters are registered in `core/schema_registry.py`.
-- Source-of-Truth and ownership rules are documented in `docs/SCHEMA_VERSIONING.md`.
-
-## Quality checks
+## Qualitäts-Gates (CI-blocking)
 
 ```bash
 ruff format .
 ruff check .
 mypy --config-file pyproject.toml
-pytest -q
+pytest -q -m "not integration"
 ```
+
+Alle Checks müssen vor dem Merge grün sein.
+
+## Branching & Release-Prozess
+
+- Feature-Branches: `feat/<kurz-beschreibung>`
+- Pull Requests: gegen `dev`
+- Merge nach `main`: via Merge-Train
+- Jede PR enthält Release-Notes (user-facing + technische Änderungen)
+
+## i18n- und Doku-Regeln
+
+- Neue UI-Texte immer DE/EN konsistent pflegen.
+- Bei funktionalen Änderungen README + Changelog aktualisieren.
+- Bei sichtbaren UI-Änderungen zugehörige Screenshots in `images/` aktualisieren.
+
+## Verwandte Dokumente
+
+- `AGENTS.md` – Agent-/Contributor-Leitlinien
+- `docs/CHANGELOG.md` – laufende Änderungen und Release-Historie
+- `CONTRIBUTING.md` – Zusammenarbeit und Standards
