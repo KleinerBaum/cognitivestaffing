@@ -1,0 +1,160 @@
+{
+  "roles": {
+    "esco_occ:software_developers": {
+      "aliases": ["software developers"],
+      "questions": [
+        {
+          "field": "requirements.hard_skills_required",
+          "text_key": "role_questions.software_developers.programming_languages"
+        },
+        {
+          "field": "responsibilities.items",
+          "text_key": "role_questions.software_developers.development_methodology"
+        }
+      ]
+    },
+    "esco_group:sales_marketing_pr_professionals": {
+      "aliases": ["sales, marketing and public relations professionals"],
+      "questions": [
+        {
+          "field": "business_context.domain",
+          "text_key": "role_questions.sales_professionals.target_markets"
+        },
+        {
+          "field": "position.performance_indicators",
+          "text_key": "role_questions.sales_professionals.sales_quota"
+        },
+        {
+          "field": "responsibilities.items",
+          "text_key": "role_questions.sales_professionals.campaign_types"
+        },
+        {
+          "field": "requirements.tools_and_technologies",
+          "text_key": "role_questions.sales_professionals.digital_marketing_platforms"
+        }
+      ]
+    },
+    "esco_occ:nursing_and_midwifery_professionals": {
+      "aliases": ["nursing and midwifery professionals"],
+      "questions": [
+        {
+          "field": "employment.work_schedule",
+          "text_key": "role_questions.nursing.shift_schedule"
+        }
+      ]
+    },
+    "esco_occ:medical_doctors": {
+      "aliases": ["medical doctors"],
+      "questions": [
+        {
+          "field": "requirements.certifications",
+          "text_key": "role_questions.medical_doctors.board_certification"
+        },
+        {
+          "field": "employment.overtime_expected",
+          "text_key": "role_questions.medical_doctors.on_call_requirements"
+        }
+      ]
+    },
+    "esco_occ:teaching_professionals": {
+      "aliases": ["teaching professionals"],
+      "questions": [
+        {
+          "field": "position.role_summary",
+          "text_key": "role_questions.teachers.grade_level"
+        },
+        {
+          "field": "requirements.certifications",
+          "text_key": "role_questions.teachers.teaching_license"
+        }
+      ]
+    },
+    "esco_occ:graphic_and_multimedia_designers": {
+      "aliases": ["graphic and multimedia designers"],
+      "questions": [
+        {
+          "field": "requirements.tools_and_technologies",
+          "text_key": "role_questions.designers.design_software_tools"
+        },
+        {
+          "field": "requirements.portfolio_required",
+          "text_key": "role_questions.designers.portfolio_url"
+        }
+      ]
+    },
+    "esco_occ:business_services_and_administration_managers_nec": {
+      "aliases": ["business services and administration managers not elsewhere classified"],
+      "questions": [
+        {
+          "field": "requirements.tools_and_technologies",
+          "text_key": "role_questions.business_managers.project_management_methodologies"
+        },
+        {
+          "field": "position.decision_authority",
+          "text_key": "role_questions.business_managers.budget_responsibility"
+        }
+      ]
+    },
+    "esco_occ:systems_analysts": {
+      "aliases": ["systems analysts"],
+      "questions": [
+        {
+          "field": "requirements.tools_and_technologies",
+          "text_key": "role_questions.systems_analysts.machine_learning_frameworks"
+        },
+        {
+          "field": "requirements.tools_and_technologies",
+          "text_key": "role_questions.systems_analysts.data_analysis_tools"
+        }
+      ]
+    },
+    "esco_occ:accountants": {
+      "aliases": ["accountants"],
+      "questions": [
+        {
+          "field": "requirements.tools_and_technologies",
+          "text_key": "role_questions.accountants.accounting_software"
+        },
+        {
+          "field": "requirements.certifications",
+          "text_key": "role_questions.accountants.professional_certifications"
+        }
+      ]
+    },
+    "esco_occ:human_resource_professionals": {
+      "aliases": ["human resource professionals"],
+      "questions": [
+        {
+          "field": "requirements.tools_and_technologies",
+          "text_key": "role_questions.hr.hr_software_tools"
+        },
+        {
+          "field": "company.brand_keywords",
+          "text_key": "role_questions.hr.recruitment_channels"
+        }
+      ]
+    },
+    "esco_occ:civil_engineers": {
+      "aliases": ["civil engineers"],
+      "questions": [
+        {
+          "field": "position.key_projects",
+          "text_key": "role_questions.civil_engineers.civil_project_types"
+        },
+        {
+          "field": "requirements.tools_and_technologies",
+          "text_key": "role_questions.civil_engineers.engineering_software_tools"
+        }
+      ]
+    },
+    "esco_occ:chefs": {
+      "aliases": ["chefs"],
+      "questions": [
+        {
+          "field": "requirements.hard_skills_required",
+          "text_key": "role_questions.chefs.cuisine_specialties"
+        }
+      ]
+    }
+  }
+}
