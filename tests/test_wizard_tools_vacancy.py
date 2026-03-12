@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 
 from wizard_tools import vacancy
+from ingest.types import ContentBlock, StructuredDocument
 from wizard.services.gaps import detect_missing_critical_fields
 from wizard.services.validation import validate_profile
 
@@ -12,24 +14,79 @@ from wizard.services.validation import validate_profile
 def test_upload_jobad_prefers_text_over_sources() -> None:
     payload = json.loads(vacancy.upload_jobad(source_url="https://example.com", file_id="file-1", text="Role"))
 
-    assert payload == {"text": "Role", "metadata": {"source_url": "https://example.com", "file_id": "file-1"}}
+    assert payload["text"] == "Role"
+    assert payload["metadata"]["source_url"] == "https://example.com"
+    assert payload["metadata"]["file_id"] == "file-1"
+    assert payload["metadata"]["source_kind"] == "text"
 
 
-def test_extract_vacancy_fields_infers_title_and_language() -> None:
-    config = vacancy.ExtractionConfig(schema_version="v2", language="de", strict_json=False)
+def test_upload_jobad_reads_url_via_ingestion(monkeypatch: pytest.MonkeyPatch) -> None:
+    expected = StructuredDocument(
+        text="Line A\n\nLine B",
+        blocks=[ContentBlock(type="paragraph", text="Line A"), ContentBlock(type="paragraph", text="Line B")],
+        source="https://example.com/job",
+    )
+    monkeypatch.setattr(vacancy, "extract_text_from_url", lambda _url: expected)
+
+    payload = json.loads(vacancy.upload_jobad(source_url="https://example.com/job"))
+
+    assert payload["text"] == "Line A\n\nLine B"
+    assert payload["metadata"]["source_kind"] == "url"
+    assert payload["metadata"]["block_count"] == 2
+
+
+def test_upload_jobad_reads_file_via_ingestion(tmp_path: Path) -> None:
+    path = tmp_path / "job.txt"
+    path.write_text("Engineer\n\nTasks", encoding="utf-8")
+
+    payload = json.loads(vacancy.upload_jobad(file_id=str(path)))
+
+    assert payload["text"] == "Engineer\nTasks"
+    assert payload["metadata"]["source_kind"] == "file"
+
+
+def test_upload_jobad_rejects_missing_file() -> None:
+    with pytest.raises(ValueError, match="existing local file path"):
+        vacancy.upload_jobad(file_id="/tmp/does-not-exist.txt")
+
+
+def test_extract_vacancy_fields_uses_pipeline(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _fake_extract(text: str):
+        assert text == "Engineer\nBuild systems"
+        return type(
+            "_Result",
+            (),
+            {
+                "data": {"position": {"job_title": "Engineer"}},
+                "recovered": True,
+                "issues": ["example_issue"],
+                "low_confidence": False,
+                "repair_applied": True,
+                "repair_count": 1,
+                "missing_required_count": 2,
+                "degraded": True,
+                "degraded_reasons": ["missing_required_fields_after_retry"],
+            },
+        )()
+
+    monkeypatch.setattr(vacancy, "extract_need_analysis_profile", _fake_extract)
+
+    config = vacancy.ExtractionConfig(schema_version="v2", strict_json=False)
     payload = json.loads(vacancy.extract_vacancy_fields("Engineer\nBuild systems", config))
 
-    assert payload["profile"] == {"title": "Engineer", "language": "de"}
+    assert payload["profile"]["position"]["job_title"] == "Engineer"
     assert payload["schema_version"] == "v2"
     assert payload["strict_json"] is False
-    assert payload["confidence"] == pytest.approx(0.9)
+    assert payload["recovered"] is True
+    assert payload["issues"] == ["example_issue"]
 
 
 def test_extract_vacancy_fields_handles_empty_text() -> None:
     payload = json.loads(vacancy.extract_vacancy_fields("", vacancy.ExtractionConfig()))
 
-    assert payload["profile"]["title"] == "Untitled role"
-    assert payload["confidence"] == pytest.approx(0.5)
+    assert payload["issues"] == ["empty_input_text"]
+    assert payload["degraded"] is True
+    assert payload["profile"]["position"]["job_title"] is None
 
 
 def test_detect_gaps_and_followups_cover_missing_fields() -> None:
@@ -71,14 +128,19 @@ def test_validate_profile_reports_issues() -> None:
 
 
 def test_map_esco_skills_and_salary_enrichment() -> None:
-    profile = {"requirements": {"hard_skills_required": ["Python", " "]}, "position": {"seniority": "Senior"}}
+    profile = {
+        "requirements": {"hard_skills_required": ["Python", " "]},
+        "position": {"job_title": "Senior Data Engineer"},
+    }
     skills = json.loads(vacancy.map_esco_skills(profile))["skills"]
     assert skills == [{"name": "Python", "level": "advanced"}]
 
     salary = json.loads(vacancy.market_salary_enrich(profile, "DE"))["salary"]
     assert salary["region"] == "DE"
-    assert salary["min"] == 85000
-    assert salary["max"] == 120000
+    assert salary["min"] == 76000
+    assert salary["max"] == 105000
+    assert salary["currency"] == "EUR"
+    assert salary["degraded"] is False
 
 
 def test_generate_jd_and_export_profile() -> None:

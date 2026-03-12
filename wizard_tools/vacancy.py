@@ -3,11 +3,19 @@
 from __future__ import annotations
 
 import json
+import re
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from pydantic import BaseModel
 
 from agents import function_tool
+from core.analysis_tools import get_salary_benchmark, resolve_salary_role
+from ingest.extractors import extract_text_from_file, extract_text_from_url
+from ingest.reader import clean_job_text
+from ingest.types import StructuredDocument, build_plain_text_document
+from models.need_analysis import NeedAnalysisProfile
+from pipelines.need_analysis import extract_need_analysis_profile
 from wizard.services.followups import FollowupModelConfig, generate_followups as generate_followups_service
 from wizard.services.gaps import detect_missing_critical_fields
 from wizard.services.job_description import generate_job_description
@@ -33,8 +41,37 @@ def upload_jobad(
 ) -> str:
     """Normalise a job ad into text + metadata."""
 
-    norm_text = text or f"// fetched from {source_url or file_id}"
-    return json.dumps({"text": norm_text, "metadata": {"source_url": source_url, "file_id": file_id}})
+    source_kind = "text"
+    document: StructuredDocument | None = None
+
+    if isinstance(text, str) and text.strip():
+        source_kind = "text"
+        document = build_plain_text_document(text, source="pasted")
+    elif isinstance(source_url, str) and source_url.strip():
+        source_kind = "url"
+        document = extract_text_from_url(source_url.strip())
+    elif isinstance(file_id, str) and file_id.strip():
+        file_path = Path(file_id).expanduser()
+        if not file_path.exists() or not file_path.is_file():
+            raise ValueError("file_id must reference an existing local file path")
+        with file_path.open("rb") as handle:
+            document = extract_text_from_file(handle)
+        source_kind = "file"
+    else:
+        raise ValueError("Provide one of: text, source_url, or file_id")
+
+    canonical_text = clean_job_text(document.text if document else "")
+    if not canonical_text:
+        raise ValueError("Uploaded source contains no extractable text")
+
+    metadata = {
+        "source_url": source_url,
+        "file_id": file_id,
+        "source_kind": source_kind,
+        "source": document.source if document else None,
+        "block_count": len(document.blocks) if document else 0,
+    }
+    return json.dumps({"text": canonical_text, "metadata": metadata})
 
 
 @function_tool
@@ -42,17 +79,60 @@ def extract_vacancy_fields(text: str, config: ExtractionConfig) -> str:
     """Run structured extraction to the vacancy schema."""
 
     content = (text or "").strip()
-    title = content.splitlines()[0].strip() if content else "Untitled role"
-    profile: dict[str, Any] = {"title": title}
-    if config.language:
-        profile["language"] = config.language
+    if not content:
+        profile = NeedAnalysisProfile().model_dump(mode="python")
+        return json.dumps(
+            {
+                "profile": profile,
+                "schema_version": config.schema_version,
+                "strict_json": config.strict_json,
+                "recovered": False,
+                "issues": ["empty_input_text"],
+                "degraded": True,
+                "degraded_reasons": ["empty_input_text"],
+            }
+        )
+
+    result = extract_need_analysis_profile(content)
     payload = {
-        "profile": profile,
-        "confidence": 0.9 if content else 0.5,
+        "profile": result.data,
         "schema_version": config.schema_version,
         "strict_json": config.strict_json,
+        "recovered": result.recovered,
+        "issues": result.issues,
+        "low_confidence": result.low_confidence,
+        "repair_applied": result.repair_applied,
+        "repair_count": result.repair_count,
+        "missing_required_count": result.missing_required_count,
+        "degraded": result.degraded,
+        "degraded_reasons": result.degraded_reasons,
     }
     return json.dumps(payload)
+
+
+_RANGE_PATTERN = re.compile(r"(?P<currency>[€$£])?\s*(?P<low>[0-9]+(?:[.,][0-9]+)?)\s*[kK]?\s*[-–—]\s*(?P<tail>.+)$")
+
+
+def _parse_salary_range(range_text: str) -> tuple[int | None, int | None, str | None]:
+    match = _RANGE_PATTERN.search(range_text or "")
+    if not match:
+        return None, None, None
+    low_raw = match.group("low").replace(",", ".")
+    tail = match.group("tail")
+    high_match = re.search(r"([0-9]+(?:[.,][0-9]+)?)", tail)
+    if not high_match:
+        return None, None, None
+    high_raw = high_match.group(1).replace(",", ".")
+    try:
+        low_value = float(low_raw)
+        high_value = float(high_raw)
+    except ValueError:
+        return None, None, None
+
+    magnitude = 1000 if "k" in range_text.lower() else 1
+    currency_symbol = match.group("currency")
+    currency = {"€": "EUR", "$": "USD", "£": "GBP"}.get(currency_symbol)
+    return int(low_value * magnitude), int(high_value * magnitude), currency
 
 
 @function_tool
@@ -115,18 +195,24 @@ def map_esco_skills(profile_json: Dict[str, Any]) -> str:
 def market_salary_enrich(profile_json: Dict[str, Any], region: str) -> str:
     """Attach market salary ranges + rationale."""
 
-    seniority = (profile_json or {}).get("position", {}).get("seniority", "mid").lower()
-    base_min, base_max = {
-        "junior": (42000, 60000),
-        "mid": (60000, 90000),
-        "senior": (85000, 120000),
-    }.get(seniority, (60000, 90000))
+    profile = profile_json or {}
+    position = profile.get("position", {}) if isinstance(profile.get("position"), dict) else {}
+    role_title = str(position.get("job_title") or "")
+    country = (region or "US").strip().upper() or "US"
+
+    benchmark = get_salary_benchmark(role_title, country=country)
+    salary_range = str(benchmark.get("salary_range") or "unknown")
+    min_salary, max_salary, parsed_currency = _parse_salary_range(salary_range)
+    canonical_role = resolve_salary_role(role_title)
+
     salary = {
-        "min": base_min,
-        "max": base_max,
-        "currency": "EUR",
-        "region": region,
-        "seniority": seniority,
+        "min": min_salary,
+        "max": max_salary,
+        "currency": parsed_currency,
+        "region": country,
+        "role": canonical_role or role_title,
+        "salary_range": salary_range,
+        "degraded": min_salary is None or max_salary is None,
     }
     return json.dumps({"salary": salary})
 
