@@ -1,6 +1,7 @@
 ## 2026-03-11
 
 ### Changed
+- Centralized intake-to-profile mapping in extraction orchestration (`wizard/flow.py`) and added robust list normalization (trim/dedup/empty filtering) for responsibilities, skills, tools, and benefits so downstream wizard steps consume clean prefilled values consistently.
 - Added a new `NeedAnalysisEnvelope` shadow contract (model + generated schema + profile→envelope adapter) and synced it into wizard session state as `profile_envelope_data` in parallel to the existing `NeedAnalysisProfile`; added contract tests for required structure and adapter backward-compatibility.
 - Added `ProfilePaths.all_values()` as canonical field-path helper and introduced contract coverage that validates path strings from `role_field_map.json`, `critical_fields.json`, and Python source references (including `question_logic.py`) against the `ProfilePaths` registry.
 - Refactored `question_logic.py` to prefer `ProfilePaths.*` constants for canonical field references in Python code while keeping JSON mappings string-based and guarded by tests.

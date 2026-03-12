@@ -5,6 +5,7 @@ from typing import Any, cast
 
 import streamlit as st
 
+from core.validators import deduplicate_preserve_order
 from constants.keys import ProfilePaths
 from utils.i18n import tr
 from wizard.step_layout import render_step_layout
@@ -72,7 +73,7 @@ def _step_interview() -> None:
             value="\n".join(str(step) for step in process.get("hiring_process", []) if str(step).strip()),
             key="interview.hiring_process",
         )
-        steps = [line.strip() for line in process_text.splitlines() if line.strip()]
+        steps = deduplicate_preserve_order(process_text.splitlines())
         process["hiring_process"] = steps
         _update_profile(ProfilePaths.PROCESS_HIRING_PROCESS, steps)
         _render_followups_for_step("interview", profile)

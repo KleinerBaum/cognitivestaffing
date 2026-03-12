@@ -4581,6 +4581,143 @@ def _merge_populated_values(
     return merged
 
 
+def _normalize_extracted_list_items(value: Any) -> list[str]:
+    """Return ``value`` as normalized list items for extraction mapping."""
+
+    raw_items: list[str] = []
+
+    def _collect(candidate: Any) -> None:
+        if candidate is None:
+            return
+        if isinstance(candidate, str):
+            parts = re.split(r"[\n,;•]+", candidate)
+            raw_items.extend(part.strip() for part in parts if part and part.strip())
+            return
+        if isinstance(candidate, Mapping):
+            preferred = candidate.get("items")
+            if preferred is not None:
+                _collect(preferred)
+                return
+            for nested in candidate.values():
+                _collect(nested)
+            return
+        if isinstance(candidate, Sequence) and not isinstance(candidate, (str, bytes, bytearray)):
+            for nested in candidate:
+                _collect(nested)
+            return
+        rendered = str(candidate).strip()
+        if rendered:
+            raw_items.append(rendered)
+
+    _collect(value)
+    return unique_normalized(raw_items)
+
+
+def _apply_intake_profile_mapping(extracted_data: Mapping[str, Any]) -> dict[str, Any]:
+    """Map intake-style extraction values onto canonical profile paths."""
+
+    normalized: dict[str, Any] = deepcopy(dict(extracted_data))
+
+    scalar_targets: tuple[tuple[str, tuple[str, ...]], ...] = (
+        ("position.job_title", ("position.job_title", "position.title", "role.title", "job_title", "title")),
+        (
+            "company.name",
+            (
+                "company.name",
+                "company.company_name",
+                "company_name",
+                "employer",
+            ),
+        ),
+        (
+            "location.primary_city",
+            (
+                "location.primary_city",
+                "location.city",
+                "primary_city",
+                "city",
+            ),
+        ),
+        (
+            "location.country",
+            (
+                "location.country",
+                "company.location.country",
+                "country",
+            ),
+        ),
+    )
+
+    for target_path, source_paths in scalar_targets:
+        for source_path in source_paths:
+            raw_value = get_in(normalized, source_path, None)
+            if raw_value is None:
+                continue
+            rendered = str(raw_value).strip()
+            if rendered:
+                set_in(normalized, target_path, rendered)
+                break
+
+    list_targets: tuple[tuple[str, tuple[str, ...]], ...] = (
+        (
+            "responsibilities.items",
+            (
+                "responsibilities.items",
+                "responsibilities",
+                "tasks.core",
+                "tasks",
+            ),
+        ),
+        (
+            "requirements.hard_skills_required",
+            (
+                "requirements.hard_skills_required",
+                "requirements.hard_skills",
+                "hard_skills_required",
+                "hard_skills",
+                "skills.must_have",
+            ),
+        ),
+        (
+            "requirements.soft_skills_required",
+            (
+                "requirements.soft_skills_required",
+                "requirements.soft_skills",
+                "soft_skills_required",
+                "soft_skills",
+            ),
+        ),
+        (
+            "requirements.tools_and_technologies",
+            (
+                "requirements.tools_and_technologies",
+                "tools",
+                "skills.tools",
+            ),
+        ),
+        (
+            "compensation.benefits",
+            (
+                "compensation.benefits",
+                "benefits",
+                "company.benefits",
+            ),
+        ),
+    )
+
+    for target_path, source_paths in list_targets:
+        aggregated: list[str] = _normalize_extracted_list_items(get_in(normalized, target_path, None))
+        for source_path in source_paths:
+            if source_path == target_path:
+                continue
+            candidate_items = _normalize_extracted_list_items(get_in(normalized, source_path, None))
+            if candidate_items:
+                aggregated = unique_normalized([*aggregated, *candidate_items])
+        set_in(normalized, target_path, aggregated)
+
+    return normalized
+
+
 def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTracker | None = None) -> None:
     """Run extraction on ``text`` and store profile, summary, and missing fields."""
 
@@ -4846,6 +4983,7 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
     for field, match in rule_matches.items():
         set_in(extracted_data, field, match.value)
 
+    extracted_data = _apply_intake_profile_mapping(extracted_data)
     raw_profile_payload = deepcopy(extracted_data)
     profile = coerce_and_fill(extracted_data)
     _apply_branding_to_profile(profile)
@@ -5210,7 +5348,7 @@ def _apply_extraction_failure_fallback(
         raw_clean,
         metadata=safe_metadata,
     )
-    profile_data = fallback_profile.model_dump()
+    profile_data = _apply_intake_profile_mapping(fallback_profile.model_dump())
     st.session_state[StateKeys.PROFILE] = profile_data
     st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = profile_data
     st.session_state[StateKeys.EXTRACTION_SUMMARY] = warning_message

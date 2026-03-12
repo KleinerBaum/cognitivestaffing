@@ -5,6 +5,7 @@ from typing import Any, cast
 
 import streamlit as st
 
+from core.validators import deduplicate_preserve_order
 from constants.keys import ProfilePaths
 from utils.i18n import tr
 from wizard.step_layout import render_step_layout
@@ -95,7 +96,7 @@ def _step_benefits() -> None:
             value="\n".join(str(item) for item in compensation.get("benefits", []) if str(item).strip()),
             key="benefits.items",
         )
-        benefit_items = [line.strip() for line in benefits_text.splitlines() if line.strip()]
+        benefit_items = deduplicate_preserve_order(benefits_text.splitlines())
 
         compensation["salary_min"] = salary_min
         compensation["salary_max"] = salary_max

@@ -51,3 +51,22 @@ def test_compliance_fields_are_part_of_job_ad_fields() -> None:
     }
 
     assert compliance_keys.issubset({field.key for field in JOB_AD_FIELDS})
+
+
+def test_prepare_job_ad_data_maps_intake_aliases_to_profile_targets() -> None:
+    payload: Mapping[str, object] = {
+        "role": {"title": "Data Engineer"},
+        "company": {"name": "Example AG", "location": {"country": "Germany"}},
+        "city": "Berlin",
+        "responsibilities": ["Build ETL", "build etl", ""],
+        "compensation": {"benefits": ["Remote", "remote"]},
+    }
+
+    sanitized = _prepare_job_ad_data(payload)
+
+    assert sanitized["position"]["job_title"] == "Data Engineer"
+    assert sanitized["company"]["name"] == "Example AG"
+    assert sanitized["location"]["primary_city"] == "Berlin"
+    assert sanitized["location"]["country"] == "Germany"
+    assert sanitized["responsibilities"]["items"] == ["Build ETL"]
+    assert sanitized["compensation"]["benefits"] == ["Remote"]

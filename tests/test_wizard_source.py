@@ -31,6 +31,7 @@ from wizard import (
     _queue_extraction_rerun,
     _step_onboarding,
     _extract_and_summarize,
+    _apply_intake_profile_mapping,
     _prime_widget_state_from_profile,
     _sync_summary_widget_state_from_profile,
 )
@@ -1328,3 +1329,31 @@ def test_extract_and_summarize_keeps_raw_payload_separate_from_canonical_profile
     assert "unexpected_section" not in profile
     assert raw_profile["unexpected_section"] == {"foo": "bar"}
     assert profile["company"]["name"] == "Acme"
+
+
+def test_apply_intake_profile_mapping_normalizes_target_paths() -> None:
+    """Intake extraction payloads should be mapped to canonical profile paths."""
+
+    mapped = _apply_intake_profile_mapping(
+        {
+            "title": " Senior Data Engineer ",
+            "company_name": " ACME GmbH ",
+            "city": " Berlin ",
+            "country": " Germany ",
+            "tasks": {"core": [" Build pipelines ", "build pipelines", ""]},
+            "hard_skills": ["Python", " python ", "SQL"],
+            "soft_skills": "Communication, Stakeholder management, communication",
+            "tools": "dbt\nAirflow\n",
+            "benefits": ["Remote", " remote ", ""],
+        }
+    )
+
+    assert mapped["position"]["job_title"] == "Senior Data Engineer"
+    assert mapped["company"]["name"] == "ACME GmbH"
+    assert mapped["location"]["primary_city"] == "Berlin"
+    assert mapped["location"]["country"] == "Germany"
+    assert mapped["responsibilities"]["items"] == ["Build pipelines"]
+    assert mapped["requirements"]["hard_skills_required"] == ["Python", "SQL"]
+    assert mapped["requirements"]["soft_skills_required"] == ["Communication", "Stakeholder management"]
+    assert mapped["requirements"]["tools_and_technologies"] == ["dbt", "Airflow"]
+    assert mapped["compensation"]["benefits"] == ["Remote"]
