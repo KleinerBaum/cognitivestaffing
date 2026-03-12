@@ -111,25 +111,25 @@ def _all_wizard_pages() -> tuple[WizardPage, ...]:
 ALL_WIZARD_PAGES: Final[tuple[WizardPage, ...]] = _all_wizard_pages()
 _PAGE_EXTRA_FIELDS: dict[str, tuple[str, ...]] = {
     "company": (
-        "business_context.domain",
-        "business_context.industry_codes",
-        "company.name",
-        "company.contact_name",
-        "company.contact_email",
-        "company.contact_phone",
-        "location.primary_city",
-        "location.country",
+        str(ProfilePaths.BUSINESS_CONTEXT_DOMAIN),
+        str(ProfilePaths.BUSINESS_CONTEXT_INDUSTRY_CODES),
+        str(ProfilePaths.COMPANY_NAME),
+        str(ProfilePaths.COMPANY_CONTACT_NAME),
+        str(ProfilePaths.COMPANY_CONTACT_EMAIL),
+        str(ProfilePaths.COMPANY_CONTACT_PHONE),
+        str(ProfilePaths.LOCATION_PRIMARY_CITY),
+        str(ProfilePaths.LOCATION_COUNTRY),
     ),
     "team": (
-        "department.name",
-        "position.job_title",
-        "position.role_summary",
-        "meta.target_start_date",
+        str(ProfilePaths.DEPARTMENT_NAME),
+        str(ProfilePaths.POSITION_JOB_TITLE),
+        str(ProfilePaths.POSITION_ROLE_SUMMARY),
+        str(ProfilePaths.META_TARGET_START_DATE),
     ),
-    "role_tasks": ("responsibilities.items",),
+    "role_tasks": (str(ProfilePaths.RESPONSIBILITIES_ITEMS),),
     "skills": (
-        "requirements.hard_skills_required",
-        "requirements.soft_skills_required",
+        str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED),
+        str(ProfilePaths.REQUIREMENTS_SOFT_SKILLS_REQUIRED),
     ),
 }
 
@@ -174,6 +174,12 @@ FIELD_SECTION_MAP: dict[str, int] = _build_field_section_map()
 PAGE_FIELD_MAP: dict[str, str] = {
     field: page_key for page_key, fields in PAGE_PROGRESS_FIELDS.items() for field in fields
 }
+FIELD_PAGE_MAP: dict[str, tuple[str, ...]] = {}
+for _page_key, _fields in PAGE_PROGRESS_FIELDS.items():
+    for _field in _fields:
+        FIELD_PAGE_MAP.setdefault(_field, tuple())
+        if _page_key not in FIELD_PAGE_MAP[_field]:
+            FIELD_PAGE_MAP[_field] = (*FIELD_PAGE_MAP[_field], _page_key)
 SECTION_TO_STEP_KEY: Final[dict[int, str]] = {}
 for page in ALL_WIZARD_PAGES:
     section_index = PAGE_SECTION_INDEXES.get(page.key)
@@ -191,9 +197,10 @@ CRITICAL_SECTION_ORDER: tuple[int, ...] = tuple(
 # requirements insights can still run with just the country. Once the full
 # wizard is considered we still treat it as critical.
 SECTION_FILTER_OVERRIDES: dict[str, int] = {
-    "position.seniority_level": PAGE_SECTION_INDEXES.get("team", COMPANY_STEP_INDEX),
-    "employment.remote_percentage": PAGE_SECTION_INDEXES.get("team", COMPANY_STEP_INDEX),
-    "process.interview_stages": PAGE_SECTION_INDEXES.get("interview", COMPANY_STEP_INDEX),
+    str(ProfilePaths.POSITION_SENIORITY): PAGE_SECTION_INDEXES.get("team", COMPANY_STEP_INDEX),
+    str(ProfilePaths.EMPLOYMENT_REMOTE_PERCENTAGE): PAGE_SECTION_INDEXES.get("team", COMPANY_STEP_INDEX),
+    str(ProfilePaths.PROCESS_INTERVIEW_STAGES): PAGE_SECTION_INDEXES.get("interview", COMPANY_STEP_INDEX),
+    str(ProfilePaths.REQUIREMENTS_HARD_SKILLS_REQUIRED): PAGE_SECTION_INDEXES.get("skills", COMPANY_STEP_INDEX),
 }
 
 
@@ -286,11 +293,13 @@ def validate_required_fields_by_page(
                     f"{page.key}: required field '{field}' matches follow-up prefixes for {', '.join(matching_pages)}."
                 )
             if section_index is not None:
-                resolved_section = resolve_section_for_field(field)
-                if resolved_section != section_index:
-                    errors.append(
-                        f"{page.key}: required field '{field}' resolves to section {resolved_section} instead of {section_index}."
-                    )
+                owning_pages = FIELD_PAGE_MAP.get(field, ())
+                if len(owning_pages) <= 1:
+                    resolved_section = resolve_section_for_field(field)
+                    if resolved_section != section_index:
+                        errors.append(
+                            f"{page.key}: required field '{field}' resolves to section {resolved_section} instead of {section_index}."
+                        )
     return errors
 
 
@@ -356,7 +365,7 @@ def _adjust_priority_for_context(
     senior_lead_terms = {"lead", "manager", "head", "director", "vp", "chief", "principal"}
     is_senior_manager = any(term in seniority_raw for term in senior_lead_terms)
 
-    if field in {"position.team_size", "position.supervises"}:
+    if field in {str(ProfilePaths.POSITION_TEAM_SIZE), str(ProfilePaths.POSITION_SUPERVISES)}:
         if is_junior:
             return None
         if is_senior_manager:
@@ -449,6 +458,7 @@ __all__ = [
     "filter_followups_by_context",
     "FIELD_SECTION_MAP",
     "PAGE_FIELD_MAP",
+    "FIELD_PAGE_MAP",
     "PAGE_FOLLOWUP_PREFIXES",
     "PAGE_PROGRESS_FIELDS",
     "PAGE_SECTION_INDEXES",
