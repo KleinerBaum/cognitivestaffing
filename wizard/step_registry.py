@@ -154,12 +154,12 @@ WIZARD_STEPS: Final[tuple[StepDefinition, ...]] = (  # GREP:STEP_REGISTRY_V2
         panel_subheader=("Quelle & Import", "Source & intake"),
         panel_intro_variants=(
             (
-                "Nutze Upload, URL oder Textfeld, um die Stelle zu initialisieren.",
-                "Use upload, URL, or manual text to seed the wizard.",
+                "Prüfe die vorbefüllten Daten und ergänze fehlende Angaben für den Feinschliff.",
+                "Review prefilled details and add missing inputs for final refinement.",
             ),
             (
-                "Alle Inhalte lassen sich anschließend verfeinern.",
-                "You can refine all extracted details afterwards.",
+                "Der Import startet im Willkommen-Schritt und bleibt im linearen Flow ohne Skip-Pfade.",
+                "Intake starts in the Welcome step and stays in a strict linear flow without skip paths.",
             ),
         ),
         required_fields=(),

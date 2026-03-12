@@ -20,6 +20,7 @@
 ## Unreleased
 
 ### Changed
+- Moved onboarding intake controls (URL, file upload, free-text trigger) to the Landing step so extraction starts directly from Welcome via existing flow callbacks (`on_url_changed`, `on_file_uploaded`, `_maybe_run_extraction`), while the JobAd step now focuses on review/refinement and settings.
 - Added `wizard/planner/risk_detection.py` and decision-first wiring in `wizard/services/followups.py` to emit structured, neutral risk decision cards (stakeholder complexity, conflict-heavy interfaces, political sensitivity, communication constraints, pressure patterns, leadership-style compatibility) as inferred signals; these cards feed prioritization/follow-ups without mutating profile facts, with deterministic tests for generation and ranking integration.
 - `NeedAnalysisEnvelope` wurde minimal zu einem typisierten Shadow-Control-Plane erweitert (Facts/Inferences/Gaps/Plan/Risks/Evidence), inklusive rückwärtskompatibler Defaults, `NeedAnalysisProfile -> Envelope`-Adapterprojektion und Snapshot-Erzeugung bei Extraktionsabschluss sowie V2-Step-Saves; V1-Exports bleiben unverändert profilbasiert.
 - Introduced a typed `PlanContext` (`wizard/planner/plan_context.py`) and wired it through follow-up ranking (`question_logic.ask_followups` → `wizard/services/followups.generate_followups`) and decision backlog prioritization (`wizard/services/decision_engine.py`) so decision-first and field-first follow-ups share deterministic, context-aware weighting.
