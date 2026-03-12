@@ -723,6 +723,7 @@ from core.suggestions import (
     get_static_benefit_shortlist,
 )
 from question_logic import ask_followups  # nutzt deine neue Definition
+from wizard.planner.plan_context import PlanContext
 from wizard.services.followups import generate_followups
 from components import widget_factory
 from components.stepper import render_stepper as _render_stepper
@@ -3506,15 +3507,31 @@ def _build_followup_cache_key(
     lang: str,
     mode: str,
     vector_store_id: str | None,
+    plan_context: PlanContext | None = None,
 ) -> str:
+    plan_context_payload = plan_context.model_dump(mode="json", exclude_none=True) if plan_context is not None else {}
     return _hash_payload(
         {
             "extraction_key": extraction_key,
             "lang": lang,
             "mode": mode,
             "vector_store_id": vector_store_id or "",
+            "plan_context": plan_context_payload,
         }
     )
+
+
+def _build_runtime_plan_context(profile_payload: Mapping[str, Any]) -> PlanContext | None:
+    """Build planning context from profile data and current session state."""
+
+    try:
+        return PlanContext.from_profile_and_session(
+            profile_payload,
+            cast(Mapping[str, Any], st.session_state),
+        )
+    except Exception:  # pragma: no cover - defensive fallback for runtime anomalies
+        logger.debug("Unable to build runtime plan context; falling back to default ranking.", exc_info=True)
+        return None
 
 
 @st.cache_data(show_spinner=False, ttl=3600)
@@ -4988,11 +5005,13 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
     followup_reason = ""
     reasoning_mode = str(st.session_state.get(StateKeys.REASONING_MODE, "precise") or "precise").lower()
     followup_mode = "fast" if reasoning_mode in {"quick", "fast", "schnell"} else "precise"
+    plan_context = _build_runtime_plan_context(data)
     followup_cache_key = _build_followup_cache_key(
         extraction_cache_key,
         lang=str(lang),
         mode=followup_mode,
         vector_store_id=vector_store_id or None,
+        plan_context=plan_context,
     )
     followup_cache_snapshot = {
         "cache_key": st.session_state.get(StateKeys.FOLLOWUPS_CACHE_KEY),
@@ -5019,6 +5038,7 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
             mode=followup_mode,
             locale=lang_value,
             vector_store_id=vector_store_value,
+            plan_context=plan_context,
         )
         duration = time.perf_counter() - start_time
         _log_flow_event("followup_generation.end", cache_key=followup_cache_key, duration_s=round(duration, 3))

@@ -181,3 +181,94 @@ def test_prioritize_followups_plan_context_changes_ordering(monkeypatch) -> None
 
     assert [item["field"] for item in neutral] == ["location.primary_city", "process.recruitment_timeline"]
     assert [item["field"] for item in urgency] == ["process.recruitment_timeline", "location.primary_city"]
+
+
+def test_prioritize_followups_plan_context_role_and_location(monkeypatch) -> None:
+    monkeypatch.setattr(followups_mod, "load_critical_fields", lambda: [])
+
+    class _Score:
+        def __init__(self) -> None:
+            self.ui_behavior = "ok"
+            self.score = 0.5
+
+    monkeypatch.setattr(followups_mod, "compute_field_score", lambda *args, **kwargs: _Score())
+    monkeypatch.setattr(followups_mod, "is_unconfirmed_low_confidence_heuristic", lambda *_args, **_kwargs: False)
+
+    profile = {"meta": {"field_metadata": {}}}
+
+    role_questions = [
+        {"field": "location.primary_city", "question": "Confirm city", "priority": "normal"},
+        {"field": "position.role_summary", "question": "Confirm role summary", "priority": "normal"},
+    ]
+    role_neutral = followups_mod._prioritize_heuristic_followups(list(role_questions), profile=profile)
+    role_contextual = followups_mod._prioritize_heuristic_followups(
+        list(role_questions),
+        profile=profile,
+        plan_context=PlanContext(role_family="engineering"),
+    )
+
+    assert [item["field"] for item in role_neutral] == ["location.primary_city", "position.role_summary"]
+    assert [item["field"] for item in role_contextual] == ["position.role_summary", "location.primary_city"]
+
+    location_questions = [
+        {"field": "employment.work_policy", "question": "Confirm work policy", "priority": "normal"},
+        {"field": "location.primary_city", "question": "Confirm city", "priority": "normal"},
+    ]
+    location_neutral = followups_mod._prioritize_heuristic_followups(
+        list(location_questions),
+        profile=profile,
+    )
+    location_contextual = followups_mod._prioritize_heuristic_followups(
+        list(location_questions),
+        profile=profile,
+        plan_context=PlanContext(location="Berlin"),
+    )
+
+    assert [item["field"] for item in location_neutral] == ["employment.work_policy", "location.primary_city"]
+    assert [item["field"] for item in location_contextual] == ["location.primary_city", "employment.work_policy"]
+
+
+def test_prioritize_followups_plan_context_compliance_and_risk_signals(monkeypatch) -> None:
+    monkeypatch.setattr(followups_mod, "load_critical_fields", lambda: [])
+
+    class _Score:
+        def __init__(self) -> None:
+            self.ui_behavior = "ok"
+            self.score = 0.5
+
+    monkeypatch.setattr(followups_mod, "compute_field_score", lambda *args, **kwargs: _Score())
+    monkeypatch.setattr(followups_mod, "is_unconfirmed_low_confidence_heuristic", lambda *_args, **_kwargs: False)
+
+    profile = {"meta": {"field_metadata": {}}}
+    questions = [
+        {
+            "field": "requirements.background_check_required",
+            "question": "Is background check required?",
+            "priority": "normal",
+        },
+        {
+            "field": "location.primary_city",
+            "question": "Confirm city",
+            "priority": "normal",
+        },
+    ]
+
+    neutral = followups_mod._prioritize_heuristic_followups(list(questions), profile=profile)
+    risk_aware = followups_mod._prioritize_heuristic_followups(
+        list(questions),
+        profile=profile,
+        plan_context=PlanContext(
+            compliance=("gdpr",),
+            risk_signals=("location mismatch", "compliance review"),
+            location="Berlin",
+        ),
+    )
+
+    assert [item["field"] for item in neutral] == [
+        "location.primary_city",
+        "requirements.background_check_required",
+    ]
+    assert [item["field"] for item in risk_aware] == [
+        "requirements.background_check_required",
+        "location.primary_city",
+    ]
