@@ -26,7 +26,7 @@ Cognitive Staffing ist ein zweisprachiger (DE/EN) Streamlit-Wizard zur strukturi
 
 1. Ingestion (Datei/URL/Text)
 2. Strukturierte Extraktion in `NeedAnalysisProfile`
-3. Shadow-Envelope im Wizard-State (`profile_envelope_data`) für Facts/Evidence-Parallelführung
+3. Shadow-Envelope im Wizard-State (`profile_envelope_data`) für typed Facts/Inferences/Gaps/Plan/Risks/Evidence-Parallelführung inkl. Snapshot-Triggern (z. B. Extraktion, Step-Save)
 4. Lückenanalyse je Wizard-Step
 5. Follow-up-Fragen und manuelle Ergänzung
 6. Validierung kritischer Felder

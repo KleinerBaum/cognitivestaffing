@@ -7,6 +7,7 @@ from typing import Any
 
 import streamlit as st
 
+from adapters.profile_to_envelope import create_shadow_mode_snapshot
 from constants.keys import ProfilePaths, StateKeys
 from wizard.navigation_types import WizardContext
 from utils.i18n import tr
@@ -253,3 +254,9 @@ def commit_profile(
         if context_update is not None:
             context_update(path_str, value)
     st.session_state[StateKeys.PROFILE] = profile
+    step_key = str(st.session_state.get(StateKeys.WIZARD_LAST_STEP) or "")
+    st.session_state[StateKeys.PROFILE_ENVELOPE] = create_shadow_mode_snapshot(
+        profile,
+        trigger="step_save",
+        step=step_key,
+    ).model_dump(mode="json")

@@ -14,32 +14,112 @@
             "type": "array",
             "items": {
                 "type": "object",
-                "additionalProperties": {},
-                "required": []
+                "additionalProperties": false,
+                "properties": {
+                    "kind": {
+                        "type": "string"
+                    },
+                    "field_path": {
+                        "type": "string"
+                    },
+                    "statement": {
+                        "type": "string"
+                    },
+                    "confidence": {
+                        "type": "number"
+                    }
+                },
+                "required": [
+                    "kind",
+                    "field_path",
+                    "statement",
+                    "confidence"
+                ]
             }
         },
         "gaps": {
             "type": "array",
             "items": {
                 "type": "object",
-                "additionalProperties": {},
-                "required": []
+                "additionalProperties": false,
+                "properties": {
+                    "field_path": {
+                        "type": "string"
+                    },
+                    "question": {
+                        "type": "string"
+                    },
+                    "priority": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "field_path",
+                    "question",
+                    "priority",
+                    "status"
+                ]
             }
         },
         "plan": {
             "type": "array",
             "items": {
                 "type": "object",
-                "additionalProperties": {},
-                "required": []
+                "additionalProperties": false,
+                "properties": {
+                    "action": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    },
+                    "mode": {
+                        "type": "string"
+                    },
+                    "trigger": {
+                        "type": "string"
+                    },
+                    "step": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "action",
+                    "status",
+                    "mode",
+                    "trigger",
+                    "step"
+                ]
             }
         },
         "risks": {
             "type": "array",
             "items": {
                 "type": "object",
-                "additionalProperties": {},
-                "required": []
+                "additionalProperties": false,
+                "properties": {
+                    "code": {
+                        "type": "string"
+                    },
+                    "level": {
+                        "type": "string"
+                    },
+                    "detail": {
+                        "type": "string"
+                    },
+                    "status": {
+                        "type": "string"
+                    }
+                },
+                "required": [
+                    "code",
+                    "level",
+                    "detail",
+                    "status"
+                ]
             }
         },
         "evidence": {

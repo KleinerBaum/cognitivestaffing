@@ -20,6 +20,7 @@
 ## Unreleased
 
 ### Changed
+- `NeedAnalysisEnvelope` wurde minimal zu einem typisierten Shadow-Control-Plane erweitert (Facts/Inferences/Gaps/Plan/Risks/Evidence), inklusive rückwärtskompatibler Defaults, `NeedAnalysisProfile -> Envelope`-Adapterprojektion und Snapshot-Erzeugung bei Extraktionsabschluss sowie V2-Step-Saves; V1-Exports bleiben unverändert profilbasiert.
 - Introduced a typed `PlanContext` (`wizard/planner/plan_context.py`) and wired it through follow-up ranking (`question_logic.ask_followups` → `wizard/services/followups.generate_followups`) and decision backlog prioritization (`wizard/services/decision_engine.py`) so decision-first and field-first follow-ups share deterministic, context-aware weighting.
 - Added deterministic ranking tests for unchanged input and explicit context-shift behavior in follow-up and decision backlog ordering.
 - Harmonized Wizard V2 field paths to use `constants.keys.ProfilePaths` (including new constants for V2-only paths) and centralized profile path helpers for get/set + follow-up prefix handling.
