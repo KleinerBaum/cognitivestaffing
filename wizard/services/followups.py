@@ -26,6 +26,7 @@ from utils.json_repair import JsonRepairStatus, parse_json_with_repair
 from wizard._openai_bridge import get_build_file_search_tool, get_call_chat_api
 from wizard.field_metadata import is_unconfirmed_low_confidence_heuristic
 from wizard.planner.plan_context import PlanContext, context_weight_for_field
+from wizard.planner.risk_detection import detect_risk_decision_cards
 from wizard.step_status import compute_field_score
 from wizard.services.decision_engine import build_decision_backlog, decision_backlog_to_followups
 from wizard.services.gaps import load_critical_fields
@@ -474,8 +475,17 @@ def generate_followups(
     if mode_value == "decision-first":
         open_decisions_raw = profile.get("open_decisions", []) if isinstance(profile, Mapping) else []
         if isinstance(open_decisions_raw, Sequence):
+            risk_cards = detect_risk_decision_cards(profile, plan_context=plan_context)
+            combined_decisions: list[Any] = list(open_decisions_raw)
+            known_ids = {
+                str(item.get("decision_id") or "").strip() for item in combined_decisions if isinstance(item, Mapping)
+            }
+            for card in risk_cards:
+                if card.decision_id in known_ids:
+                    continue
+                combined_decisions.append(card)
             backlog = build_decision_backlog(
-                open_decisions_raw,
+                combined_decisions,
                 max_items=max_questions,
                 plan_context=plan_context,
             )
