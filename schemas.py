@@ -3,7 +3,7 @@ from __future__ import annotations
 from copy import deepcopy
 from typing import Any
 
-from core.schema_registry import load_need_analysis_schema
+from core.schema_registry import get_canonical_json_schema, load_need_analysis_schema
 
 
 def _ensure_required_fields(schema: dict[str, Any], fields: list[str]) -> None:
@@ -216,32 +216,8 @@ VACANCY_EXTRACTION_SCHEMA = {
     "properties": _VACANCY_PROPERTIES,
 }
 
-FOLLOW_UPS_SCHEMA = {
-    "$schema": "https://json-schema.org/draft/2020-12/schema",
-    "title": "FollowUpQuestions",
-    "type": "object",
-    "additionalProperties": False,
-    "required": ["questions"],
-    "properties": {
-        "questions": {
-            "type": "array",
-            "minItems": 1,
-            "items": {
-                "type": "object",
-                "additionalProperties": False,
-                "required": ["field", "question", "priority", "suggestions"],
-                "properties": {
-                    "field": {"type": "string", "minLength": 1},
-                    "question": {"type": "string", "minLength": 5},
-                    "priority": {"type": "string", "enum": ["critical", "normal", "optional"]},
-                    "suggestions": {"type": "array", "items": {"type": "string"}},
-                    "rationale": {"type": "string"},
-                    "depends_on": {"type": "array", "items": {"type": "string"}},
-                },
-            },
-        }
-    },
-}
+FOLLOW_UPS_SCHEMA = get_canonical_json_schema(schema_version="v1", artifact="followups")
+
 
 PROFILE_SUMMARY_SCHEMA = {
     "$schema": "https://json-schema.org/draft/2020-12/schema",

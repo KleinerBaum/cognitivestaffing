@@ -6,18 +6,17 @@ from llm.followup_contract import (
     get_followup_json_schema,
     get_followup_validator,
 )
-from core.schema_registry import get_canonical_json_schema
+from core.schema_registry import get_followup_response_json_schema
 from wizard.services import followups as followups_mod
+import schemas as schemas_module
 
 
 def test_followup_service_schema_matches_response_schema_registry() -> None:
-    expected = {
-        "name": "followup_questions",
-        "schema": get_canonical_json_schema(schema_version="v1", artifact="followups"),
-    }
+    expected = get_followup_response_json_schema()
 
     assert get_followup_json_schema() == expected
     assert followups_mod.FOLLOWUP_JSON_SCHEMA == expected
+    assert schemas_module.FOLLOW_UPS_SCHEMA == expected["schema"]
     assert get_followup_validator().schema == expected["schema"]
 
 

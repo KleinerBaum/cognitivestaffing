@@ -20,6 +20,10 @@ AdapterPath: TypeAlias = tuple[SchemaVersion, SchemaVersion]
 
 _SCHEMA_PATH_V1 = Path(__file__).resolve().parent.parent / "schema" / "need_analysis.schema.json"
 _SCHEMA_PATH_V2 = Path(__file__).resolve().parent.parent / "schema" / "need_analysis_v2.schema.json"
+_FOLLOWUPS_SCHEMA_PATH = Path(__file__).resolve().parent.parent / "schema" / "followups.schema.json"
+
+FOLLOWUP_RESPONSE_SCHEMA_NAME = "followup_questions"
+FOLLOWUP_SCHEMA_VERSION: SchemaVersion = "v1"
 
 
 def _load_json(path: Path) -> dict[str, Any]:
@@ -47,9 +51,7 @@ def _build_vacancy_extraction_schema(*, _version: SchemaVersion) -> dict[str, An
 
 
 def _build_followups_schema(*, _version: SchemaVersion) -> dict[str, Any]:
-    from schemas import FOLLOW_UPS_SCHEMA
-
-    return deepcopy(FOLLOW_UPS_SCHEMA)
+    return _load_json(_FOLLOWUPS_SCHEMA_PATH)
 
 
 def _trim_sections(schema: Mapping[str, Any], sections: Collection[str]) -> dict[str, Any]:
@@ -153,6 +155,19 @@ def _get_need_analysis_schema_cached(
         raise
 
 
+@lru_cache(maxsize=1)
+def get_followup_response_json_schema() -> dict[str, Any]:
+    """Return the canonical Responses payload wrapper for follow-up questions."""
+
+    return {
+        "name": FOLLOWUP_RESPONSE_SCHEMA_NAME,
+        "schema": get_canonical_json_schema(
+            schema_version=FOLLOWUP_SCHEMA_VERSION,
+            artifact="followups",
+        ),
+    }
+
+
 def get_canonical_json_schema(
     *,
     schema_version: SchemaVersion,
@@ -235,6 +250,7 @@ def clear_schema_cache() -> None:
     _get_need_analysis_schema_cached.cache_clear()
     _load_need_analysis_legacy_cached.cache_clear()
     get_canonical_model.cache_clear()
+    get_followup_response_json_schema.cache_clear()
 
 
 __all__ = [
@@ -244,6 +260,9 @@ __all__ = [
     "get_allowed_adapter_paths",
     "get_canonical_json_schema",
     "get_canonical_model",
+    "get_followup_response_json_schema",
     "iter_need_analysis_field_paths",
+    "FOLLOWUP_RESPONSE_SCHEMA_NAME",
+    "FOLLOWUP_SCHEMA_VERSION",
     "load_need_analysis_schema",
 ]
