@@ -83,3 +83,51 @@ def test_parse_structured_payload_forces_retry_for_required_skills() -> None:
     assert recovered is True
     assert payload["position"]["job_title"] == "Developer"
     assert any("forced retry completed" in issue or "manual review required" in issue for issue in issues)
+
+
+def test_parse_structured_payload_applies_compensation_and_remote_heuristics_en(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr("core.extraction.repair_profile_payload", lambda *_, **__: None)
+    monkeypatch.setattr("ingest.heuristics._llm_extract_primary_city", lambda _text: "")
+
+    raw = '{"position": {"job_title": "Account Executive"}, "compensation": {"salary_min": null, "salary_max": null}}'
+    source_text = (
+        "Compensation: 90.000 - 110.000 € base + 20% bonus. Hybrid role with 3 office days per week and 2 days remote."
+    )
+
+    payload, _recovered, issues = parse_structured_payload(raw, source_text=source_text)
+
+    compensation = payload["compensation"]
+    employment = payload["employment"]
+    location = payload["location"]
+
+    assert compensation["salary_min"] == 90000
+    assert compensation["salary_max"] == 110000
+    assert compensation["currency"] == "EUR"
+    assert compensation["bonus_percentage"] == 20
+    assert compensation["salary_provided"] is True
+    assert employment["remote_percentage"] == 40
+    assert location["onsite_ratio"] == "60% onsite"
+    assert any("compensation_and_remote: filled via heuristics" in issue for issue in issues)
+
+
+def test_parse_structured_payload_applies_compensation_and_remote_heuristics_de(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr("core.extraction.repair_profile_payload", lambda *_, **__: None)
+    monkeypatch.setattr("ingest.heuristics._llm_extract_primary_city", lambda _text: "")
+
+    raw = '{"position": {"job_title": "Projektmanager"}, "compensation": {"salary_min": null, "salary_max": null}}'
+    source_text = (
+        "Gehalt: 65.000 - 75.000 € jährlich plus 15% Bonus. Hybrid mit 2 Tagen Homeoffice und 3 Tagen im Büro."
+    )
+
+    payload, _recovered, _issues = parse_structured_payload(raw, source_text=source_text)
+
+    assert payload["compensation"]["salary_min"] == 65000
+    assert payload["compensation"]["salary_max"] == 75000
+    assert payload["compensation"]["currency"] == "EUR"
+    assert payload["compensation"]["bonus_percentage"] == 15
+    assert payload["employment"]["remote_percentage"] == 40
+    assert payload["location"]["onsite_ratio"] == "60% onsite"

@@ -15,7 +15,7 @@ from core.schema import canonicalize_profile_payload, coerce_and_fill, merge_pro
 from llm.json_repair import parse_profile_json, repair_profile_payload, retry_profile_payload
 from models.need_analysis import NeedAnalysisProfile
 from utils.json_repair import JsonRepairStatus
-from ingest.heuristics import extract_responsibilities, refine_requirements
+from ingest.heuristics import apply_basic_fallbacks, extract_responsibilities, refine_requirements
 
 logger = logging.getLogger("cognitive_needs.core.extraction")
 
@@ -51,6 +51,34 @@ _REQUIREMENT_PATTERNS: tuple[str, ...] = (
     r"what you bring",
     r"skills?",
 )
+
+_COMPENSATION_PATTERNS: tuple[str, ...] = (
+    r"\bsalary\b",
+    r"\bgehalt\b",
+    r"\bverg[üu]tung\b",
+    r"\bcompensation\b",
+    r"\bbonus\b",
+    r"\bcommission\b",
+    r"\bprovision\b",
+    r"\bpr[äa]mie\b",
+    r"\b(?:eur|usd|gbp|chf)\b",
+    r"[€$£]",
+)
+
+_REMOTE_PATTERNS: tuple[str, ...] = (
+    r"\bremote\b",
+    r"\bhybrid\b",
+    r"\bhome\s*-?office\b",
+    r"\bmobiles?\s+arbeiten\b",
+    r"\bon\s*-?site\b",
+    r"\boffice\b",
+)
+
+_CURRENCY_SYMBOL_MAP: dict[str, str] = {
+    "€": "EUR",
+    "$": "USD",
+    "£": "GBP",
+}
 
 
 class InvalidExtractionPayload(ValueError):
@@ -440,6 +468,111 @@ def _apply_heuristic_fallbacks(
             profile = refined_profile
             issues.append("requirements: filled via heuristics")
             updated = True
+
+    compensation_missing = (
+        profile.compensation.salary_min is None
+        and profile.compensation.salary_max is None
+        and profile.compensation.bonus_percentage is None
+    )
+    remote_missing = profile.employment.remote_percentage is None
+    has_compensation_or_remote_cues = _contains_keywords(normalized_text, _COMPENSATION_PATTERNS) or _contains_keywords(
+        normalized_text, _REMOTE_PATTERNS
+    )
+
+    should_run_extended_fallbacks = compensation_missing or remote_missing
+    if should_run_extended_fallbacks and has_compensation_or_remote_cues:
+        extended_profile = apply_basic_fallbacks(profile.model_copy(deep=True), normalized_text)
+
+        if compensation_missing:
+            candidate_comp = extended_profile.compensation
+            comp = profile.compensation
+            if comp.salary_min is None and candidate_comp.salary_min is not None:
+                comp.salary_min = candidate_comp.salary_min
+                updated = True
+            if comp.salary_max is None and candidate_comp.salary_max is not None:
+                comp.salary_max = candidate_comp.salary_max
+                updated = True
+            if not comp.currency and candidate_comp.currency:
+                comp.currency = candidate_comp.currency
+                updated = True
+            if comp.bonus_percentage is None and candidate_comp.bonus_percentage is not None:
+                comp.bonus_percentage = candidate_comp.bonus_percentage
+                updated = True
+            if comp.variable_pay is None and candidate_comp.variable_pay is not None:
+                comp.variable_pay = candidate_comp.variable_pay
+                updated = True
+            if not comp.commission_structure and candidate_comp.commission_structure:
+                comp.commission_structure = candidate_comp.commission_structure
+                updated = True
+            if not comp.salary_provided and (
+                comp.salary_min is not None or comp.salary_max is not None or comp.bonus_percentage is not None
+            ):
+                comp.salary_provided = True
+                updated = True
+
+        if remote_missing and extended_profile.employment.remote_percentage is not None:
+            profile.employment.remote_percentage = extended_profile.employment.remote_percentage
+            updated = True
+        if not profile.employment.work_policy and extended_profile.employment.work_policy:
+            profile.employment.work_policy = extended_profile.employment.work_policy
+            updated = True
+
+        if updated:
+            issues.append("compensation_and_remote: filled via heuristics")
+
+    profile, normalized = _normalize_extracted_numerics(profile, issues=issues)
+    updated = updated or normalized
+
+    return profile, updated
+
+
+def _normalize_extracted_numerics(
+    profile: NeedAnalysisProfile, *, issues: list[str]
+) -> tuple[NeedAnalysisProfile, bool]:
+    """Apply deterministic numeric normalisation for compensation and remote fields."""
+
+    updated = False
+    compensation = profile.compensation
+
+    if compensation.salary_min is not None and compensation.salary_max is not None:
+        if compensation.salary_min > compensation.salary_max:
+            compensation.salary_min, compensation.salary_max = compensation.salary_max, compensation.salary_min
+            issues.append("compensation.salary_range: swapped inverted min/max")
+            updated = True
+
+    currency = compensation.currency
+    if isinstance(currency, str):
+        candidate = currency.strip().upper()
+        candidate = _CURRENCY_SYMBOL_MAP.get(candidate, candidate)
+        if len(candidate) > 3 and candidate.endswith("RO"):
+            candidate = "EUR"
+        if not candidate:
+            candidate = None
+        if candidate != compensation.currency:
+            compensation.currency = candidate
+            issues.append("compensation.currency: normalized")
+            updated = True
+
+    if compensation.bonus_percentage is not None:
+        bounded_bonus = max(0.0, min(100.0, float(compensation.bonus_percentage)))
+        if bounded_bonus != compensation.bonus_percentage:
+            compensation.bonus_percentage = bounded_bonus
+            issues.append("compensation.bonus_percentage: bounded to 0..100")
+            updated = True
+
+    remote = profile.employment.remote_percentage
+    if remote is not None:
+        bounded_remote = max(0, min(100, int(remote)))
+        if bounded_remote != remote:
+            profile.employment.remote_percentage = bounded_remote
+            issues.append("employment.remote_percentage: bounded to 0..100")
+            updated = True
+
+    if profile.location.onsite_ratio is None and profile.employment.remote_percentage is not None:
+        onsite_share = max(0, min(100, 100 - int(profile.employment.remote_percentage)))
+        profile.location.onsite_ratio = f"{onsite_share}% onsite"
+        issues.append("location.onsite_ratio: inferred from remote share")
+        updated = True
 
     return profile, updated
 
