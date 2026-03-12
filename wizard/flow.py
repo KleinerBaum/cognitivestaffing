@@ -139,6 +139,7 @@ from models.need_analysis import NeedAnalysisProfile
 from pipelines.need_analysis import ExtractionResult, extract_need_analysis_profile
 from pipelines.workflow import SkipTask, Task, TaskStatus, WorkflowContext, WorkflowRunner
 from core.schema import coerce_and_fill, merge_profile_with_defaults
+from adapters.profile_to_envelope import create_shadow_mode_snapshot
 from core.schema_registry import load_need_analysis_schema
 from core.confidence import ConfidenceTier, DEFAULT_AI_TIER
 from core.extraction import mark_low_confidence
@@ -4966,6 +4967,10 @@ def _extract_and_summarize(text: str, schema: dict, progress: _WizardProgressTra
     if recovered:
         mark_low_confidence(metadata, data, issues=extraction_issues, repaired=recovered)
     st.session_state[StateKeys.PROFILE] = data
+    st.session_state[StateKeys.PROFILE_ENVELOPE] = create_shadow_mode_snapshot(
+        data,
+        trigger="extraction_complete",
+    ).model_dump(mode="json")
     _sync_summary_widget_state_from_profile(overwrite_existing=True)
     _prime_widget_state_from_profile(data)
     st.session_state[StateKeys.EXTRACTION_RAW_PROFILE] = raw_profile_payload

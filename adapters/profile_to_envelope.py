@@ -7,7 +7,7 @@ from typing import Any, cast
 
 from models.evidence import EvidenceItem, EvidenceSource
 from models.need_analysis import NeedAnalysisProfile
-from models.need_analysis_envelope import NeedAnalysisEnvelope
+from models.need_analysis_envelope import EnvelopeFacts, EnvelopePlanItem, NeedAnalysisEnvelope
 
 
 def _as_dict(profile: NeedAnalysisProfile | Mapping[str, Any]) -> dict[str, Any]:
@@ -51,8 +51,30 @@ def adapt_profile_to_envelope(profile: NeedAnalysisProfile | Mapping[str, Any]) 
         )
 
     facts = {key: value for key, value in payload.items() if key != "meta"}
+    validated_facts = EnvelopeFacts.model_validate(facts).as_dict()
 
     return NeedAnalysisEnvelope(
-        facts=facts,
+        facts=validated_facts,
         evidence=evidence,
     )
+
+
+def create_shadow_mode_snapshot(
+    profile: NeedAnalysisProfile | Mapping[str, Any],
+    *,
+    trigger: str,
+    step: str = "",
+) -> NeedAnalysisEnvelope:
+    """Build an envelope snapshot annotated for shadow-mode control-plane tracking."""
+
+    envelope = adapt_profile_to_envelope(profile)
+    envelope.plan.append(
+        EnvelopePlanItem(
+            action="snapshot",
+            status="done",
+            mode="shadow",
+            trigger=trigger,
+            step=step,
+        )
+    )
+    return envelope
