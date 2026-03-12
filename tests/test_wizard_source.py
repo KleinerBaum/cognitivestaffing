@@ -1169,6 +1169,50 @@ def test_extract_and_summarize_passes_locked_context(
     }
 
 
+def test_extract_and_summarize_builds_and_passes_plan_context(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Follow-up generation should receive runtime-built plan context."""
+
+    st.session_state.clear()
+    st.session_state.lang = "en"
+    st.session_state.model = "gpt"
+    st.session_state[StateKeys.RAW_BLOCKS] = []
+    st.session_state["plan_context.risk_signals"] = ["timeline pressure"]
+
+    _prepare_minimal_extraction(monkeypatch)
+    _patch_runner_attr(monkeypatch, "is_llm_available", lambda: True)
+
+    sample_profile = NeedAnalysisProfile().model_dump()
+    sample_profile["position"]["role_family"] = "engineering"
+    sample_profile["location"]["primary_city"] = "Berlin"
+    sample_profile["employment"]["work_policy"] = "hybrid"
+    sample_profile["business_context"]["compliance_flags"] = ["gdpr"]
+    sample_profile["process"]["recruitment_timeline"] = "urgent"
+
+    _patch_runner_attr(monkeypatch, "extract_json", lambda *a, **k: json.dumps(sample_profile))
+
+    captured: dict[str, Any] = {}
+
+    def fake_generate_followups(profile: Mapping[str, Any], **kwargs: Any) -> dict[str, Any]:
+        captured["profile"] = dict(profile)
+        captured["plan_context"] = kwargs.get("plan_context")
+        return {"questions": [], "source": "test"}
+
+    _patch_runner_attr(monkeypatch, "generate_followups", fake_generate_followups)
+
+    _extract_and_summarize("Job text", {})
+
+    plan_context = captured.get("plan_context")
+    assert plan_context is not None
+    assert plan_context.role_family == "engineering"
+    assert plan_context.location == "Berlin"
+    assert plan_context.work_policy == "hybrid"
+    assert plan_context.hiring_urgency == "urgent"
+    assert "gdpr" in plan_context.compliance
+    assert "timeline pressure" in plan_context.risk_signals
+
+
 def test_field_lock_config_shows_rule_indicator() -> None:
     """Rule tiers should be reflected in the widget label and help text."""
 
