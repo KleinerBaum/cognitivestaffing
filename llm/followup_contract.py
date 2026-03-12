@@ -7,7 +7,7 @@ from typing import Any, Mapping, Sequence
 
 from jsonschema.validators import Draft202012Validator
 
-from core.schema_registry import get_canonical_json_schema
+from core.schema_registry import get_followup_response_json_schema
 
 LEGACY_TO_CANONICAL_FIELD_MAP: dict[str, str] = {
     "position.location": "location.primary_city",
@@ -20,10 +20,7 @@ LEGACY_TO_CANONICAL_FIELD_MAP: dict[str, str] = {
 def get_followup_json_schema() -> dict[str, Any]:
     """Return the canonical follow-up JSON schema payload."""
 
-    return {
-        "name": "followup_questions",
-        "schema": get_canonical_json_schema(schema_version="v1", artifact="followups"),
-    }
+    return get_followup_response_json_schema()
 
 
 @lru_cache(maxsize=1)
