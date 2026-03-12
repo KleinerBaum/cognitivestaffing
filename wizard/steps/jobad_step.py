@@ -38,7 +38,7 @@ def _prime_extraction_settings_state() -> None:
 
 
 def _step_onboarding(schema: dict) -> None:
-    """Render onboarding with language toggle, intro, and ingestion options."""
+    """Render onboarding review and extraction settings."""
 
     flow = _get_flow_module()
     flow._maybe_run_extraction(schema)
@@ -74,100 +74,15 @@ def _step_onboarding(schema: dict) -> None:
     with st.container():
         st.markdown("<div id='onboarding-source'></div>", unsafe_allow_html=True)
         render_section_heading(
-            tr("Stellenanzeige bereitstellen", "Provide the job posting"),
-            icon="📌",
+            tr("Analyse prüfen & verfeinern", "Review and refine analysis"),
+            icon="🔎",
         )
-        context_key = UIKeys.SOURCE_CONTEXT
-        if context_key not in st.session_state:
-            st.session_state[context_key] = "in_house"
-        st.radio(
-            tr("Quelle & Kontext", "Source & context"),
-            options=["in_house", "agency"],
-            format_func=lambda value: tr(
-                "In-house (eigene Stelle)",
-                "In-house (internal role)",
+        st.caption(
+            tr(
+                "Import über URL/Upload/Freitext erfolgt im Willkommen-Schritt. Hier prüfen Sie das Ergebnis und verfeinern es bei Bedarf.",
+                "URL/upload/free-text intake happens in the Welcome step. Review the extracted result here and refine it as needed.",
             )
-            if value == "in_house"
-            else tr("Agentur / Auftraggeber", "Agency / client"),
-            key=context_key,
-            help=tr(
-                "Diese Auswahl bestimmt, ob als nächstes Unternehmens- oder Kundendetails abgefragt werden.",
-                "This selection decides whether the next step captures company or client details.",
-            ),
-            horizontal=True,
         )
-
-        if st.session_state.get("source_error"):
-            fallback_message = tr(
-                "Es gab ein Problem beim Import. Versuche URL oder Upload erneut oder kontaktiere unser Support-Team.",
-                "There was an issue while importing the content. Retry the URL/upload or contact our support team.",
-            )
-            error_text = st.session_state.get("source_error_message") or fallback_message
-            st.error(error_text)
-
-        prefill = st.session_state.pop("__prefill_profile_text__", None)
-        if prefill is not None:
-            st.session_state[UIKeys.PROFILE_TEXT_INPUT] = prefill
-            st.session_state[StateKeys.RAW_TEXT] = prefill
-            doc_prefill = st.session_state.get("__prefill_profile_doc__")
-            if doc_prefill:
-                st.session_state[StateKeys.RAW_BLOCKS] = doc_prefill.blocks
-
-        locked = flow._is_onboarding_locked()
-
-        st.markdown("<div class='onboarding-source-inputs'>", unsafe_allow_html=True)
-        url_column, or_column, upload_column = st.columns([1, 0.18, 1], gap="large")
-        with url_column:
-            st.markdown("<div class='onboarding-source__panel'>", unsafe_allow_html=True)
-            st.text_input(
-                tr("Stellenanzeigen-URL hinzufügen", "Add the job posting URL"),
-                key=UIKeys.PROFILE_URL_INPUT,
-                on_change=flow.on_url_changed,
-                placeholder=tr("Stellenanzeigen-URL eingeben", "Enter the job posting URL"),
-                help=tr(
-                    "Die URL muss ohne Login erreichbar sein. Wir übernehmen den Inhalt automatisch.",
-                    "The URL needs to be accessible without authentication. We will fetch the content automatically.",
-                ),
-                disabled=locked,
-            )
-            st.caption(
-                tr(
-                    "Für öffentliche Karriereseiten oder Jobbörsen.",
-                    "Best for public career pages or job boards.",
-                )
-            )
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        with or_column:
-            st.markdown(
-                f"<div class='onboarding-source__or'><span>{tr('oder', 'or')}</span></div>",
-                unsafe_allow_html=True,
-            )
-
-        with upload_column:
-            st.markdown("<div class='onboarding-source__panel'>", unsafe_allow_html=True)
-            st.file_uploader(
-                tr(
-                    "Stellenanzeige hochladen (PDF/DOCX/TXT)",
-                    "Upload the job posting (PDF/DOCX/TXT)",
-                ),
-                type=["pdf", "docx", "txt"],
-                key=UIKeys.PROFILE_FILE_UPLOADER,
-                on_change=flow.on_file_uploaded,
-                help=tr(
-                    "Nach dem Upload starten wir sofort die Analyse.",
-                    "We start the analysis right after the upload finishes.",
-                ),
-                disabled=locked,
-            )
-            st.caption(
-                tr(
-                    "Ideal für interne Dokumente oder passwortgeschützte Dateien.",
-                    "Ideal for internal documents or files behind a login.",
-                )
-            )
-            st.markdown("</div>", unsafe_allow_html=True)
-        st.markdown("</div>", unsafe_allow_html=True)
 
     with st.expander(
         tr("Details & Einstellungen / Details & settings", "Details & Einstellungen / Details & settings"),

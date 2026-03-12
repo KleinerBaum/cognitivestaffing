@@ -1,15 +1,24 @@
 from __future__ import annotations
 
 from collections.abc import Mapping
+from types import ModuleType
 from typing import Any
 
 import streamlit as st
 
-from constants.keys import StateKeys
+from constants.keys import StateKeys, UIKeys
 from utils.i18n import tr
 from wizard.navigation_types import WizardContext
 
 __all__ = ["step_landing"]
+
+
+def _get_flow_module() -> ModuleType:
+    """Return the lazily imported ``wizard.flow`` module."""
+
+    from wizard import flow as wizard_flow
+
+    return wizard_flow
 
 
 def _parse_multiline_items(raw: str) -> list[str]:
@@ -43,7 +52,18 @@ def _join_lines(value: Any) -> str:
 
 
 def step_landing(context: WizardContext) -> None:
+    flow = _get_flow_module()
+    flow._maybe_run_extraction(dict(context.schema))
+
     lang = st.session_state.get("lang", "de")
+    prefill = st.session_state.pop("__prefill_profile_text__", None)
+    if prefill is not None:
+        st.session_state[UIKeys.PROFILE_TEXT_INPUT] = prefill
+        st.session_state[StateKeys.RAW_TEXT] = prefill
+        doc_prefill = st.session_state.get("__prefill_profile_doc__")
+        if doc_prefill:
+            st.session_state[StateKeys.RAW_BLOCKS] = doc_prefill.blocks
+
     profile_raw = st.session_state.get(StateKeys.PROFILE, {})
     profile = profile_raw if isinstance(profile_raw, Mapping) else {}
 
@@ -55,6 +75,93 @@ def step_landing(context: WizardContext) -> None:
             lang=lang,
         )
     )
+
+    if st.session_state.get("source_error"):
+        fallback_message = tr(
+            "Es gab ein Problem beim Import. Versuche URL oder Upload erneut oder kontaktiere unser Support-Team.",
+            "There was an issue while importing the content. Retry the URL/upload or contact our support team.",
+            lang=lang,
+        )
+        error_text = st.session_state.get("source_error_message") or fallback_message
+        st.error(error_text)
+
+    extraction_summary = st.session_state.get(StateKeys.EXTRACTION_SUMMARY)
+    if isinstance(extraction_summary, str) and extraction_summary.strip() and not st.session_state.get("source_error"):
+        st.info(extraction_summary)
+
+    st.markdown("<div id='onboarding-source-inputs'></div>", unsafe_allow_html=True)
+    st.markdown("<div class='onboarding-source-inputs'>", unsafe_allow_html=True)
+    url_column, or_column, upload_column = st.columns([1, 0.18, 1], gap="large")
+    with url_column:
+        st.markdown("<div class='onboarding-source__panel'>", unsafe_allow_html=True)
+        st.text_input(
+            tr("Stellenanzeigen-URL hinzufügen", "Add the job posting URL", lang=lang),
+            key=UIKeys.PROFILE_URL_INPUT,
+            on_change=flow.on_url_changed,
+            placeholder=tr("Stellenanzeigen-URL eingeben", "Enter the job posting URL", lang=lang),
+            help=tr(
+                "Die URL muss ohne Login erreichbar sein. Wir übernehmen den Inhalt automatisch.",
+                "The URL needs to be accessible without authentication. We will fetch the content automatically.",
+                lang=lang,
+            ),
+        )
+        st.caption(
+            tr(
+                "Für öffentliche Karriereseiten oder Jobbörsen.",
+                "Best for public career pages or job boards.",
+                lang=lang,
+            )
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    with or_column:
+        st.markdown(
+            f"<div class='onboarding-source__or'><span>{tr('oder', 'or', lang=lang)}</span></div>",
+            unsafe_allow_html=True,
+        )
+
+    with upload_column:
+        st.markdown("<div class='onboarding-source__panel'>", unsafe_allow_html=True)
+        st.file_uploader(
+            tr("Stellenanzeige hochladen (PDF/DOCX/TXT)", "Upload the job posting (PDF/DOCX/TXT)", lang=lang),
+            type=["pdf", "docx", "txt"],
+            key=UIKeys.PROFILE_FILE_UPLOADER,
+            on_change=flow.on_file_uploaded,
+            help=tr(
+                "Nach dem Upload starten wir sofort die Analyse.",
+                "We start the analysis right after the upload finishes.",
+                lang=lang,
+            ),
+        )
+        st.caption(
+            tr(
+                "Ideal für interne Dokumente oder passwortgeschützte Dateien.",
+                "Ideal for internal documents or files behind a login.",
+                lang=lang,
+            )
+        )
+        st.markdown("</div>", unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    manual_text = st.text_area(
+        tr("Stellenanzeige als Freitext", "Job posting as free text", lang=lang),
+        key=UIKeys.PROFILE_TEXT_INPUT,
+        value=str(st.session_state.get(UIKeys.PROFILE_TEXT_INPUT, st.session_state.get(StateKeys.RAW_TEXT, "")) or ""),
+        placeholder=tr(
+            "Füge hier den Inhalt der Stellenanzeige ein.",
+            "Paste the job posting content here.",
+            lang=lang,
+        ),
+        height=170,
+    )
+    if st.button(tr("Freitext analysieren", "Analyze free text", lang=lang), key="landing.analyze_free_text"):
+        cleaned_text = manual_text.strip()
+        st.session_state[StateKeys.RAW_TEXT] = cleaned_text
+        st.session_state["__prefill_profile_text__"] = cleaned_text
+        st.session_state.pop("__prefill_profile_doc__", None)
+        st.session_state[StateKeys.RAW_BLOCKS] = []
+        st.session_state["__run_extraction__"] = True
+        st.rerun()
 
     job_title = st.text_input(
         tr("Jobtitel", "Job title", lang=lang),
