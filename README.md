@@ -19,6 +19,7 @@ Cognitive Staffing ist ein zweisprachiger (DE/EN) Streamlit-Wizard zur strukturi
 - **LLM/Runtime:** `openai_utils/`, `llm/`, `pipelines/`, `prompts/`
 - **Follow-ups & Missing Fields:** `questions/`, `question_logic.py`, `wizard/services/followups.py`
 - **Planning Context:** `wizard/planner/plan_context.py` provides a typed context envelope (role family, location, work policy, compliance, urgency, risk signals) shared by follow-up and decision prioritization.
+- **Risk Detection (decision-first):** `wizard/planner/risk_detection.py` adds conservative, heuristic risk decision cards (e.g., stakeholder complexity, communication constraints, pressure patterns) in inferred mode so follow-up planning can prioritize collaboration/work-environment clarification without mutating profile facts.
 - **Role-Overlay Registry:** `questions/overlays/role_questions.json` + `questions/overlays/role_registry.py` für kanonische ESCO-/Role-Family-Schlüssel inkl. Alias-Normalisierung und Fallback-Dokumentation.
 - **Outputs/Exports:** `generators/`, `exports/`, `artifacts/`
 
