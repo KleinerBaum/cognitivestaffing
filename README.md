@@ -26,6 +26,7 @@ Cognitive Staffing ist ein zweisprachiger (DE/EN) Streamlit-Wizard zur strukturi
 ### Prozessfluss
 
 1. Ingestion im **Willkommen-/Landing-Step** (Datei/URL/Freitext)
+   - Gemeinsamer Intake-Renderer (`wizard/components/source_intake.py`) bündelt URL/Upload/Freitext-UI inkl. Status-/Fehleranzeige; der Onboarding-Schritt dient anschließend nur der Review/Feinjustierung.
 2. Strukturierte Extraktion in `NeedAnalysisProfile` (automatisch nach URL/Upload bzw. via Freitext-Analyse)
    - Intake-Mapping ist zentral in `wizard/flow.py` verankert (`position.job_title`, `company.name`, `location.*`, `responsibilities.items`, `requirements.*`, `compensation.benefits`) inklusive robuster Listen-Normalisierung (Trim/Dedup/Empty-Filter).
 3. Shadow-Envelope im Wizard-State (`profile_envelope_data`) für typed Facts/Inferences/Gaps/Plan/Risks/Evidence-Parallelführung inkl. Snapshot-Triggern (z. B. Extraktion, Step-Save)
