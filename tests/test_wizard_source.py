@@ -1337,6 +1337,10 @@ def test_apply_intake_profile_mapping_normalizes_target_paths() -> None:
     mapped = _apply_intake_profile_mapping(
         {
             "title": " Senior Data Engineer ",
+            "position": {
+                "context": " Build modern data products ",
+                "location": " Hamburg ",
+            },
             "company_name": " ACME GmbH ",
             "city": " Berlin ",
             "country": " Germany ",
@@ -1349,6 +1353,7 @@ def test_apply_intake_profile_mapping_normalizes_target_paths() -> None:
     )
 
     assert mapped["position"]["job_title"] == "Senior Data Engineer"
+    assert mapped["position"]["role_summary"] == "Build modern data products"
     assert mapped["company"]["name"] == "ACME GmbH"
     assert mapped["location"]["primary_city"] == "Berlin"
     assert mapped["location"]["country"] == "Germany"
