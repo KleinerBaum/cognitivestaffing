@@ -4621,6 +4621,16 @@ def _apply_intake_profile_mapping(extracted_data: Mapping[str, Any]) -> dict[str
     scalar_targets: tuple[tuple[str, tuple[str, ...]], ...] = (
         ("position.job_title", ("position.job_title", "position.title", "role.title", "job_title", "title")),
         (
+            "position.role_summary",
+            (
+                "position.role_summary",
+                "position.context",
+                "position.description",
+                "role.summary",
+                "context",
+            ),
+        ),
+        (
             "company.name",
             (
                 "company.name",
@@ -4634,6 +4644,8 @@ def _apply_intake_profile_mapping(extracted_data: Mapping[str, Any]) -> dict[str
             (
                 "location.primary_city",
                 "location.city",
+                "position.location",
+                "role.work_location",
                 "primary_city",
                 "city",
             ),

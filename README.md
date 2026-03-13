@@ -44,6 +44,11 @@ Bei neuen oder geänderten Profilfeldern gilt ein **canonical path**-Workflow:
 3. JSON-Konfigurationen (`role_field_map.json`, `critical_fields.json`) dürfen String-Pfade enthalten, werden aber per Contract-Test gegen `ProfilePaths` abgesichert.
 4. Relevante Schema/Model/UI/Export-Stellen gemäß Datenvertrag mitziehen und Tests aktualisieren.
 
+**Migrationshinweis (Legacy Intake/Follow-ups):**
+- `position.context` wird bei Intake-Mapping/Folgefragen auf `position.role_summary` normalisiert.
+- `position.location` wird auf `location.primary_city` normalisiert.
+- Legacy-Felder bleiben nur als Input-Aliases erlaubt; in Wizard/Export/Follow-up-Contracts werden ausschließlich kanonische Keys verwendet.
+
 So bleibt `ProfilePaths` die Single Source of Truth für erlaubte Feldpfade in der Anwendung.
 
 ## LLM- und Responses-Policy

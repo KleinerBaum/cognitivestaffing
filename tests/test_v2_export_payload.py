@@ -50,3 +50,26 @@ def test_build_v2_export_payload_includes_confirmed_decision() -> None:
     assert len(export["open_decisions"]) == 1
     assert export["open_decisions"][0]["decision_state"] == "confirmed"
     assert export["warnings"] == []
+
+
+def test_build_v2_export_payload_applies_confirmed_location_for_markdown() -> None:
+    payload = {
+        "role": {"work_location": "Berlin"},
+        "open_decisions": [
+            {
+                "decision_id": "d-loc",
+                "title": "Work location",
+                "field_path": "role.work_location",
+                "decision_state": "confirmed",
+                "proposed_value": "Hamburg",
+                "rationale": "approved",
+                "blocking_exports": ["job_ad_markdown"],
+            }
+        ],
+        "warnings": [],
+    }
+
+    export = build_v2_export_payload(payload, artifact_key="job_ad_markdown")
+
+    assert export["role"]["work_location"] == "Hamburg"
+    assert export["warnings"] == []

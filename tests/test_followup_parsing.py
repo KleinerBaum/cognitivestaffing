@@ -93,6 +93,31 @@ def test_parse_followups_deduplicates_fields() -> None:
     assert questions[0]["question"] == "What is the company name?"
 
 
+def test_parse_followups_normalizes_legacy_field_aliases() -> None:
+    payload = {
+        "questions": [
+            {
+                "field": "position.location",
+                "question": "Where is the role located?",
+                "priority": "normal",
+                "suggestions": ["Berlin"],
+            },
+            {
+                "field": "position.context",
+                "question": "What is the role context?",
+                "priority": "normal",
+                "suggestions": ["Platform team"],
+            },
+        ]
+    }
+
+    result = followups_mod._parse_followup_response(json.dumps(payload))
+
+    assert result.fallback_reason is None
+    fields = [item["field"] for item in result.payload["questions"]]
+    assert fields == ["location.primary_city", "position.role_summary"]
+
+
 def test_prioritize_followups_prefers_low_confidence_critical_fields() -> None:
     profile = {
         "company": {"name": "ACME"},
